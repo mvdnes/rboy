@@ -11,13 +11,11 @@ pub struct CPU {
 
 impl CPU {
 	pub fn new() -> CPU {
-		let res = CPU {
+		CPU {
 			reg: register::Registers::new(),
 			halted: false,
 			ime: false,
-		};
-
-		res
+		}
 	}
 
 	pub fn cycle(&mut self, mmu: &mut MMU) -> uint {
@@ -27,10 +25,10 @@ impl CPU {
 		};
 
 		if self.halted {
-			self.call(mmu, 0)
+			// Emulate an noop instruction
+			1
 		} else {
-			let instr = self.fetchbyte(mmu);
-			self.call(mmu, instr)
+			self.call(mmu)
 		}
 	}
 
@@ -57,9 +55,7 @@ impl CPU {
 		self.ime = false;
 
 		let n = triggered.trailing_zeros();
-		if n >= 5 {
-			fail!("Invalid interrupt triggered");
-		}
+		if n >= 5 { fail!("Invalid interrupt triggered"); }
 		mmu.intf &= !(1 << n);
 		self.pushstack(mmu, self.reg.pc);
 		self.reg.pc = 0x0040 | ((n as u16) << 3);
@@ -68,14 +64,35 @@ impl CPU {
 	}
 
 	fn pushstack(&mut self, mmu: &mut MMU, value: u16) {
-		fail!("pushstack not implemented");
+		self.reg.sp -= 2;
+		mmu.ww(self.reg.sp, value);
 	}
 
-	fn call(&mut self, mmu: &mut MMU, instr: u8) -> uint {
-		fail!("Calling mechanism not implemented");
+	fn popstack(&mut self, mmu: &mut MMU) -> u16 {
+		let res = mmu.rw(self.reg.sp);
+		self.reg.sp += 2;
+		res
+	}
+
+	fn call(&mut self, mmu: &mut MMU) -> uint {
+		match self.fetchword(mmu) {
+			0x00 => { 1 },
+			0x01 => { self.reg.b = self.fetchbyte(mmu); self.reg.c = self.fetchbyte(mmu); 3 },
+			0x02 => { mmu.wb(self.reg.bc(), self.reg.a); 2 },
+			0x03 => { let w = self.reg.bc(); self.reg.b = (w >> 8) as u8; self.reg.c = (w & 0xFF) as u8; 2 },
+			0x04 => { self.reg.b += 1; 1 },
+			0x05 => { self.reg.b -= 1; 1 },
+			0x06 => { self.reg.b = self.fetchbyte(mmu); 2 },
+			0x76 => { self.halted = true; 1 },
+			0xCB => { self.callCB(mmu) },
+			other=> fail!("Instruction {:2X} is not implemented", other),
+		}
 	}
 
 	fn callCB(&mut self, mmu: &mut MMU) -> uint {
-		fail!("CB instruction not implemented");
+		match self.fetchword(mmu) {
+			other => fail!(" Instruction CB{:2X} is not implemented", other),
+		}
 	}
 }
+

@@ -53,6 +53,11 @@ impl MMU {
 	pub fn wb(&mut self, address: u16, value: u8) {
 		match address {
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
+			0xFF00 => {}, // Keypad
+			0xFF01 .. 0xFF02 => {}, // Serial console
+			0xFF04 .. 0xFF07 => {}, // Timer
+			0xFF40 .. 0xFF4B => {}, // GPU
+			0xFF10 .. 0xFF26 => {}, // Sound
 			0xFF0F => self.inte = value,
 			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
 			0xFFFF => self.intf = value,
