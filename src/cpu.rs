@@ -22,7 +22,7 @@ impl CPU {
 		CPU {
 			reg: register::Registers::new(),
 			halted: false,
-			ime: false,
+			ime: true,
 			setdi: 0,
 			setei: 0,
 		}
@@ -124,7 +124,7 @@ impl CPU {
 			0x15 => { self.reg.d = self.alu_dec(self.reg.d); 1 },
 			0x16 => { self.reg.d = self.fetchbyte(mmu); 2 },
 			0x17 => { self.reg.a = self.alu_rl(self.reg.a); 1 },
-			0x18 => { self.reg.pc = (self.reg.pc as i32 + self.fetchbyte(mmu) as i8 as i32) as u16; 2 },
+			0x18 => { self.cpu_jr(mmu); 2 },
 			0x19 => { let v = self.reg.de(); self.alu_add16(v); 2 },
 			0x1A => { self.reg.a = mmu.rb(self.reg.de()); 2 },
 			0x1B => { let v = self.reg.de() - 1; self.reg.setde(v); 2 },
@@ -132,7 +132,7 @@ impl CPU {
 			0x1D => { self.reg.e = self.alu_dec(self.reg.e); 1 },
 			0x1E => { self.reg.e = self.fetchbyte(mmu); 2 },
 			0x1F => { self.reg.a = self.alu_rr(self.reg.a); 1 },
-			0x20 => { if !self.reg.getflag(Z) { self.reg.pc = (self.reg.pc as i32 + self.fetchbyte(mmu) as i8 as i32) as u16; 3 } else { self.reg.pc += 2; 2  } },
+			0x20 => { if !self.reg.getflag(Z) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 2; 2  } },
 			0x21 => { let v = self.fetchword(mmu); self.reg.sethl(v); 3 },
 			0x22 => { mmu.wb(self.reg.hli(), self.reg.a); 2 },
 			0x23 => { let v = self.reg.hl() + 1; self.reg.sethl(v); 2 },
@@ -140,7 +140,7 @@ impl CPU {
 			0x25 => { self.reg.h = self.alu_dec(self.reg.h); 1 },
 			0x26 => { self.reg.h = self.fetchbyte(mmu); 2 },
 			// 0x27 => { DAA; 1 },
-			0x28 => { if self.reg.getflag(Z) { self.reg.pc = (self.reg.pc as i32 + self.fetchbyte(mmu) as i8 as i32) as u16; 3 } else { self.reg.pc += 2; 2  } },
+			0x28 => { if self.reg.getflag(Z) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 2; 2  } },
 			0x29 => { let v = self.reg.hl(); self.alu_add16(v); 2 },
 			0x2A => { self.reg.a = mmu.rb(self.reg.hli()); 2 },
 			0x2B => { let v = self.reg.hl() - 1; self.reg.sethl(v); 2 },
@@ -148,7 +148,7 @@ impl CPU {
 			0x2D => { self.reg.l = self.alu_dec(self.reg.l); 1 },
 			0x2E => { self.reg.l = self.fetchbyte(mmu); 2 },
 			0x2F => { self.reg.a = !self.reg.a; self.reg.flag(N | H, true); 1 },
-			0x30 => { if !self.reg.getflag(C) { self.reg.pc = (self.reg.pc as i32 + self.fetchbyte(mmu) as i8 as i32) as u16; 3 } else { self.reg.pc += 2; 2  } },
+			0x30 => { if !self.reg.getflag(C) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 2; 2  } },
 			0x31 => { self.reg.sp = self.fetchword(mmu); 3 },
 			0x32 => { mmu.wb(self.reg.hld(), self.reg.a); 2 },
 			0x33 => { self.reg.sp += 1; 2 },
@@ -156,7 +156,7 @@ impl CPU {
 			0x35 => { let a = self.reg.hl(); let v = mmu.rb(a); mmu.wb(a, self.alu_dec(v)); 3 },
 			0x36 => { let v = self.fetchbyte(mmu); mmu.wb(self.reg.hl(), v); 3 },
 			0x37 => { self.reg.flag(C, true); self.reg.flag(N | H, false); 1 },
-			0x38 => { if self.reg.getflag(C) { self.reg.pc = (self.reg.pc as i32 + self.fetchbyte(mmu) as i8 as i32) as u16; 3 } else { self.reg.pc += 2; 2  } },
+			0x38 => { if self.reg.getflag(C) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 2; 2  } },
 			0x39 => { let v = self.reg.sp; self.alu_add16(v); 2 },
 			0x3A => { self.reg.a = mmu.rb(self.reg.hld()); 2 },
 			0x3B => { self.reg.sp -= 1; 2 },
@@ -760,6 +760,11 @@ impl CPU {
 		self.reg.flag(N, false);
 		self.reg.flag(H, true);
 		self.reg.flag(Z, r);
+	}
+
+	fn cpu_jr(&mut self, mmu: &MMU) {
+		let n = self.fetchbyte(mmu) as i8;
+		self.reg.pc = ((self.reg.pc as u32 as i32) + (n as i32)) as u16;
 	}
 }
 

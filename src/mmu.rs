@@ -91,9 +91,9 @@ impl MMU {
 			0xFF04 .. 0xFF07 => { self.timer.wb(address, value); }, // Timer
 			0xFF40 .. 0xFF4B => {}, // GPU
 			0xFF10 .. 0xFF26 => {}, // Sound
-			0xFF0F => self.inte = value,
+			0xFF0F => self.intf = value,
 			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
-			0xFFFF => self.intf = value,
+			0xFFFF => self.inte = value,
 			_ => fail!("wb not implemented for {:X}", address),
 		};
 	}
