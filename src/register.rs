@@ -73,5 +73,9 @@ impl Registers {
 			false => self.f &= !mask,
 		}
 	}
+
+	pub fn getflag(&self, mask: u8) -> bool {
+		self.f & mask > 0
+	}
 }
 

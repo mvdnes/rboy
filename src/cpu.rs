@@ -171,11 +171,47 @@ impl CPU {
 			0x7D => { self.reg.a = self.reg.l; 1 },
 			0x7E => { self.reg.a = mmu.rb(self.reg.hl()); 2 },
 			0x7F => { 1 },
+			0x80 => { self.alu_add(self.reg.b, false); 1 },
+			0x81 => { self.alu_add(self.reg.c, false); 1 },
+			0x82 => { self.alu_add(self.reg.d, false); 1 },
+			0x83 => { self.alu_add(self.reg.e, false); 1 },
+			0x84 => { self.alu_add(self.reg.h, false); 1 },
+			0x85 => { self.alu_add(self.reg.l, false); 1 },
+			0x86 => { let v = mmu.rb(self.reg.hl()); self.alu_add(v, false); 2 },
+			0x87 => { self.alu_add(self.reg.a, false); 1 },
+			0x88 => { self.alu_add(self.reg.b, true); 1 },
+			0x89 => { self.alu_add(self.reg.c, true); 1 },
+			0x8A => { self.alu_add(self.reg.d, true); 1 },
+			0x8B => { self.alu_add(self.reg.e, true); 1 },
+			0x8C => { self.alu_add(self.reg.h, true); 1 },
+			0x8D => { self.alu_add(self.reg.l, true); 1 },
+			0x8E => { let v = mmu.rb(self.reg.hl()); self.alu_add(v, true); 2 },
+			0x8F => { self.alu_add(self.reg.a, true); 1 },
+			0x90 => { self.alu_sub(self.reg.b, false); 1 },
+			0x91 => { self.alu_sub(self.reg.c, false); 1 },
+			0x92 => { self.alu_sub(self.reg.d, false); 1 },
+			0x93 => { self.alu_sub(self.reg.e, false); 1 },
+			0x94 => { self.alu_sub(self.reg.h, false); 1 },
+			0x95 => { self.alu_sub(self.reg.l, false); 1 },
+			0x96 => { let v = mmu.rb(self.reg.hl()); self.alu_sub(v, false); 2 },
+			0x97 => { self.alu_sub(self.reg.a, false); 1 },
+			0x98 => { self.alu_sub(self.reg.b, true); 1 },
+			0x99 => { self.alu_sub(self.reg.c, true); 1 },
+			0x9A => { self.alu_sub(self.reg.d, true); 1 },
+			0x9B => { self.alu_sub(self.reg.e, true); 1 },
+			0x9C => { self.alu_sub(self.reg.h, true); 1 },
+			0x9D => { self.alu_sub(self.reg.l, true); 1 },
+			0x9E => { let v = mmu.rb(self.reg.hl()); self.alu_sub(v, true); 2 },
+			0x9F => { self.alu_sub(self.reg.a, true); 1 },
 			0xC1 => { let v = self.popstack(mmu); self.reg.setbc(v); 3 },
 			0xC5 => { let v = self.reg.bc(); self.pushstack(mmu, v); 4 },
+			0xC6 => { let v = self.fetchbyte(mmu); self.alu_add(v, false); 2 },
 			0xCB => { self.callCB(mmu) },
+			0xCE => { let v = self.fetchbyte(mmu); self.alu_add(v, true); 2 },
 			0xD1 => { let v = self.popstack(mmu); self.reg.setde(v); 3 },
 			0xD5 => { let v = self.reg.de(); self.pushstack(mmu, v); 4 },
+			0xD6 => { let v = self.fetchbyte(mmu); self.alu_sub(v, false); 2 },
+			0xDE => { let v = self.fetchbyte(mmu); self.alu_sub(v, true); 2 },
 			0xE0 => { let a = 0xFF00 + self.fetchbyte(mmu) as u16; mmu.wb(a, self.reg.a); 3 },
 			0xE1 => { let v = self.popstack(mmu); self.reg.sethl(v); 3 },
 			0xE2 => { mmu.wb(0xFF00 + self.reg.c as u16, self.reg.a); 2 },
@@ -198,6 +234,28 @@ impl CPU {
 			0xFA => { let v = self.fetchword(mmu); self.reg.a = mmu.rb(v); 4 },
 			other=> fail!("Instruction {:2X} is not implemented", other),
 		}
+	}
+
+	fn alu_add(&mut self, b: u8, usec: bool) {
+		let c = if usec && self.reg.getflag(C) { 1 } else { 0 };
+		let a = self.reg.a;
+		let r = a + b + c;
+		self.reg.flag(Z, r == 0);
+		self.reg.flag(H, (a & 0x0F) + (b & 0x0F) + c > 0x0F);
+		self.reg.flag(N, false);
+		self.reg.flag(C, a > 0xFF - b - c);
+		self.reg.a = r;
+	}
+
+	fn alu_sub(&mut self, b: u8, usec: bool) {
+		let c = if usec && self.reg.getflag(C) { 1 } else { 0 };
+		let a = self.reg.a;
+		let r = a - b - c;
+		self.reg.flag(Z, r == 0);
+		self.reg.flag(H, (a & 0x0F) < (b & 0x0F) + c);
+		self.reg.flag(N, true);
+		self.reg.flag(C, a < b + c);
+		self.reg.a = r;
 	}
 
 	fn callCB(&mut self, mmu: &mut MMU) -> uint {
