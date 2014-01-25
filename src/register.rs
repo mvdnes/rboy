@@ -11,7 +11,7 @@ pub struct Registers {
 	sp: u16,
 }
 
-enum FlagChange {
+pub enum FlagChange {
 	Set(bool),
 	Keep,
 }
@@ -72,7 +72,7 @@ impl Registers {
 		self.l = (value & 0x00FF) as u8;
 	}
 
-	pub fn flags(&mut self, z: FlagChange, n: FlagChange, h: FlagChange, c: FlagChange) {
+	pub fn flag(&mut self, z: FlagChange, n: FlagChange, h: FlagChange, c: FlagChange) {
 		match z {
 			Set(true) => { self.f | (1 << 4); },
 			Set(false) => { self.f & !(1 << 4); },
