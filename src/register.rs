@@ -11,6 +11,11 @@ pub struct Registers {
 	sp: u16,
 }
 
+enum FlagChange {
+	Set(bool),
+	Keep,
+}
+
 impl Registers {
 	pub fn new() -> Registers {
 		Registers {
@@ -38,6 +43,56 @@ impl Registers {
 	}
 	pub fn hl(&self) -> u16 {
 		(self.h as u16 << 8) | (self.l as u16)
+	}
+	pub fn hld(&mut self) -> u16 {
+		let res = self.hl();
+		self.sethl(res - 1);
+		res
+	}
+	pub fn hli(&mut self) -> u16 {
+		let res = self.hl();
+		self.sethl(res + 1);
+		res
+	}
+
+	pub fn setaf(&mut self, value: u16) {
+		self.a = (value >> 8) as u8;
+		self.f = (value & 0x00FF) as u8;
+	}
+	pub fn setbc(&mut self, value: u16) {
+		self.b = (value >> 8) as u8;
+		self.c = (value & 0x00FF) as u8;
+	}
+	pub fn setde(&mut self, value: u16) {
+		self.d = (value >> 8) as u8;
+		self.e = (value & 0x00FF) as u8;
+	}
+	pub fn sethl(&mut self, value: u16) {
+		self.h = (value >> 8) as u8;
+		self.l = (value & 0x00FF) as u8;
+	}
+
+	pub fn flags(&mut self, z: FlagChange, n: FlagChange, h: FlagChange, c: FlagChange) {
+		match z {
+			Set(true) => { self.f | (1 << 4); },
+			Set(false) => { self.f & !(1 << 4); },
+			Keep => {},
+		}
+		match n {
+			Set(true) => { self.f | (1 << 5); },
+			Set(false) => { self.f & !(1 << 5); },
+			Keep => {},
+		}
+		match h {
+			Set(true) => { self.f | (1 << 6); },
+			Set(false) => { self.f & !(1 << 6); },
+			Keep => {},
+		}
+		match c {
+			Set(true) => { self.f | (1 << 7); },
+			Set(false) => { self.f & !(1 << 7); },
+			Keep => {},
+		}
 	}
 }
 
