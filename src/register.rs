@@ -11,11 +11,6 @@ pub struct Registers {
 	sp: u16,
 }
 
-pub enum FlagChange {
-	Set(bool),
-	Keep,
-}
-
 impl Registers {
 	pub fn new() -> Registers {
 		Registers {
@@ -72,26 +67,10 @@ impl Registers {
 		self.l = (value & 0x00FF) as u8;
 	}
 
-	pub fn flag(&mut self, z: FlagChange, n: FlagChange, h: FlagChange, c: FlagChange) {
-		match z {
-			Set(true) => { self.f | (1 << 4); },
-			Set(false) => { self.f & !(1 << 4); },
-			Keep => {},
-		}
-		match n {
-			Set(true) => { self.f | (1 << 5); },
-			Set(false) => { self.f & !(1 << 5); },
-			Keep => {},
-		}
-		match h {
-			Set(true) => { self.f | (1 << 6); },
-			Set(false) => { self.f & !(1 << 6); },
-			Keep => {},
-		}
-		match c {
-			Set(true) => { self.f | (1 << 7); },
-			Set(false) => { self.f & !(1 << 7); },
-			Keep => {},
+	pub fn flag(&mut self, mask: u8, set: bool) {
+		match set {
+			true  => self.f |=  mask,
+			false => self.f &= !mask,
 		}
 	}
 }

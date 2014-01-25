@@ -9,6 +9,12 @@ pub struct CPU {
 	ime: bool,
 }
 
+static Z: u8 = (1 << 4);
+static N: u8 = (1 << 5);
+static H: u8 = (1 << 6);
+static C: u8 = (1 << 7);
+
+
 impl CPU {
 	pub fn new() -> CPU {
 		CPU {
@@ -182,10 +188,9 @@ impl CPU {
 			0xF8 => {
 				let a = self.reg.sp;
 				let b = self.fetchword(mmu) as i8 as i16 as u16;
-				self.reg.flag(register::Set(false),
-				              register::Set(false),
-				              register::Set((a & 0x000F) + (b & 0x000F) > 0x000F),
-				              register::Set((a & 0x00FF) + (b & 0x00FF) > 0x00FF));
+				self.reg.flag(Z | N, false);
+				self.reg.flag(H, (a & 0x000F) + (b & 0x000F) > 0x000F);
+				self.reg.flag(C, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
 				self.reg.sethl(a + b);
 				3
 			}
