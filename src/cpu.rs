@@ -99,7 +99,7 @@ impl CPU {
 	}
 
 	fn call(&mut self, mmu: &mut MMU) -> uint {
-		match self.fetchword(mmu) {
+		match self.fetchbyte(mmu) {
 			0x00 => { 1 },
 			0x01 => { let v = self.fetchword(mmu); self.reg.setbc(v); 3 },
 			0x02 => { mmu.wb(self.reg.bc(), self.reg.a); 2 },
@@ -341,7 +341,7 @@ impl CPU {
 			0xF7 => { self.pushstack(mmu, self.reg.pc); self.reg.pc = 0x30; 4 },
 			0xF8 => { let r = self.alu_add16imm(mmu, self.reg.sp); self.reg.sethl(r); 3 },
 			0xF9 => { self.reg.sp = self.reg.hl(); 2 },
-			0xFA => { let v = self.fetchword(mmu); self.reg.a = mmu.rb(v); 4 },
+			0xFA => { let a = self.fetchword(mmu); self.reg.a = mmu.rb(a); 4 },
 			0xFB => { self.setei = 2; 1 },
 			0xFE => { let v = self.fetchbyte(mmu); self.alu_cp(v); 2 },
 			0xFF => { self.pushstack(mmu, self.reg.pc); self.reg.pc = 0x38; 4 },

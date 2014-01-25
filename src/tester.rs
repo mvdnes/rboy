@@ -8,5 +8,8 @@ fn main() {
 	let mut m = MMU::new();
 	let mut c = CPU::new();
 
-	c.cycle(&mut m);
+	loop {
+		let t = c.cycle(&mut m);
+		m.cycle(t);
+	}
 }
