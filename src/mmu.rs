@@ -96,7 +96,7 @@ impl MMU {
 	}
 
 	pub fn cycle(&mut self, ticks: uint) {
-		self.timer.step(ticks);
+		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
 	}
@@ -112,11 +112,12 @@ impl MMU {
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
+			//0xFF10 .. 0xFF26 => { 0 }, // Sound
 			//0xFF40 .. 0xFF4B => { 0 }, // GPU
-			//0xFF80 .. 0xFFFE => self.zram[address - 0xFF80],
+			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80],
 			0xFFFF => self.inte,
-			0xFF00 .. 0xFFFE => self.zram[address - 0xFF00],
-			_ => fail!("rb not implemented for {:X}", address),
+			//0xFF00 .. 0xFFFE => self.zram[address - 0xFF00],
+			_ => { warn!("rb not implemented for {:X}", address); 0 },
 		}
 	}
 
@@ -155,17 +156,17 @@ impl MMU {
 			0x8000 .. 0x9FFF => {}, // VRAM
 			0xA000 .. 0xBFFF => self.writeram(address, value),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
-			//0xFF00 => {}, // Keypad
+			0xFF00 => {}, // Keypad
 			0xFF01 .. 0xFF02 => { self.serial.wb(address, value); }, // Serial console
 			0xFF04 .. 0xFF07 => { self.timer.wb(address, value); }, // Timer
-			//0xFF40 .. 0xFF4B => {}, // GPU
+			0xFF10 .. 0xFF26 => {}, // Sound
+			0xFF40 .. 0xFF4B => {}, // GPU
 			0xFF4D => {}, // CGB speed switch
-			//0xFF10 .. 0xFF26 => {}, // Sound
 			0xFF0F => self.intf = value,
-			//0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
+			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
 			0xFFFF => self.inte = value,
-			0xFF00 .. 0xFFFE => self.zram[address - 0xFF00] = value,
-			_ => fail!("wb not implemented for {:X}", address),
+			//0xFF00 .. 0xFFFE => self.zram[address - 0xFF00] = value,
+			_ => warn!("wb not implemented for {:X}", address),
 		};
 	}
 

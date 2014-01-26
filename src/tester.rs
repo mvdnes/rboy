@@ -1,8 +1,7 @@
-#[crate_id = "tester"]
+#[crate_id = "tester"];
 
 use mmu::MMU;
 use cpu::CPU;
-use std::str;
 
 mod register;
 mod mmu;
