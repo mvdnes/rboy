@@ -3,8 +3,7 @@ use timer::Timer;
 use std::io::File;
 
 static WRAM_SIZE: uint = 0x2000;
-//static ZRAM_SIZE: uint = 0x7F;
-static ZRAM_SIZE: uint = 0x100;
+static ZRAM_SIZE: uint = 0x7F;
 
 pub struct MMU {
 	priv rom: ~[u8],
@@ -16,8 +15,8 @@ pub struct MMU {
 	priv serial: Serial,
 	priv timer: Timer,
 	priv mbc: MBC,
-	priv rombank: u16,
-	priv rambank: u16,
+	priv rombank: u32,
+	priv rambank: u32,
 	priv mbcmode: bool,
 	priv ramon: bool,
 }
@@ -25,7 +24,6 @@ pub struct MMU {
 enum MBC {
 	Direct,
 	MBC1,
-	Unknown,
 }
 
 impl MMU {
@@ -39,7 +37,7 @@ impl MMU {
 			intf: 0,
 			serial: Serial::new(),
 			timer: Timer::new(),
-			mbc: Unknown,
+			mbc: Direct,
 			rombank: 1,
 			rambank: 0,
 			mbcmode: false,
@@ -48,11 +46,6 @@ impl MMU {
 
 		res.rom = File::open(&Path::new(romname)).read_to_end();
 		res.setmbc();
-		match res.mbc {
-			Unknown => { fail!("Unsupported MBC detected"); },
-			_ => {},
-		};
-
 		res.setram();
 
 		res.wb(0xFF05, 0);
@@ -73,12 +66,12 @@ impl MMU {
 
 	fn setmbc(&mut self) {
 		self.mbc =
-		if self.rom.len() < 0x147 { Unknown }
+		if self.rom.len() < 0x147 { fail!("Rom size to small"); }
 		else {
 			match self.rom[0x147] {
 				0x00 => Direct,
 				0x01 => MBC1,
-				_ => Unknown,
+				n => fail!("Unsupported MBC {:02X}", n),
 			}
 		};
 	}
@@ -86,7 +79,6 @@ impl MMU {
 	fn setram(&mut self) {
 		if self.rom.len() < 0x149 { fail!("Rom size to small"); };
 		let ramsize = match self.rom[0x149] {
-			0 => 0,
 			1 => 0x800,
 			2 => 0x2000,
 			3 => 0x8000,
@@ -114,9 +106,8 @@ impl MMU {
 			0xFF0F => self.intf,
 			//0xFF10 .. 0xFF26 => { 0 }, // Sound
 			//0xFF40 .. 0xFF4B => { 0 }, // GPU
-			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80],
+			0xFF80 .. 0xFFFE => self.zram[address & 0x007F],
 			0xFFFF => self.inte,
-			//0xFF00 .. 0xFFFE => self.zram[address - 0xFF00],
 			_ => { warn!("rb not implemented for {:X}", address); 0 },
 		}
 	}
@@ -127,18 +118,16 @@ impl MMU {
 
 	fn readrombank(&self, address: u16) -> u8 {
 		match self.mbc {
-			Unknown => { 0 },
 			Direct => self.rom[address],
-			MBC1 =>   self.rom[(self.rombank * 0x4000) | (address & 0x3FFF)],
+			MBC1 =>   self.rom[(self.rombank * 0x4000) | (address as u32 & 0x3FFF)],
 		}
 	}
 
-	fn ramaddress(&self, address: u16) -> Option<u16> {
+	fn ramaddress(&self, address: u16) -> Option<u32> {
 		match self.mbc {
-			Unknown => None,
-			Direct => Some(address),
+			Direct => Some(address as u32),
 			MBC1 => if !self.ramon || !self.mbcmode { None } else {
-				Some(self.rambank * 0x2000 | address)
+				Some(self.rambank * 0x2000 | address as u32)
 			},
 		}
 	}
@@ -156,16 +145,15 @@ impl MMU {
 			0x8000 .. 0x9FFF => {}, // VRAM
 			0xA000 .. 0xBFFF => self.writeram(address, value),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
-			0xFF00 => {}, // Keypad
+			//0xFF00 => {}, // Keypad
 			0xFF01 .. 0xFF02 => { self.serial.wb(address, value); }, // Serial console
 			0xFF04 .. 0xFF07 => { self.timer.wb(address, value); }, // Timer
-			0xFF10 .. 0xFF26 => {}, // Sound
-			0xFF40 .. 0xFF4B => {}, // GPU
-			0xFF4D => {}, // CGB speed switch
+			//0xFF10 .. 0xFF26 => {}, // Sound
+			//0xFF40 .. 0xFF4B => {}, // GPU
+			//0xFF4D => {}, // CGB speed switch
 			0xFF0F => self.intf = value,
-			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
+			0xFF80 .. 0xFFFE => self.zram[address & 0x007F] = value,
 			0xFFFF => self.inte = value,
-			//0xFF00 .. 0xFFFE => self.zram[address - 0xFF00] = value,
 			_ => warn!("wb not implemented for {:X}", address),
 		};
 	}
@@ -177,17 +165,16 @@ impl MMU {
 
 	fn writerom(&mut self, address: u16, value: u8) {
 		match self.mbc {
-			Unknown => {},
 			Direct => {},
 			MBC1 => {
 				match address {
 					0x0000 .. 0x1FFF => { self.ramon = (value == 0xA); },
 					0x2000 .. 0x3FFF => {
-						self.rombank = (self.rombank & 0x60) | (match value as u16 & 0x1F { 0 => 1, n => n });
+						self.rombank = (self.rombank & 0x60) | (match value as u32 & 0x1F { 0 => 1, n => n });
 					},
 					0x4000 .. 0x5FFF => {
-						if !self.mbcmode { (self.rombank & 0x1F) | (((value as u16) & 0x03) << 5); }
-						else { self.rambank = value as u16 & 0x03; }
+						if !self.mbcmode { (self.rombank & 0x1F) | (((value as u32) & 0x03) << 5); }
+						else { self.rambank = value as u32 & 0x03; }
 					},
 					0x6000 .. 0x7FFF => { self.mbcmode = ((value & 1) == 1); }
 					_ => { fail!(""); },

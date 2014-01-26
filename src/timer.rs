@@ -16,7 +16,7 @@ impl Timer {
 			divider: 0,
 			counter: 0,
 			modulo: 0,
-			enabled: true,
+			enabled: false,
 			step: 256,
 			internalcnt: 0,
 			internaldiv: 0,
@@ -43,7 +43,7 @@ impl Timer {
 			0xFF05 => { self.counter = v; },
 			0xFF06 => { self.modulo = v; },
 			0xFF07 => {
-				self.enabled = v & 0x4 == 0x4;
+				self.enabled = v & 0x4 != 0;
 				self.step = match v & 0x3 { 1 => 4, 2 => 16, 3 => 64, _ => 256 };
 			},
 			_ => fail!("Timer does not handler write {:4X}", a),

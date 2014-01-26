@@ -39,7 +39,7 @@ impl CPU {
 			1
 		} else {
 			self.call(mmu)
-		}
+		}	
 	}
 
 	fn fetchbyte(&mut self, mmu: &MMU) -> u8 {
@@ -123,7 +123,7 @@ impl CPU {
 			0x15 => { self.reg.d = self.alu_dec(self.reg.d); 1 },
 			0x16 => { self.reg.d = self.fetchbyte(mmu); 2 },
 			0x17 => { self.reg.a = self.alu_rl(self.reg.a); self.reg.flag(Z, false); 1 },
-			0x18 => { self.cpu_jr(mmu); 2 },
+			0x18 => { self.cpu_jr(mmu); 3 },
 			0x19 => { let v = self.reg.de(); self.alu_add16(v); 2 },
 			0x1A => { self.reg.a = mmu.rb(self.reg.de()); 2 },
 			0x1B => { let v = self.reg.de() - 1; self.reg.setde(v); 2 },
@@ -131,7 +131,7 @@ impl CPU {
 			0x1D => { self.reg.e = self.alu_dec(self.reg.e); 1 },
 			0x1E => { self.reg.e = self.fetchbyte(mmu); 2 },
 			0x1F => { self.reg.a = self.alu_rr(self.reg.a); self.reg.flag(Z, false); 1 },
-			0x20 => { if !self.reg.getflag(Z) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 1; 2  } },
+			0x20 => { if !self.reg.getflag(Z) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 1; 2 } },
 			0x21 => { let v = self.fetchword(mmu); self.reg.sethl(v); 3 },
 			0x22 => { mmu.wb(self.reg.hli(), self.reg.a); 2 },
 			0x23 => { let v = self.reg.hl() + 1; self.reg.sethl(v); 2 },
@@ -147,7 +147,7 @@ impl CPU {
 			0x2D => { self.reg.l = self.alu_dec(self.reg.l); 1 },
 			0x2E => { self.reg.l = self.fetchbyte(mmu); 2 },
 			0x2F => { self.reg.a = !self.reg.a; self.reg.flag(N | H, true); 1 },
-			0x30 => { if !self.reg.getflag(C) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 1; 2  } },
+			0x30 => { if !self.reg.getflag(C) { self.cpu_jr(mmu); 3 } else { self.reg.pc += 1; 2 } },
 			0x31 => { self.reg.sp = self.fetchword(mmu); 3 },
 			0x32 => { mmu.wb(self.reg.hld(), self.reg.a); 2 },
 			0x33 => { self.reg.sp += 1; 2 },
@@ -327,7 +327,7 @@ impl CPU {
 			0xE6 => { let v = self.fetchbyte(mmu); self.alu_and(v); 2 },
 			0xE7 => { self.pushstack(mmu, self.reg.pc); self.reg.pc = 0x20; 4 },
 			0xE8 => { self.reg.sp = self.alu_add16imm(mmu, self.reg.sp); 4 },
-			0xE9 => { self.reg.pc = self.reg.hl(); 1 }, //mmu.rw(self.reg.hl()); 1 },
+			0xE9 => { self.reg.pc = self.reg.hl(); 1 },
 			0xEA => { let a = self.fetchword(mmu); mmu.wb(a, self.reg.a); 4 },
 			0xEE => { let v = self.fetchbyte(mmu); self.alu_xor(v); 2 },
 			0xEF => { self.pushstack(mmu, self.reg.pc); self.reg.pc = 0x28; 4 },
