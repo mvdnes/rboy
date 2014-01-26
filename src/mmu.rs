@@ -1,12 +1,13 @@
-use self::serial::Serial;
-use self::timer::Timer;
+use serial::Serial;
+use timer::Timer;
 use std::io::File;
 
-mod serial;
-mod timer;
+//mod serial;
+//mod timer;
 
 static WRAM_SIZE: uint = 0x2000;
-static ZRAM_SIZE: uint = 0x7F;
+//static ZRAM_SIZE: uint = 0x7F;
+static ZRAM_SIZE: uint = 0x100;
 
 pub struct MMU {
 	priv rom: ~[u8],
@@ -21,9 +22,7 @@ pub struct MMU {
 
 
 impl MMU {
-	pub fn new() -> MMU {
-		// TODO: init GPU, Timer, Keypad (and others?)
-		
+	pub fn new(romname: &str) -> MMU {
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),
 			zram: ~([0, ..ZRAM_SIZE]),
@@ -34,6 +33,8 @@ impl MMU {
 			serial: Serial::new(),
 			timer: Timer::new(),
 		};
+
+		res.rom = File::open(&Path::new(romname)).read_to_end();
 
 		res.wb(0xFF05, 0);
 		res.wb(0xFF06, 0);
@@ -48,9 +49,6 @@ impl MMU {
 		res.wb(0xFF4A, 0);
 		res.wb(0xFF4B, 0);
 
-
-		res.rom = File::open(&Path::new("cpu_instrs.gb")).read_to_end();
-
 		return res;
 	}
 
@@ -63,12 +61,17 @@ impl MMU {
 	pub fn rb(&self, address: u16) -> u8 {
 		match address {
 			0x0000 .. 0x7FFF => self.readrom(address),
+			//0x8000 .. 0x9FFF => { 0 }, // VRAM
+			//0xA000 .. 0xBFFF => { 0 }, // ext ram
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF],
+			//0xFF00 => { 0 }, // Keypad
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
-			0xFF0F => self.inte,
-			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80],
-			0xFFFF => self.intf,
+			0xFF0F => self.intf,
+			//0xFF40 .. 0xFF4B => { 0 }, // GPU
+			//0xFF80 .. 0xFFFE => self.zram[address - 0xFF80],
+			0xFFFF => self.inte,
+			0xFF00 .. 0xFFFE => self.zram[address - 0xFF00],
 			_ => fail!("rb not implemented for {:X}", address),
 		}
 	}
@@ -85,15 +88,19 @@ impl MMU {
 	pub fn wb(&mut self, address: u16, value: u8) {
 		match address {
 			0x0000 .. 0x7FFF => self.writerom(address, value),
+			0x8000 .. 0x9FFF => {}, // VRAM
+			0xA000 .. 0xBFFF => {}, // ext ram
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
-			0xFF00 => {}, // Keypad
+			//0xFF00 => {}, // Keypad
 			0xFF01 .. 0xFF02 => { self.serial.wb(address, value); }, // Serial console
 			0xFF04 .. 0xFF07 => { self.timer.wb(address, value); }, // Timer
-			0xFF40 .. 0xFF4B => {}, // GPU
-			0xFF10 .. 0xFF26 => {}, // Sound
+			//0xFF40 .. 0xFF4B => {}, // GPU
+			0xFF4D => {}, // CGB speed switch
+			//0xFF10 .. 0xFF26 => {}, // Sound
 			0xFF0F => self.intf = value,
-			0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
+			//0xFF80 .. 0xFFFE => self.zram[address - 0xFF80] = value,
 			0xFFFF => self.inte = value,
+			0xFF00 .. 0xFFFE => self.zram[address - 0xFF00] = value,
 			_ => fail!("wb not implemented for {:X}", address),
 		};
 	}

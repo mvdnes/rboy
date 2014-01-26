@@ -98,7 +98,6 @@ impl CPU {
 	}
 
 	fn call(&mut self, mmu: &mut MMU) -> uint {
-		//println!("{:x} {:x} {:x} {:x} {:x} {:x} {:x}", self.reg.pc, self.reg.sp, self.reg.af(), self.reg.bc(), self.reg.de(), self.reg.hl(), mmu.rb(0xB8D));
 		match self.fetchbyte(mmu) {
 			0x00 => { 1 },
 			0x01 => { let v = self.fetchword(mmu); self.reg.setbc(v); 3 },
