@@ -14,7 +14,7 @@ impl Serial {
 		match a {
 			0xFF01 => {
 				if self.enabled {
-					println!("{}", v as char);
+					print!("{}", v as char);
 					::std::io::stdio::flush();
 				}
 				self.data = v;
