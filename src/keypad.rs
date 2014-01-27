@@ -15,7 +15,6 @@ pub enum KeypadKey {
 	B,
 	Select,
 	Start,
-	Poweroff, // Used to poweroff the CPU
 }
 
 impl Keypad {
@@ -55,7 +54,6 @@ impl Keypad {
 			B => self.row0 &= !(1 << 1),
 			Select => self.row0 &= !(1 << 2),
 			Start => self.row0 &= !(1 << 3),
-			_ => {},
 		}
 		self.interrupt |= 0x10;
 		self.update();
@@ -71,7 +69,6 @@ impl Keypad {
 			B => self.row0 |= (1 << 1),
 			Select => self.row0 |= (1 << 2),
 			Start => self.row0 |= (1 << 3),
-			_ => {},
 		}
 		self.update();
 	}

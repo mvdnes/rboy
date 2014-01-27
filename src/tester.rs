@@ -47,30 +47,59 @@ fn main() {
 			match sdl::event::poll_event() {
 				sdl::event::QuitEvent => break 'main,
 				sdl::event::NoEvent => break 'event,
-				sdl::event::KeyEvent(k, _, _, _)
-					if k == sdl::event::EscapeKey
-						=> break 'main,
-				sdl::event::KeyEvent(k, _, _, _)
-					if k == sdl::event::SpaceKey
-						=>  { sdlstream.send(2); println!("{:u}", sdlstream.recv()); },
+				sdl::event::KeyEvent(sdl::event::EscapeKey, _, _, _)
+					=> break 'main,
+				sdl::event::KeyEvent(sdlkey, true, _, _) => {
+					match sdl_to_keypad(sdlkey) {
+						Some(key) => sdlstream.send(KeyDown(key)),
+						None => {},
+					}
+				},
+				sdl::event::KeyEvent(sdlkey, false, _, _) => {
+					match sdl_to_keypad(sdlkey) {
+						Some(key) => sdlstream.send(KeyUp(key)),
+						None => {},
+					}
+				},
 				_ => {}
 			}
 		}
 	}
-	sdlstream.send(1);
+	sdlstream.send(Poweroff);
 }
 
-fn cpuloop(channel: &DuplexStream<uint, uint>, filename: ~str, matches: &getopts::Matches) {
+fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
+	match key {
+		sdl::event::ZKey => Some(keypad::A),
+		sdl::event::XKey => Some(keypad::B),
+		sdl::event::UpKey => Some(keypad::Up),
+		sdl::event::DownKey => Some(keypad::Down),
+		sdl::event::LeftKey => Some(keypad::Left),
+		sdl::event::RightKey => Some(keypad::Right),
+		sdl::event::SpaceKey => Some(keypad::Select),
+		sdl::event::ReturnKey => Some(keypad::Start),
+		_ => None,
+	}
+}
+
+enum GBEvent {
+	KeyUp(keypad::KeypadKey),
+	KeyDown(keypad::KeypadKey),
+	Poweroff,
+}
+
+fn cpuloop(channel: &DuplexStream<uint, GBEvent>, filename: ~str, matches: &getopts::Matches) {
 	let mut c = CPU::new();
 	c.mmu.loadrom(filename);
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
 	loop {
-		let ticks = c.cycle();
+		c.cycle();
 		match channel.try_recv() {
-			Some(n) if n == 1 => { break; },
-			Some(n) if n == 2 => { channel.send(ticks); },
-			_ => {},
+			None => {},
+			Some(Poweroff) => { break; },
+			Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
+			Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
 		};
 	}
 }
