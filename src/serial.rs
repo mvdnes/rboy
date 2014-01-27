@@ -12,14 +12,14 @@ impl Serial {
 
 	pub fn wb(&mut self, a: u16, v: u8) {
 		match a {
-			0xFF01 => {
-				if self.enabled {
-					print!("{}", v as char);
+			0xFF01 => self.data = v,
+			0xFF02 => {
+				self.control = v;
+				if self.enabled && v == 0x81 {
+					print!("{:c}", self.data as char);
 					::std::io::stdio::flush();
 				}
-				self.data = v;
 			},
-			0xFF02 => { self.control = v; },
 			_ => { fail!("Serial does not handle address {:4X} (write)", a); },
 		};
 	}
