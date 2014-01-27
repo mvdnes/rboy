@@ -78,7 +78,7 @@ impl MMU {
 		else {
 			match self.rom[0x147] {
 				0x00 => Direct,
-				0x01 => MBC1,
+				0x01 .. 0x03 => MBC1,
 				n => fail!("Unsupported MBC {:02X}", n),
 			}
 		};
@@ -112,15 +112,16 @@ impl MMU {
 		match address {
 			0x0000 .. 0x3FFF => self.rom[address],
 			0x4000 .. 0x7FFF => self.readrombank(address),
-			//0x8000 .. 0x9FFF => { 0 }, // VRAM
+			0x8000 .. 0x9FFF => self.gpu.rb(address),
 			0xA000 .. 0xBFFF => self.readram(address),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF],
+			0xFE00 .. 0xFE9F => self.gpu.rb(address),
 			0xFF00 => self.keypad.rb(),
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
 			//0xFF10 .. 0xFF26 => { 0 }, // Sound
-			//0xFF40 .. 0xFF4B => { 0 }, // GPU
+			0xFF40 .. 0xFF4B => self.gpu.rb(address),
 			0xFF80 .. 0xFFFE => self.zram[address & 0x007F],
 			0xFFFF => self.inte,
 			_ => { warn!("rb not implemented for {:X}", address); 0 },
@@ -157,14 +158,16 @@ impl MMU {
 	pub fn wb(&mut self, address: u16, value: u8) {
 		match address {
 			0x0000 .. 0x7FFF => self.writerom(address, value),
-			0x8000 .. 0x9FFF => {}, // VRAM
+			0x8000 .. 0x9FFF => self.gpu.wb(address, value),
 			0xA000 .. 0xBFFF => self.writeram(address, value),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
+			0xFE00 .. 0xFE9F => self.gpu.wb(address, value),
 			0xFF00 => self.keypad.wb(value),
 			0xFF01 .. 0xFF02 => self.serial.wb(address, value),
 			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
 			//0xFF10 .. 0xFF26 => {}, // Sound
-			//0xFF40 .. 0xFF4B => {}, // GPU
+			0xFF46 => self.oamdma(value),
+			0xFF40 .. 0xFF4B => self.gpu.wb(address, value),
 			//0xFF4D => {}, // CGB speed switch
 			0xFF0F => self.intf = value,
 			0xFF80 .. 0xFFFE => self.zram[address & 0x007F] = value,
@@ -204,5 +207,12 @@ impl MMU {
 			Some(n) => self.ram[n] = value,
 		};
 	}
-}
 
+	fn oamdma(&mut self, value: u8) {
+		let base = (value as u16) << 8;
+		for i in range(0u16, 0xA0) {
+			let b = self.rb(base + i);
+			self.wb(0xFE00 + i, b);
+		}
+	}
+}

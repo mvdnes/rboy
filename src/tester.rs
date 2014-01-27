@@ -47,6 +47,10 @@ fn main() {
 	spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
 
 	'main : loop {
+		match sdlstream.try_recv() {
+			Some(_) => recalculate_screen(screen, &arc),
+			None => {},
+		}
 		'event : loop {
 			match sdl::event::poll_event() {
 				sdl::event::QuitEvent => break 'main,
@@ -67,10 +71,6 @@ fn main() {
 				},
 				_ => {}
 			}
-		}
-		match sdlstream.try_recv() {
-			Some(_) => recalculate_screen(screen, &arc),
-			None => {},
 		}
 	}
 	sdlstream.send(Poweroff);
