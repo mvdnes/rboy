@@ -1,6 +1,7 @@
 use serial::Serial;
 use timer::Timer;
 use keypad::Keypad;
+use gpu::GPU;
 use std::io::File;
 
 static WRAM_SIZE: uint = 0x2000;
@@ -16,6 +17,7 @@ pub struct MMU {
 	serial: Serial,
 	timer: Timer,
 	keypad: Keypad,
+	gpu: GPU,
 	priv mbc: MBC,
 	priv rombank: u32,
 	priv rambank: u32,
@@ -40,6 +42,7 @@ impl MMU {
 			serial: Serial::new(),
 			timer: Timer::new(),
 			keypad: Keypad::new(),
+			gpu: GPU::new(),
 			mbc: Direct,
 			rombank: 1,
 			rambank: 0,
@@ -99,6 +102,10 @@ impl MMU {
 
 		self.intf |= self.keypad.interrupt;
 		self.keypad.interrupt = 0;
+
+		self.gpu.cycle(ticks);
+		self.intf |= self.gpu.interrupt;
+		self.gpu.interrupt = 0;
 	}
 
 	pub fn rb(&self, address: u16) -> u8 {

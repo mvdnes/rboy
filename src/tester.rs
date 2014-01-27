@@ -6,6 +6,7 @@ extern mod sdl;
 use cpu::CPU;
 use extra::getopts;
 use extra::comm::DuplexStream;
+use extra::arc::RWArc;
 
 mod register;
 mod mmu;
@@ -13,6 +14,7 @@ mod cpu;
 mod serial;
 mod timer;
 mod keypad;
+mod gpu;
 
 fn main() {
 	let args: ~[~str] = std::os::args();
@@ -33,14 +35,16 @@ fn main() {
 
 	sdl::init([sdl::InitVideo]);
 	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
-	let _screen = match sdl::video::set_video_mode(160, 144, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
+	let screen = match sdl::video::set_video_mode(160, 144, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
 		Ok(screen) => screen,
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
 
 	let (sdlstream, cpustream) = DuplexStream::new();
-
-	spawn(proc() cpuloop(&cpustream, filename, &matches));
+	let rawscreen = ~[0xFFu8,.. 160*144*3];
+	let arc = RWArc::new(rawscreen);
+	let arc2 = arc.clone();
+	spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
 
 	'main : loop {
 		'event : loop {
@@ -51,7 +55,7 @@ fn main() {
 					=> break 'main,
 				sdl::event::KeyEvent(sdlkey, true, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdlstream.send(KeyDown(key)),
+						Some(key) => { screen.flip(); sdlstream.send(KeyDown(key)) },
 						None => {},
 					}
 				},
@@ -63,6 +67,10 @@ fn main() {
 				},
 				_ => {}
 			}
+		}
+		match sdlstream.try_recv() {
+			Some(_) => recalculate_screen(screen, &arc),
+			None => {},
 		}
 	}
 	sdlstream.send(Poweroff);
@@ -82,19 +90,45 @@ fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
 	}
 }
 
+fn recalculate_screen(screen: &sdl::video::Surface, arc: &RWArc<~[u8]>) {
+	arc.read(|data| 
+	for y in range(0, 144) {
+		for x in range(0, 160) {
+			screen.fill_rect(
+				Some(sdl::Rect { x: x as i16, y: y as i16, w: 1, h: 1 }),
+				sdl::video::RGB(data[y*160*3 + x*3 + 0],
+				                data[y*160*3 + x*3 + 1],
+				                data[y*160*3 + x*3 + 2])
+			);
+		}
+	});
+	screen.flip();
+}
+
 enum GBEvent {
 	KeyUp(keypad::KeypadKey),
 	KeyDown(keypad::KeypadKey),
 	Poweroff,
 }
 
-fn cpuloop(channel: &DuplexStream<uint, GBEvent>, filename: ~str, matches: &getopts::Matches) {
+fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
 	let mut c = CPU::new();
 	c.mmu.loadrom(filename);
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
 	loop {
 		c.cycle();
+
+		if c.mmu.gpu.updated {
+			c.mmu.gpu.updated = false;
+			arc.write(|data|
+				for i in range(0, c.mmu.gpu.data.len()) {
+					data[i] = c.mmu.gpu.data[i];
+				}
+			);
+			channel.send(0);
+		}
+
 		match channel.try_recv() {
 			None => {},
 			Some(Poweroff) => { break; },
