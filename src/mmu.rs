@@ -12,8 +12,8 @@ pub struct MMU {
 	priv zram: ~[u8, ..ZRAM_SIZE],
 	inte: u8,
 	intf: u8,
-	priv serial: Serial,
-	priv timer: Timer,
+	serial: Serial,
+	timer: Timer,
 	priv mbc: MBC,
 	priv rombank: u32,
 	priv rambank: u32,
@@ -27,7 +27,7 @@ enum MBC {
 }
 
 impl MMU {
-	pub fn new(romname: &str) -> MMU {
+	pub fn new() -> MMU {
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),
 			zram: ~([0, ..ZRAM_SIZE]),
@@ -44,10 +44,6 @@ impl MMU {
 			ramon: false,
 		};
 
-		res.rom = File::open(&Path::new(romname)).read_to_end();
-		res.setmbc();
-		res.setram();
-
 		res.wb(0xFF05, 0);
 		res.wb(0xFF06, 0);
 		res.wb(0xFF07, 0);
@@ -62,6 +58,12 @@ impl MMU {
 		res.wb(0xFF4B, 0);
 
 		return res;
+	}
+
+	pub fn loadrom(&mut self, romname: &str) {
+		self.rom = File::open(&Path::new(romname)).read_to_end();
+		self.setmbc();
+		self.setram();
 	}
 
 	fn setmbc(&mut self) {

@@ -1,6 +1,5 @@
 #[crate_id = "tester"];
 
-use mmu::MMU;
 use cpu::CPU;
 
 mod register;
@@ -12,11 +11,11 @@ mod timer;
 fn main() {
 	let args: ~[~str] = std::os::args();
 	if args.len() < 2 { return };
-	let mut m = MMU::new(args[1]);
+
 	let mut c = CPU::new();
+	c.mmu.loadrom(args[1]);
 
 	loop {
-		let t = c.cycle(&mut m);
-		m.cycle(t);
+		c.cycle();
 	}
 }
