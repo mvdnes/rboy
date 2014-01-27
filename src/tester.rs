@@ -18,7 +18,7 @@ fn main() {
 	let opts = ~[ getopts::groups::optflag("s", "serial", "Output serial to stdout") ];
 	let matches = match getopts::groups::getopts(args.tail(), opts) {
 		Ok(m) => { m }
-		Err(f) => { fail!(f.to_err_msg()) }
+		Err(f) => { println!("{}", f.to_err_msg()); return }
 	};
 
 	let filename: &str = if !matches.free.is_empty() {
