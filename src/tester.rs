@@ -12,6 +12,7 @@ mod mmu;
 mod cpu;
 mod serial;
 mod timer;
+mod keypad;
 
 fn main() {
 	let args: ~[~str] = std::os::args();

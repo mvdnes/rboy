@@ -1,5 +1,6 @@
 use serial::Serial;
 use timer::Timer;
+use keypad::Keypad;
 use std::io::File;
 
 static WRAM_SIZE: uint = 0x2000;
@@ -14,6 +15,7 @@ pub struct MMU {
 	intf: u8,
 	serial: Serial,
 	timer: Timer,
+	keypad: Keypad,
 	priv mbc: MBC,
 	priv rombank: u32,
 	priv rambank: u32,
@@ -37,6 +39,7 @@ impl MMU {
 			intf: 0,
 			serial: Serial::new(),
 			timer: Timer::new(),
+			keypad: Keypad::new(),
 			mbc: Direct,
 			rombank: 1,
 			rambank: 0,
@@ -93,6 +96,9 @@ impl MMU {
 		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
+
+		self.intf |= self.keypad.interrupt;
+		self.keypad.interrupt = 0;
 	}
 
 	pub fn rb(&self, address: u16) -> u8 {
@@ -102,7 +108,7 @@ impl MMU {
 			//0x8000 .. 0x9FFF => { 0 }, // VRAM
 			0xA000 .. 0xBFFF => self.readram(address),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF],
-			//0xFF00 => { 0 }, // Keypad
+			0xFF00 => self.keypad.rb(),
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
@@ -147,9 +153,9 @@ impl MMU {
 			0x8000 .. 0x9FFF => {}, // VRAM
 			0xA000 .. 0xBFFF => self.writeram(address, value),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
-			//0xFF00 => {}, // Keypad
-			0xFF01 .. 0xFF02 => { self.serial.wb(address, value); }, // Serial console
-			0xFF04 .. 0xFF07 => { self.timer.wb(address, value); }, // Timer
+			0xFF00 => self.keypad.wb(value),
+			0xFF01 .. 0xFF02 => self.serial.wb(address, value),
+			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
 			//0xFF10 .. 0xFF26 => {}, // Sound
 			//0xFF40 .. 0xFF4B => {}, // GPU
 			//0xFF4D => {}, // CGB speed switch
