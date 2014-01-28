@@ -9,8 +9,6 @@ static WRAM_SIZE: uint = 0x2000;
 static ZRAM_SIZE: uint = 0x7F;
 
 pub struct MMU {
-	priv rom: ~[u8],
-	priv ram: ~[u8],
 	priv wram: ~[u8, ..WRAM_SIZE],
 	priv zram: ~[u8, ..ZRAM_SIZE],
 	inte: u8,
@@ -20,25 +18,16 @@ pub struct MMU {
 	keypad: Keypad,
 	gpu: GPU,
 	sound: Sound,
-	priv mbc: MBC,
-	priv rombank: u32,
-	priv rambank: u32,
-	priv mbcmode: bool,
-	priv ramon: bool,
-}
-
-enum MBC {
-	Direct,
-	MBC1,
+	priv mbc: ~::mbc::MBC,
 }
 
 impl MMU {
-	pub fn new() -> MMU {
+	pub fn new(romname: &str) -> MMU {
+		let newmbc = ::mbc::get_mbc(File::open(&Path::new(romname)).read_to_end());
+
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),
 			zram: ~([0, ..ZRAM_SIZE]),
-			rom: ~[],
-			ram: ~[],
 			inte: 0,
 			intf: 0,
 			serial: Serial::new(),
@@ -46,11 +35,7 @@ impl MMU {
 			keypad: Keypad::new(),
 			gpu: GPU::new(),
 			sound: Sound::new(),
-			mbc: Direct,
-			rombank: 1,
-			rambank: 0,
-			mbcmode: false,
-			ramon: false,
+			mbc: newmbc,
 		};
 
 		res.wb(0xFF05, 0);
@@ -69,35 +54,6 @@ impl MMU {
 		return res;
 	}
 
-	pub fn loadrom(&mut self, romname: &str) {
-		self.rom = File::open(&Path::new(romname)).read_to_end();
-		self.setmbc();
-		self.setram();
-	}
-
-	fn setmbc(&mut self) {
-		self.mbc =
-		if self.rom.len() < 0x147 { fail!("Rom size to small"); }
-		else {
-			match self.rom[0x147] {
-				0x00 => Direct,
-				0x01 .. 0x03 => MBC1,
-				n => fail!("Unsupported MBC {:02X}", n),
-			}
-		};
-	}
-
-	fn setram(&mut self) {
-		if self.rom.len() < 0x149 { fail!("Rom size to small"); };
-		let ramsize = match self.rom[0x149] {
-			1 => 0x800,
-			2 => 0x2000,
-			3 => 0x8000,
-			_ => 0,
-		};
-		self.ram.grow(ramsize, &0);
-	}
-
 	pub fn cycle(&mut self, ticks: uint) {
 		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
@@ -113,10 +69,9 @@ impl MMU {
 
 	pub fn rb(&self, address: u16) -> u8 {
 		match address {
-			0x0000 .. 0x3FFF => self.rom[address],
-			0x4000 .. 0x7FFF => self.readrombank(address),
+			0x0000 .. 0x7FFF => self.mbc.readrom(address),
 			0x8000 .. 0x9FFF => self.gpu.rb(address),
-			0xA000 .. 0xBFFF => self.readram(address),
+			0xA000 .. 0xBFFF => self.mbc.readram(address),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF],
 			0xFE00 .. 0xFE9F => self.gpu.rb(address),
 			0xFF00 => self.keypad.rb(),
@@ -135,34 +90,11 @@ impl MMU {
 		(self.rb(address) as u16) | (self.rb(address + 1) as u16 << 8)
 	}
 
-	fn readrombank(&self, address: u16) -> u8 {
-		match self.mbc {
-			Direct => self.rom[address],
-			MBC1 =>   self.rom[(self.rombank * 0x4000) | (address as u32 & 0x3FFF)],
-		}
-	}
-
-	fn ramaddress(&self, address: u16) -> Option<u32> {
-		match self.mbc {
-			Direct => Some(address as u32),
-			MBC1 => if !self.ramon || !self.mbcmode { None } else {
-				Some(self.rambank * 0x2000 | address as u32)
-			},
-		}
-	}
-
-	fn readram(&self, address: u16) -> u8 {
-		match self.ramaddress(address) {
-			None => 0,
-			Some(n) => self.ram[n],
-		}
-	}
-
 	pub fn wb(&mut self, address: u16, value: u8) {
 		match address {
-			0x0000 .. 0x7FFF => self.writerom(address, value),
+			0x0000 .. 0x7FFF => self.mbc.writerom(address, value),
 			0x8000 .. 0x9FFF => self.gpu.wb(address, value),
-			0xA000 .. 0xBFFF => self.writeram(address, value),
+			0xA000 .. 0xBFFF => self.mbc.writeram(address, value),
 			0xC000 .. 0xFDFF => self.wram[address & 0x1FFF] = value,
 			0xFE00 .. 0xFE9F => self.gpu.wb(address, value),
 			0xFF00 => self.keypad.wb(value),
@@ -182,33 +114,6 @@ impl MMU {
 	pub fn ww(&mut self, address: u16, value: u16) {
 		self.wb(address, (value & 0xFF) as u8);
 		self.wb(address + 1, (value >> 8) as u8);
-	}
-
-	fn writerom(&mut self, address: u16, value: u8) {
-		match self.mbc {
-			Direct => {},
-			MBC1 => {
-				match address {
-					0x0000 .. 0x1FFF => { self.ramon = (value == 0xA); },
-					0x2000 .. 0x3FFF => {
-						self.rombank = (self.rombank & 0x60) | (match value as u32 & 0x1F { 0 => 1, n => n });
-					},
-					0x4000 .. 0x5FFF => {
-						if !self.mbcmode { (self.rombank & 0x1F) | (((value as u32) & 0x03) << 5); }
-						else { self.rambank = value as u32 & 0x03; }
-					},
-					0x6000 .. 0x7FFF => { self.mbcmode = ((value & 1) == 1); }
-					_ => { fail!(""); },
-				}
-			}
-		}
-	}
-
-	fn writeram(&mut self, address: u16, value: u8) {
-		match self.ramaddress(address) {
-			None => {},
-			Some(n) => self.ram[n] = value,
-		};
 	}
 
 	fn oamdma(&mut self, value: u8) {

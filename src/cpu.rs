@@ -17,14 +17,14 @@ static Z: u8 = (1 << 7);
 
 
 impl CPU {
-	pub fn new() -> CPU {
+	pub fn new(romname: &str) -> CPU {
 		CPU {
 			reg: register::Registers::new(),
 			halted: false,
 			ime: true,
 			setdi: 0,
 			setei: 0,
-			mmu: mmu::MMU::new(),
+			mmu: mmu::MMU::new(romname),
 		}
 	}
 

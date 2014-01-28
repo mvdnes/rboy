@@ -9,6 +9,7 @@ use extra::comm::DuplexStream;
 use extra::arc::RWArc;
 
 mod register;
+mod mbc;
 mod mmu;
 mod cpu;
 mod serial;
@@ -113,12 +114,11 @@ enum GBEvent {
 }
 
 fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
-	let mut c = CPU::new();
-	c.mmu.loadrom(filename);
+	let mut c = CPU::new(filename);
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let periodic = timer.periodic(17);
+	let periodic = timer.periodic(16);
 
 	loop {
 		c.cycle();
