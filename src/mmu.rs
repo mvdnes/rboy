@@ -2,6 +2,7 @@ use serial::Serial;
 use timer::Timer;
 use keypad::Keypad;
 use gpu::GPU;
+use sound::Sound;
 use std::io::File;
 
 static WRAM_SIZE: uint = 0x2000;
@@ -18,6 +19,7 @@ pub struct MMU {
 	timer: Timer,
 	keypad: Keypad,
 	gpu: GPU,
+	sound: Sound,
 	priv mbc: MBC,
 	priv rombank: u32,
 	priv rambank: u32,
@@ -43,6 +45,7 @@ impl MMU {
 			timer: Timer::new(),
 			keypad: Keypad::new(),
 			gpu: GPU::new(),
+			sound: Sound::new(),
 			mbc: Direct,
 			rombank: 1,
 			rambank: 0,
@@ -120,7 +123,7 @@ impl MMU {
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
-			//0xFF10 .. 0xFF26 => { 0 }, // Sound
+			0xFF10 .. 0xFF26 => self.sound.rb(address),
 			0xFF40 .. 0xFF4B => self.gpu.rb(address),
 			0xFF80 .. 0xFFFE => self.zram[address & 0x007F],
 			0xFFFF => self.inte,
@@ -165,7 +168,7 @@ impl MMU {
 			0xFF00 => self.keypad.wb(value),
 			0xFF01 .. 0xFF02 => self.serial.wb(address, value),
 			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
-			//0xFF10 .. 0xFF26 => {}, // Sound
+			0xFF10 .. 0xFF26 => self.sound.wb(address, value),
 			0xFF46 => self.oamdma(value),
 			0xFF40 .. 0xFF4B => self.gpu.wb(address, value),
 			//0xFF4D => {}, // CGB speed switch

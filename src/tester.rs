@@ -15,6 +15,7 @@ mod serial;
 mod timer;
 mod keypad;
 mod gpu;
+mod sound;
 
 fn main() {
 	let args: ~[~str] = std::os::args();
