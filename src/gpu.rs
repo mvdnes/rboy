@@ -258,11 +258,40 @@ impl GPU {
 	}
 
 	fn draw_win(&mut self) {
+		if !self.win_on { return }
+		let winy = self.line as int - self.winy as int;
+		if winy < 0 { return }
+
+		let tiley: u16 = ((winy as u16) >> 3) & 31;
+
+		for x in range(0, SCREEN_W) {
+			let winx: int = - ((self.winx as int) - 7) + (x as int);
+			if winx < 0 { continue }
+			let tilex: u16 = ((winx as u16) >> 3) & 31;
+
+			let tilenr: u8 = self.rb(self.win_tilemapbase + tiley * 32 + tilex);
+			let tileaddress = (self.tilebase as int
+			+ (if self.tilebase == 0x8000 {
+				tilenr as u16 as int
+			} else {
+				tilenr as i8 as int
+			}) * 16) as u16;
+
+			let b1 = self.rb(tileaddress + ((winy as u16 & 0x07) * 2));
+			let b2 = self.rb(tileaddress + ((winy as u16 & 0x07) * 2) + 1);
+
+			let xbit = winx & 0x07;
+			let colnr = if b1 & (1 << (7 - xbit)) != 0 { 1 } else { 0 }
+				| if b2 & (1 << (7 - xbit)) != 0 { 2 } else { 0 };
+			self.setcolor(x, self.palb[colnr]);
+		}
 	}
 
 	fn draw_sprites(&mut self) {
 		if !self.sprite_on { return }
-		
+
+		// TODO: limit of 10 sprites per line
+
 		for i in range(0u16, 40) {
 			let spriteaddr: u16 = 0xFE00 + i * 4;
 			let spritey: int = self.rb(spriteaddr + 0) as u16 as int - 16;
@@ -299,8 +328,6 @@ impl GPU {
 				if colnr == 0 { continue }
 				//TODO: draw belowbg if bg == 0 and flag is set
 				let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
-
-				//fail!("x: {:t}, y: {:t}, t: {:t}, f: {:t}", self.rb(spriteaddr), self.rb(spriteaddr+1), self.rb(spriteaddr+2), self.rb(spriteaddr+3));
 
 				self.setcolor((spritex + x) as uint, color);
 			}
