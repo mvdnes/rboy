@@ -20,8 +20,8 @@ pub enum KeypadKey {
 impl Keypad {
 	pub fn new() -> Keypad {
 		let mut res = Keypad {
-			row0: 0xFF,
-			row1: 0xFF,
+			row0: 0x0F,
+			row1: 0x0F,
 			data: 0,
 			interrupt: 0,
 		};
