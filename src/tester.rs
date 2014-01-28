@@ -35,7 +35,7 @@ fn main() {
 
 	sdl::init([sdl::InitVideo]);
 	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
-	let screen = match sdl::video::set_video_mode(160, 144, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
+	let screen = match sdl::video::set_video_mode(160*2, 144*2, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
 		Ok(screen) => screen,
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
@@ -95,7 +95,7 @@ fn recalculate_screen(screen: &sdl::video::Surface, arc: &RWArc<~[u8]>) {
 	for y in range(0, 144) {
 		for x in range(0, 160) {
 			screen.fill_rect(
-				Some(sdl::Rect { x: x as i16, y: y as i16, w: 1, h: 1 }),
+				Some(sdl::Rect { x: (x*2) as i16, y: (y*2) as i16, w: 2, h: 2 }),
 				sdl::video::RGB(data[y*160*3 + x*3 + 0],
 				                data[y*160*3 + x*3 + 1],
 				                data[y*160*3 + x*3 + 2])
