@@ -59,7 +59,7 @@ fn main() {
 					=> break 'main,
 				sdl::event::KeyEvent(sdlkey, true, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => { screen.flip(); sdlstream.send(KeyDown(key)) },
+						Some(key) => sdlstream.send(KeyDown(key)),
 						None => {},
 					}
 				},
@@ -116,6 +116,9 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 	c.mmu.loadrom(filename);
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
+	let mut timer = std::io::timer::Timer::new().unwrap();
+	let periodic = timer.periodic(17);
+
 	loop {
 		c.cycle();
 
@@ -126,6 +129,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 					data[i] = c.mmu.gpu.data[i];
 				}
 			);
+			periodic.recv();
 			channel.send(0);
 		}
 
