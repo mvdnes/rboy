@@ -128,7 +128,7 @@ impl GPU {
 	pub fn rb(&self, a: u16) -> u8 {
 		match a {
 			0x8000 .. 0x9FFF => self.vram[a & 0x1FFF],
-			0xFE00 .. 0xFE9F => self.voam[a & 0xA0],
+			0xFE00 .. 0xFE9F => self.voam[a - 0xFE00],
 			0xFF40 => {
 				(if self.lcd_on { 0x80 } else { 0 }) |
 				(if self.win_tilemapbase == 0x9C00 { 0x40 } else { 0 }) |
@@ -164,7 +164,7 @@ impl GPU {
 	pub fn wb(&mut self, a: u16, v: u8) {
 		match a {
 			0x8000 .. 0x9FFF => self.vram[a & 0x1FFF] = v,
-			0xFE00 .. 0xFE9F => self.voam[a & 0xA0] = v,
+			0xFE00 .. 0xFE9F => self.voam[a - 0xFE00] = v,
 			0xFF40 => {
 				self.lcd_on = v & 0x80 == 0x80;
 				self.win_tilemapbase = if v & 0x40 == 0x40 { 0x9C00 } else { 0x9800 };
@@ -261,5 +261,49 @@ impl GPU {
 	}
 
 	fn draw_sprites(&mut self) {
+		if !self.sprite_on { return }
+		
+		for i in range(0u16, 40) {
+			let spriteaddr: u16 = 0xFE00 + i * 4;
+			let spritey: int = self.rb(spriteaddr + 0) as u16 as int - 16;
+			let spritex: int = self.rb(spriteaddr + 1) as u16 as int - 8;
+			let tilenum: u16 = (self.rb(spriteaddr + 2) & (if self.sprite_size == 16 { 0xFE } else { 0xFF })) as u16;
+			let flags: u8 = self.rb(spriteaddr + 3);
+			let usepal1: bool = flags & (1 << 4) != 0;
+			let xflip: bool = flags & (1 << 5) != 0;
+			let yflip: bool = flags & (1 << 6) != 0;
+			let belowbg: bool = flags & (1 << 7) != 0;
+
+			let line = self.line as int;
+			let sprite_size = self.sprite_size as int;
+
+			if line < spritey || line >= spritey + sprite_size { continue }
+			if spritex < -7 || spritex >= (SCREEN_W as int) { continue }
+
+			let tiley: u16 = if yflip {
+				(sprite_size - 1 - (line - spritey)) as u16
+			} else {
+				(line - spritey) as u16
+			};
+			
+			let tileaddress = 0x8000u16 + tilenum * 16 + tiley * 2;
+			let b1 = self.rb(tileaddress);
+			let b2 = self.rb(tileaddress + 1);
+
+			for x in range(0, 8) {
+				if spritex + x < 0 || spritex + x >= (SCREEN_W as int) { continue }
+
+				let xbit: u8 = 1 << (if xflip { x } else { 7 - x });
+				let colnr: u8 = (if b1 & xbit != 0 { 1 } else { 0 }) |
+					(if b2 & xbit != 0 { 2 } else { 0 });
+				if colnr == 0 { continue }
+				//TODO: draw belowbg if bg == 0 and flag is set
+				let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
+
+				//fail!("x: {:t}, y: {:t}, t: {:t}, f: {:t}", self.rb(spriteaddr), self.rb(spriteaddr+1), self.rb(spriteaddr+2), self.rb(spriteaddr+3));
+
+				self.setcolor((spritex + x) as uint, color);
+			}
+		}
 	}
 }
