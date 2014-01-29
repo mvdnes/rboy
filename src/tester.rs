@@ -131,7 +131,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 				}
 			);
 			periodic.recv();
-			channel.send(0);
+			channel.try_send(0);
 		}
 
 		match channel.try_recv() {
