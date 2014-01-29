@@ -23,19 +23,46 @@ struct MBC1 {
 	priv ram_mode: bool,
 	priv rombank: u32,
 	priv rambank: u32,
+	priv savepath: Option<Path>,
 }
 
 impl MBC1 {
-	pub fn new(data: ~[u8]) -> MBC1 {
-		let ramsize = ram_size(data[0x149]);
-		MBC1 {
+	pub fn new(data: ~[u8], file: &Path) -> MBC1 {
+		let (svpath, ramsize) = match data[0x147] {
+			0x02 => (None, ram_size(data[0x149])),
+			0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
+			_ => (None, 0),
+		};
+
+		let mut res = MBC1 {
 			rom: data,
 			ram: ::std::vec::from_elem(ramsize, 0u8),
 			ram_on: false,
 			ram_mode: false,
 			rombank: 1,
 			rambank: 0,
-		}
+			savepath: svpath,
+		};
+		res.loadram();
+		return res
+	}
+
+	fn loadram(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(savepath) => if savepath.is_file() {
+					self.ram = ::std::io::File::open(&savepath).read_to_end();
+			},
+		};
+	}
+}
+
+impl Drop for MBC1 {
+	fn drop(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(path) => ::std::io::File::create(&path).write(self.ram),
+		};
 	}
 }
 
@@ -45,27 +72,54 @@ struct MBC3 {
 	priv rombank: u32,
 	priv rambank: u32,
 	priv ram_on: bool,
+	priv savepath: Option<Path>,
 }
 
 impl MBC3 {
-	pub fn new(data: ~[u8]) -> MBC3 {
-		let ramsize = ram_size(data[0x149]);
-		MBC3 {
+	pub fn new(data: ~[u8], file: &Path) -> MBC3 {
+		let (svpath, ramsize) = match data[0x147] {
+			0x10 | 0x13 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
+			0x12 => (None, ram_size(data[0x149])),
+			_ => (None, 0),
+		};
+		let mut res = MBC3 {
 			rom: data,
 			ram: ::std::vec::from_elem(ramsize, 0u8),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,
-		}
+			savepath: svpath,
+		};
+		res.loadram();
+		return res
+	}
+
+	fn loadram(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(savepath) => if savepath.is_file() {
+					self.ram = ::std::io::File::open(&savepath).read_to_end();
+			},
+		};
 	}
 }
 
-pub fn get_mbc(data: ~[u8]) -> ~MBC {
+impl Drop for MBC3 {
+	fn drop(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(path) => ::std::io::File::create(&path).write(self.ram),
+		};
+	}
+}
+
+pub fn get_mbc(file: &Path) -> ~MBC {
+	let data: ~[u8] = ::std::io::File::open(file).read_to_end();
 	if data.len() < 0x149 { fail!("Rom size to small"); }
 	match data[0x147] {
 		0x00 => ~MBC0::new(data) as ~MBC,
-		0x01 .. 0x03 => ~MBC1::new(data) as ~MBC,
-		0x0F .. 0x13 => ~MBC3::new(data) as ~MBC,
+		0x01 .. 0x03 => ~MBC1::new(data, file) as ~MBC,
+		0x0F .. 0x13 => ~MBC3::new(data, file) as ~MBC,
 		m => fail!("Unsupported MBC type: {:02X}", m),
 	}
 }

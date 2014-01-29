@@ -3,7 +3,6 @@ use timer::Timer;
 use keypad::Keypad;
 use gpu::GPU;
 use sound::Sound;
-use std::io::File;
 
 static WRAM_SIZE: uint = 0x2000;
 static ZRAM_SIZE: uint = 0x7F;
@@ -23,7 +22,7 @@ pub struct MMU {
 
 impl MMU {
 	pub fn new(romname: &str) -> MMU {
-		let newmbc = ::mbc::get_mbc(File::open(&Path::new(romname)).read_to_end());
+		let newmbc = ::mbc::get_mbc(&Path::new(romname));
 
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),

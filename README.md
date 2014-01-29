@@ -16,6 +16,7 @@ Implemented
   - MBC-less
   - MBC1
   - MBC3 (partial)
+  - save games
 
 Not implemented
 ---------------
@@ -27,5 +28,4 @@ TODO
 ----
 
 * Some fixes for sprites
-* Save-games
 * Realtime clock
