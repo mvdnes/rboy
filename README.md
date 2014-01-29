@@ -15,7 +15,7 @@ Implemented
 * MMU
   - MBC-less
   - MBC1
-  - MBC3 (partial)
+  - MBC3 (with RTC)
   - save games
 
 Not implemented
@@ -28,4 +28,3 @@ TODO
 ----
 
 * Some fixes for sprites
-* Realtime clock

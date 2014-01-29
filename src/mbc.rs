@@ -1,3 +1,4 @@
+use extra::time;
 
 pub trait MBC {
 	fn readrom(&self, a: u16) -> u8;
@@ -73,15 +74,27 @@ struct MBC3 {
 	priv rambank: u32,
 	priv ram_on: bool,
 	priv savepath: Option<Path>,
+	priv rtc_ram: ~[u8,.. 5],
+	priv rtc_lock: bool,
+	priv rtc_zero: Option<i64>,
 }
 
 impl MBC3 {
 	pub fn new(data: ~[u8], file: &Path) -> MBC3 {
-		let (svpath, ramsize) = match data[0x147] {
-			0x10 | 0x13 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
-			0x12 => (None, ram_size(data[0x149])),
-			_ => (None, 0),
+		let subtype = data[0x147];
+		let svpath = match subtype {
+			0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
+			_ => None,
 		};
+		let ramsize = match subtype {
+			0x10 | 0x12 | 0x13 => ram_size(data[0x149]),
+			_ => 0,
+		};
+		let rtc = match subtype {
+			0x0F | 0x10 => Some(0),
+			_ => None,
+		};
+
 		let mut res = MBC3 {
 			rom: data,
 			ram: ::std::vec::from_elem(ramsize, 0u8),
@@ -89,6 +102,9 @@ impl MBC3 {
 			rambank: 0,
 			ram_on: false,
 			savepath: svpath,
+			rtc_ram: ~([0u8,.. 5]),
+			rtc_lock: false,
+			rtc_zero: rtc,
 		};
 		res.loadram();
 		return res
@@ -98,9 +114,46 @@ impl MBC3 {
 		match self.savepath.clone() {
 			None => {},
 			Some(savepath) => if savepath.is_file() {
-					self.ram = ::std::io::File::open(&savepath).read_to_end();
+				let mut file = ::std::io::File::open(&savepath);
+				let rtc = file.read_be_i64();
+				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
+				self.ram = file.read_to_end();
 			},
 		};
+	}
+
+	fn calc_rtc_reg(&mut self) {
+		let tzero = match self.rtc_zero {
+			Some(t) => t,
+			None => return,
+		};
+		if self.rtc_ram[4] & 0x40 == 0x40 { return }
+
+		let difftime: i64 = match time::get_time().sec - tzero {
+			n if n >= 0 => { n },
+			_ => { 0 },
+		};
+		self.rtc_ram[0] = (difftime % 60) as u8;
+		self.rtc_ram[1] = ((difftime / 60) % 60) as u8;
+		self.rtc_ram[2] = ((difftime / 3600) % 24) as u8;
+		let days: i64 = difftime / (3600*24);
+		self.rtc_ram[3] = days as u8;
+		self.rtc_ram[4] = (self.rtc_ram[4] & 0xFE) | (((days >> 8) & 0x01) as u8);
+		if days >= 512 {
+			self.rtc_ram[4] |= 0x80;
+			self.calc_rtc_zero();
+		}
+	}
+
+	fn calc_rtc_zero(&mut self) {
+		if self.rtc_zero.is_none() { return }
+		let mut difftime: i64 = time::get_time().sec;
+		difftime -= self.rtc_ram[0] as i64;
+		difftime -= (self.rtc_ram[1] as i64) * 60;
+		difftime -= (self.rtc_ram[2] as i64) * 3600;
+		let days = ((self.rtc_ram[4] as i64 & 0x1) << 8) | (self.rtc_ram[3] as i64);
+		difftime -= days * 3600 * 24;
+		self.rtc_zero = Some(difftime);
 	}
 }
 
@@ -108,7 +161,15 @@ impl Drop for MBC3 {
 	fn drop(&mut self) {
 		match self.savepath.clone() {
 			None => {},
-			Some(path) => ::std::io::File::create(&path).write(self.ram),
+			Some(path) => {
+				let mut file = ::std::io::File::create(&path);
+				let rtc = match (self.rtc_zero) {
+					Some(t) => t,
+					None => 0,
+				};
+				file.write_be_i64(rtc);
+				file.write(self.ram);
+			},
 		};
 	}
 }
@@ -186,7 +247,7 @@ impl MBC for MBC3 {
 		if self.rambank <= 3 {
 			self.ram[self.rambank * 0x2000 | ((a as u32) & 0x1FFF)]
 		} else {
-			0 // TODO: RTC
+			self.rtc_ram[self.rambank - 0x08]
 		}
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
@@ -196,7 +257,14 @@ impl MBC for MBC3 {
 				self.rombank = match v & 0x7F { 0 => 1, n => n as u32 }
 			},
 			0x4000 .. 0x5FFF => self.rambank = v as u32,
-			0x6000 .. 0x7FFF => {}, // TODO: RTC
+			0x6000 .. 0x7FFF => match v {
+				0 => self.rtc_lock = false,
+				1 => {
+					if !self.rtc_lock { self.calc_rtc_reg(); };
+					self.rtc_lock = true;
+				},
+				_ => {},
+			},
 			_ => fail!("Could not write to {:04X} (MBC3)", a),
 		}
 	}
@@ -205,7 +273,8 @@ impl MBC for MBC3 {
 		if self.rambank <= 3 {
 			self.ram[self.rambank * 0x2000 | ((a as u32) & 0x1FFF)] = v;
 		} else {
-			// TODO: RTC
+			self.rtc_ram[self.rambank - 0x8] = v;
+			self.calc_rtc_zero();
 		}
 	}
 }
