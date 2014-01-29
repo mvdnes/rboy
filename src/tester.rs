@@ -43,12 +43,16 @@ fn main() {
 	};
 
 	let (sdlstream, cpustream) = DuplexStream::new();
-	let rawscreen = ~[0xFFu8,.. 160*144*3];
+	let rawscreen = ~[0x00u8,.. 160*144*3];
 	let arc = RWArc::new(rawscreen);
 	let arc2 = arc.clone();
-	spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
+	do spawn { cpuloop(&cpustream, arc2, filename, &matches); }
+
+	let mut timer = std::io::timer::Timer::new().unwrap();
+	let periodic = timer.periodic(8);
 
 	'main : loop {
+		periodic.recv();
 		match sdlstream.try_recv() {
 			Some(_) => recalculate_screen(screen, &arc),
 			None => {},
@@ -94,16 +98,17 @@ fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
 
 fn recalculate_screen(screen: &sdl::video::Surface, arc: &RWArc<~[u8]>) {
 	arc.read(|data| 
-	for y in range(0, 144) {
-		for x in range(0, 160) {
-			screen.fill_rect(
-				Some(sdl::Rect { x: (x*2) as i16, y: (y*2) as i16, w: 2, h: 2 }),
-				sdl::video::RGB(data[y*160*3 + x*3 + 0],
-				                data[y*160*3 + x*3 + 1],
-				                data[y*160*3 + x*3 + 2])
-			);
+		for y in range(0, 144) {
+			for x in range(0, 160) {
+				screen.fill_rect(
+					Some(sdl::Rect { x: (x*2) as i16, y: (y*2) as i16, w: 2, h: 2 }),
+					sdl::video::RGB(data[y*160*3 + x*3 + 0],
+					                data[y*160*3 + x*3 + 1],
+					                data[y*160*3 + x*3 + 2])
+				);
+			}
 		}
-	});
+	);
 	screen.flip();
 }
 
@@ -124,21 +129,20 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 		c.cycle();
 
 		if c.mmu.gpu.updated {
-			c.mmu.gpu.updated = false;
 			arc.write(|data|
-				for i in range(0, c.mmu.gpu.data.len()) {
-					data[i] = c.mmu.gpu.data[i];
-				}
+				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
 			);
 			periodic.recv();
 			channel.try_send(0);
 		}
-
-		match channel.try_recv() {
-			None => {},
-			Some(Poweroff) => { break; },
-			Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
-			Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
-		};
+		if c.mmu.gpu.updated || c.halted {
+			match channel.try_recv() {
+				None => {},
+				Some(Poweroff) => { break; },
+				Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
+				Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
+			};
+		}
+		c.mmu.gpu.updated = false;
 	}
 }

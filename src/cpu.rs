@@ -4,7 +4,7 @@ mod mmu;
 pub struct CPU {
 	priv reg: register::Registers,
 	mmu: mmu::MMU,
-	priv halted: bool,
+	halted: bool,
 	priv ime: bool,
 	priv setdi: uint,
 	priv setei: uint,
@@ -789,6 +789,11 @@ impl CPU {
 	fn cpu_jr(&mut self) {
 		let n = self.fetchbyte() as i8;
 		self.reg.pc = ((self.reg.pc as u32 as i32) + (n as i32)) as u16;
+	}
+
+	pub fn is_loopback(&self) -> bool {
+		self.mmu.rb(self.reg.pc) == 0x18
+		&& self.mmu.rb(self.reg.pc + 1) == 0xFE
 	}
 }
 
