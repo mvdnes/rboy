@@ -1,5 +1,6 @@
-src/tester: src/*.rs lib/libsdl-0.3.1.so
-	rustc -O -A dead_code -L lib/ src/tester.rs
+.PHONY: src
+src: lib/libsdl-0.3.1.so
+	cd src && make
 
 lib:
 	mkdir lib
@@ -14,7 +15,7 @@ lib/libsdl-0.3.1.so: lib rust-sdl/README.md
 
 .PHONY: clean
 clean:
-	rm -f src/tester
+	cd src && make clean
 
 .PHONY: distclean
 distclean: clean
