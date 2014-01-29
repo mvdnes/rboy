@@ -16,6 +16,7 @@ Implemented
   - MBC-less
   - MBC1
   - MBC3 (with RTC)
+  - MBC5
   - save games
 
 Not implemented

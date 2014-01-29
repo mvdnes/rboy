@@ -174,6 +174,60 @@ impl Drop for MBC3 {
 	}
 }
 
+struct MBC5 {
+	priv rom: ~[u8],
+	priv ram: ~[u8],
+	priv rombank: u32,
+	priv rambank: u32,
+	priv ram_on: bool,
+	priv savepath: Option<Path>,
+}
+
+impl MBC5 {
+	pub fn new(data: ~[u8], file: &Path) -> MBC5 {
+		let subtype = data[0x147];
+		let svpath = match subtype {
+			0x1B | 0x1E => Some(file.with_extension("gbsave")),
+			_ => None,
+		};
+		let ramsize = match subtype {
+			0x1A | 0x1B | 0x1D | 0x1E => ram_size(data[0x149]),
+			_ => 0,
+		};
+
+		let mut res = MBC5 {
+			rom: data,
+			ram: ::std::vec::from_elem(ramsize, 0u8),
+			rombank: 1,
+			rambank: 0,
+			ram_on: false,
+			savepath: svpath,
+		};
+		res.loadram();
+		return res
+	}
+
+	fn loadram(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(savepath) => if savepath.is_file() {
+				self.ram = ::std::io::File::open(&savepath).read_to_end();
+			},
+		};
+	}
+}
+
+impl Drop for MBC5 {
+	fn drop(&mut self) {
+		match self.savepath.clone() {
+			None => {},
+			Some(path) => {
+				::std::io::File::create(&path).write(self.ram);
+			},
+		};
+	}
+}
+
 pub fn get_mbc(file: &Path) -> ~MBC {
 	let data: ~[u8] = ::std::io::File::open(file).read_to_end();
 	if data.len() < 0x149 { fail!("Rom size to small"); }
@@ -181,6 +235,7 @@ pub fn get_mbc(file: &Path) -> ~MBC {
 		0x00 => ~MBC0::new(data) as ~MBC,
 		0x01 .. 0x03 => ~MBC1::new(data, file) as ~MBC,
 		0x0F .. 0x13 => ~MBC3::new(data, file) as ~MBC,
+		0x19 .. 0x1E => ~MBC5::new(data, file) as ~MBC,
 		m => fail!("Unsupported MBC type: {:02X}", m),
 	}
 }
@@ -276,6 +331,30 @@ impl MBC for MBC3 {
 			self.rtc_ram[self.rambank - 0x8] = v;
 			self.calc_rtc_zero();
 		}
+	}
+}
+impl MBC for MBC5 {
+	fn readrom(&self, a: u16) -> u8 {
+		if a < 0x4000 { self.rom[a] }
+		else { self.rom[self.rombank * 0x4000 | ((a as u32) & 0x3FFF)] }
+	}
+	fn readram(&self, a: u16) -> u8 {
+		if !self.ram_on { return 0 }
+		self.ram[self.rambank * 0x2000 | ((a as u32) & 0x1FFF)]
+	}
+	fn writerom(&mut self, a: u16, v: u8) {
+		match a {
+			0x0000 .. 0x1FFF => self.ram_on = (v == 0x0A),
+			0x2000 .. 0x2FFF => self.rombank = self.rombank & 0x100 | v as u32,
+			0x3000 .. 0x3FFF => self.rombank = self.rombank & 0xFF | ((v & 0x1) as u32 << 8),
+			0x4000 .. 0x5FFF => self.rambank = (v & 0x0F) as u32,
+			0x6000 .. 0x7FFF => { /* ? */ },
+			_ => fail!("Could not write to {:04X} (MBC5)", a),
+		}
+	}
+	fn writeram(&mut self, a: u16, v: u8) {
+		if self.ram_on == false { return }
+		self.ram[self.rambank * 0x2000 | ((a as u32) & 0x1FFF)] = v;
 	}
 }
 
