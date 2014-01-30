@@ -11,7 +11,7 @@ rust-sdl/README.md:
 lib/libsdl-0.3.1.so: lib rust-sdl/README.md
 	cd rust-sdl && rustpkg build sdl
 	mv rust-sdl/build/*/sdl/libsdl* lib/libsdl-0.3.1.so
-	rm -rf rust-sdl/buid rust-sdl/.rust
+	rm -rf rust-sdl/.rust
 
 .PHONY: clean
 clean:
