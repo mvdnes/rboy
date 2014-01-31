@@ -63,6 +63,10 @@ fn main() {
 				sdl::event::NoEvent => break 'event,
 				sdl::event::KeyEvent(sdl::event::EscapeKey, _, _, _)
 					=> break 'main,
+				sdl::event::KeyEvent(sdl::event::LShiftKey, true, _, _)
+					=> sdlstream.send(SpeedUp),
+				sdl::event::KeyEvent(sdl::event::LShiftKey, false, _, _)
+					=> sdlstream.send(SlowDown),
 				sdl::event::KeyEvent(sdlkey, true, _, _) => {
 					match sdl_to_keypad(sdlkey) {
 						Some(key) => sdlstream.send(KeyDown(key)),
@@ -116,6 +120,8 @@ enum GBEvent {
 	KeyUp(keypad::KeypadKey),
 	KeyDown(keypad::KeypadKey),
 	Poweroff,
+	SpeedUp,
+	SlowDown,
 }
 
 fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
@@ -123,7 +129,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let periodic = timer.periodic(8);
+	let mut periodic = timer.periodic(8);
 
 	let waitticks = (4194.304 * 4.0) as uint;
 
@@ -147,6 +153,8 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 			Some(Poweroff) => { break; },
 			Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
 			Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
+			Some(SpeedUp) => periodic = timer.periodic(1),
+			Some(SlowDown) => periodic = timer.periodic(8),
 		};
 	}
 }
