@@ -126,7 +126,7 @@ enum GBEvent {
 
 fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
 	let mut c = CPU::new(filename);
-	c.mmu.serial.enabled = matches.opt_present("serial");
+	c.mmu.serial.tostdout= matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let mut periodic = timer.periodic(8);
