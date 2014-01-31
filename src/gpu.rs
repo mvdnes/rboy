@@ -237,6 +237,10 @@ impl GPU {
 		self.data[self.line as uint * SCREEN_W * 3 + x * 3 + 2] = color;
 	}
 
+	fn isbg0(&self, x: uint) -> bool {
+		self.data[self.line as uint * SCREEN_W * 3 + x * 3] == self.palb[0]
+	}
+
 	fn draw_bg(&mut self) {
 		if !self.bg_on { return }
 
@@ -333,7 +337,8 @@ impl GPU {
 				let colnr: u8 = (if b1 & xbit != 0 { 1 } else { 0 }) |
 					(if b2 & xbit != 0 { 2 } else { 0 });
 				if colnr == 0 { continue }
-				//TODO: draw belowbg if bg == 0 and flag is set
+
+				if belowbg && !self.isbg0((spritex + x) as uint) { continue; }
 				let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
 
 				self.setcolor((spritex + x) as uint, color);
