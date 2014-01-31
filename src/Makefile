@@ -1,7 +1,7 @@
-tester: *.rs
-	rustc -O -A dead_code -L ../lib/ tester.rs
+rboy: *.rs
+	rustc -O -A dead_code -L ../lib/ main.rs
 
 .PHONY: clean
 clean:
-	rm -f tester
+	rm -f rboy
 

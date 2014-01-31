@@ -1,4 +1,4 @@
-#[crate_id = "tester"];
+#[crate_id = "rboy"];
 
 extern mod extra;
 extern mod sdl;
@@ -125,19 +125,19 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
 
-	let waitticks = (4194.304 * 6.0) as uint;
+	let waitticks = (4194.304 * 4.0) as uint;
 
 	let mut ticks = 0;
 	loop {
 		while ticks < waitticks {
 			ticks += c.cycle();
 			if c.mmu.gpu.updated {
+				c.mmu.gpu.updated = false;
 				arc.write(|data|
 					for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
 				);
 				channel.try_send(0);
 			}
-			c.mmu.gpu.updated = false;
 		}
 		ticks -= waitticks;
 		periodic.recv();
