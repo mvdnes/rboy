@@ -230,7 +230,8 @@ impl Drop for MBC5 {
 
 pub fn get_mbc(file: &Path) -> ~MBC {
 	let data: ~[u8] = ::std::io::File::open(file).read_to_end();
-	if data.len() < 0x149 { fail!("Rom size to small"); }
+	if data.len() < 0x150 { fail!("Rom size to small"); }
+	check_checksum(data);
 	match data[0x147] {
 		0x00 => ~MBC0::new(data) as ~MBC,
 		0x01 .. 0x03 => ~MBC1::new(data, file) as ~MBC,
@@ -246,6 +247,16 @@ fn ram_size(v: u8) -> uint {
 		2 => 0x2000,
 		3 => 0x8000,
 		_ => 0,
+	}
+}
+
+fn check_checksum(data: &[u8]) {
+	let mut value: u8 = 0;
+	for i in range(0x134, 0x14D) {
+		value = value - data[i] - 1;
+	}
+	if data[0x14D] != value {
+		fail!("Cartridge checksum is invalid");
 	}
 }
 

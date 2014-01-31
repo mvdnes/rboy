@@ -83,7 +83,7 @@ fn main() {
 			}
 		}
 	}
-	sdlstream.send(Poweroff);
+	sdlstream.try_send(Poweroff);
 }
 
 fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
