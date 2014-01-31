@@ -95,6 +95,7 @@ impl GPU {
 				if self.line == 144 {
 					self.mode = 1;
 					self.updated = true;
+					self.interrupt |= 0x01;
 				} else {
 					self.mode = 2;
 				}
@@ -116,7 +117,6 @@ impl GPU {
 	}
 
 	fn set_interrupts(&mut self) {
-		if self.updated { self.interrupt |= 0x01; }
 		if (self.lyc_inte && self.line == self.lyc)
 			|| (self.m2_inte && self.mode == 2)
 			|| (self.m1_inte && self.mode == 1)

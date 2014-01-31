@@ -123,26 +123,30 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 	c.mmu.serial.enabled = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let periodic = timer.periodic(16);
+	let periodic = timer.periodic(8);
 
+	let waitticks = (4194.304 * 6.0) as uint;
+
+	let mut ticks = 0;
 	loop {
-		c.cycle();
+		while ticks < waitticks {
+			ticks += c.cycle();
+			if c.mmu.gpu.updated {
+				arc.write(|data|
+					for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
+				);
+				channel.try_send(0);
+			}
+			c.mmu.gpu.updated = false;
+		}
+		ticks -= waitticks;
+		periodic.recv();
 
-		if c.mmu.gpu.updated {
-			arc.write(|data|
-				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
-			);
-			periodic.recv();
-			channel.try_send(0);
-		}
-		if c.mmu.gpu.updated || c.halted {
-			match channel.try_recv() {
-				None => {},
-				Some(Poweroff) => { break; },
-				Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
-				Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
-			};
-		}
-		c.mmu.gpu.updated = false;
+		match channel.try_recv() {
+			None => {},
+			Some(Poweroff) => { break; },
+			Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
+			Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
+		};
 	}
 }
