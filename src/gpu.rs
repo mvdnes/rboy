@@ -79,48 +79,53 @@ impl GPU {
 		if !self.lcd_on { return }
 		
 		self.modeclock += ticks;
-		match self.mode {
-			2 => if self.modeclock >= 20 {
-				self.modeclock -= 20;
-				self.mode = 3;
-			},
-			3 => if self.modeclock >= 43 {
-				self.renderscan();
-				self.mode = 0;
-				self.modeclock -= 43;
-			},
-			0 => if self.modeclock >= 51 {
-				self.modeclock -= 51;
-				self.line += 1;
-				if self.line == 144 {
-					self.mode = 1;
-					self.updated = true;
-					self.interrupt |= 0x01;
-				} else {
-					self.mode = 2;
-				}
-			},
-			1 => if self.modeclock >= 114 {
-				self.modeclock -= 114;
-				if self.line == 153 {
-					self.mode = 2;
-					self.line = 0;
-				}
-				if self.mode == 1 {
-					self.line += 1;
-				}
-			},
-			_ => {},
+
+		// Full line takes 114 ticks
+		if self.modeclock >= 114 {
+			self.modeclock -= 114;
+			self.line = (self.line + 1) % 154;
+			self.check_interrupt_lyc();
+
+			// This is a VBlank line
+			if self.line >= 144 && self.mode != 1 {
+				self.change_mode(1);
+			}
 		}
 
-		self.set_interrupts();
+		// This is a normal line
+		if self.line < 144 {
+			if self.modeclock <= 20 {
+				if self.mode != 2 { self.change_mode(2); }
+			} else if self.modeclock <= (20 + 43) {
+				if self.mode != 3 { self.change_mode(3); }
+			} else { // the remaining 51
+				if self.mode != 0 { self.change_mode(0); }
+			}
+		}
 	}
 
-	fn set_interrupts(&mut self) {
-		if (self.lyc_inte && self.line == self.lyc)
-			|| (self.m2_inte && self.mode == 2)
-			|| (self.m1_inte && self.mode == 1)
-			|| (self.m0_inte && self.mode == 0) {
+	fn check_interrupt_lyc(&mut self) {
+		if self.lyc_inte && self.line == self.lyc {
+			self.interrupt |= 0x02;
+		}
+	}
+
+	fn change_mode(&mut self, mode: u8) {
+		self.mode = mode;
+
+		if match self.mode {
+			0 => {
+				self.renderscan();
+				self.m0_inte
+			},
+			1 => {
+				self.interrupt |= 0x01;
+				self.updated = true;
+				self.m1_inte
+			},
+			2 => self.m2_inte,
+			_ => false,
+		} {
 			self.interrupt |= 0x02;
 		}
 	}
@@ -166,6 +171,7 @@ impl GPU {
 			0x8000 .. 0x9FFF => self.vram[a & 0x1FFF] = v,
 			0xFE00 .. 0xFE9F => self.voam[a - 0xFE00] = v,
 			0xFF40 => {
+				let orig_lcd_on = self.lcd_on;
 				self.lcd_on = v & 0x80 == 0x80;
 				self.win_tilemapbase = if v & 0x40 == 0x40 { 0x9C00 } else { 0x9800 };
 				self.win_on = v & 0x20 == 0x20;
@@ -174,6 +180,7 @@ impl GPU {
 				self.sprite_size = if v & 0x04 == 0x04 { 16 } else { 8 };
 				self.sprite_on = v & 0x02 == 0x02;
 				self.bg_on = v & 0x01 == 0x01;
+				if !orig_lcd_on && self.lcd_on { self.modeclock = 0; self.line = 0; self.mode = 0; }
 			},
 			0xFF41 => {
 				self.lyc_inte = v & 0x40 == 0x40;
