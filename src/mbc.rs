@@ -246,6 +246,7 @@ fn ram_size(v: u8) -> uint {
 		1 => 0x800,
 		2 => 0x2000,
 		3 => 0x8000,
+		4 => 0x20000,
 		_ => 0,
 	}
 }
@@ -356,8 +357,8 @@ impl MBC for MBC5 {
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
 			0x0000 .. 0x1FFF => self.ram_on = (v == 0x0A),
-			0x2000 .. 0x2FFF => self.rombank = self.rombank & 0x100 | v as u32,
-			0x3000 .. 0x3FFF => self.rombank = self.rombank & 0xFF | ((v & 0x1) as u32 << 8),
+			0x2000 .. 0x2FFF => self.rombank = (self.rombank & 0x100) | (v as u32),
+			0x3000 .. 0x3FFF => self.rombank = (self.rombank & 0x0FF) | ((v & 0x1) as u32 << 8),
 			0x4000 .. 0x5FFF => self.rambank = (v & 0x0F) as u32,
 			0x6000 .. 0x7FFF => { /* ? */ },
 			_ => fail!("Could not write to {:04X} (MBC5)", a),
