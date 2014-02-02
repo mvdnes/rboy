@@ -18,12 +18,11 @@ pub struct MMU {
 	gpu: GPU,
 	sound: Sound,
 	priv mbc: ~::mbc::MBC,
+	priv gbmode: ::gbmode::GbMode,
 }
 
 impl MMU {
 	pub fn new(romname: &str) -> MMU {
-		let newmbc = ::mbc::get_mbc(&Path::new(romname));
-
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),
 			zram: ~([0, ..ZRAM_SIZE]),
@@ -34,23 +33,61 @@ impl MMU {
 			keypad: Keypad::new(),
 			gpu: GPU::new(),
 			sound: Sound::new(),
-			mbc: newmbc,
+			mbc: ::mbc::get_mbc(&Path::new(romname)),
+			gbmode: ::gbmode::Classic,
 		};
+		if res.rb(0x0143) == 0xC0 {
+			fail!("This game does not work in Classic mode");
+		}
+		res.set_initial();
+		return res
+	}
 
-		res.wb(0xFF05, 0);
-		res.wb(0xFF06, 0);
-		res.wb(0xFF07, 0);
-		res.wb(0xFF40, 0x91);
-		res.wb(0xFF42, 0);
-		res.wb(0xFF43, 0);
-		res.wb(0xFF45, 0);
-		res.wb(0xFF47, 0xFC);
-		res.wb(0xFF48, 0xFF);
-		res.wb(0xFF49, 0xFF);
-		res.wb(0xFF4A, 0);
-		res.wb(0xFF4B, 0);
-
+	pub fn new_cgb(romname: &str) -> MMU {
+		let mut res = MMU {
+			wram: ~([0,.. WRAM_SIZE]),
+			zram: ~([0,.. ZRAM_SIZE]),
+			inte: 0,
+			intf: 0,
+			serial: Serial::new(),
+			timer: Timer::new(),
+			keypad: Keypad::new(),
+			gpu: GPU::new_cgb(),
+			sound: Sound::new(),
+			mbc: ::mbc::get_mbc(&Path::new(romname)),
+			gbmode: ::gbmode::Color,
+		};
+		res.determine_mode();
+		res.set_initial();
 		return res;
+	}
+
+	fn set_initial(&mut self) {
+		self.wb(0xFF05, 0);
+		self.wb(0xFF06, 0);
+		self.wb(0xFF07, 0);
+		self.wb(0xFF40, 0x91);
+		self.wb(0xFF42, 0);
+		self.wb(0xFF43, 0);
+		self.wb(0xFF45, 0);
+		self.wb(0xFF47, 0xFC);
+		self.wb(0xFF48, 0xFF);
+		self.wb(0xFF49, 0xFF);
+		self.wb(0xFF4A, 0);
+		self.wb(0xFF4B, 0);
+	}
+
+	fn determine_mode(&mut self) {
+		let mode = match self.rb(0x0143) & 0x80 {
+			0x80 => ::gbmode::Color,
+			_ => ::gbmode::ColorAsClassic,
+		};
+		self.gbmode = mode;
+		self.gpu.gbmode = mode;
+	}
+
+	pub fn get_mode(&self) -> ::gbmode::GbMode {
+		self.gbmode
 	}
 
 	pub fn cycle(&mut self, ticks: uint) {

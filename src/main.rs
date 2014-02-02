@@ -17,6 +17,7 @@ mod timer;
 mod keypad;
 mod gpu;
 mod sound;
+mod gbmode;
 
 fn main() {
 	let args: ~[~str] = std::os::args();

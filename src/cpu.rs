@@ -8,6 +8,7 @@ pub struct CPU {
 	priv ime: bool,
 	priv setdi: uint,
 	priv setei: uint,
+	priv gbmode: ::gbmode::GbMode,
 }
 
 static C: u8 = (1 << 4);
@@ -25,6 +26,21 @@ impl CPU {
 			setdi: 0,
 			setei: 0,
 			mmu: mmu::MMU::new(romname),
+			gbmode: ::gbmode::Classic,
+		}
+	}
+
+	pub fn new_cgb(romname: &str) -> CPU {
+		let mmu = mmu::MMU::new_cgb(romname);
+		let mode = mmu.get_mode();
+		CPU {
+			reg: register::Registers::new_cgb(),
+			halted: false,
+			ime: true,
+			setdi: 0,
+			setei: 0,
+			mmu: mmu,
+			gbmode: mode,
 		}
 	}
 

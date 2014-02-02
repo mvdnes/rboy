@@ -27,6 +27,12 @@ impl Registers {
 		}
 	}
 
+	pub fn new_cgb() -> Registers {
+		let mut res = Registers::new();
+		res.a = 0x11;
+		return res
+	}
+
 	pub fn af(&self) -> u16 {
 		(self.a as u16 << 8) | (self.f as u16)
 	}

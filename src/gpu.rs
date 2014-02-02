@@ -36,6 +36,7 @@ pub struct GPU {
 	data: ~[u8,.. SCREEN_W * SCREEN_H * 3],
 	updated: bool,
 	interrupt: u8,
+	gbmode: ::gbmode::GbMode,
 }
 
 impl GPU {
@@ -72,7 +73,12 @@ impl GPU {
 			data: ~([0,.. SCREEN_W * SCREEN_H * 3]),
 			updated: false,
 			interrupt: 0,
+			gbmode: ::gbmode::Classic,
 		}
+	}
+
+	pub fn new_cgb() -> GPU {
+		GPU::new()
 	}
 
 	pub fn cycle(&mut self, ticks: uint) {
