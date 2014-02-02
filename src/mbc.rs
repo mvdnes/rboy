@@ -275,7 +275,7 @@ impl MBC for MBC1 {
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[rambank * 0x2000 | a as u32]
+		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as u32)]
 	}
 
 	fn writerom(&mut self, a: u16, v: u8) {
@@ -299,7 +299,7 @@ impl MBC for MBC1 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if !self.ram_on { return }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[rambank * 0x2000 | a as u32] = v;
+		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as u32)] = v;
 	}
 }
 
