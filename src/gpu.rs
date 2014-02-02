@@ -194,6 +194,15 @@ impl GPU {
 				}
 			},
 			0xFF6A => { self.csprit_ind | (if self.csprit_inc { 0x80 } else { 0 }) },
+			0xFF6B => {
+				let palnum = self.csprit_ind / 8;
+				let colnum = (self.csprit_ind / 2) % 4;
+				if self.csprit_ind & 0x01 == 0x00 {
+					self.csprit[palnum][colnum][0] | ((self.csprit[palnum][colnum][1] & 0x07) << 5)
+				} else {
+					((self.csprit[palnum][colnum][1] & 0x18) >> 3) | (self.csprit[palnum][colnum][2] << 2)
+				}
+			},
 			_ => fail!("GPU does not handle read {:04X}", a),
 		}
 	}
