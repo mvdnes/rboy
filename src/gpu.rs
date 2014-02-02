@@ -185,8 +185,8 @@ impl GPU {
 			0xFF4F => self.vrambank as u8,
 			0xFF68 => { self.cbgpal_ind | (if self.cbgpal_inc { 0x80 } else { 0 }) },
 			0xFF69 => {
-				let palnum = self.cbgpal_ind / 8;
-				let colnum = (self.cbgpal_ind / 2) % 4;
+				let palnum = self.cbgpal_ind >> 3;
+				let colnum = (self.cbgpal_ind >> 1) & 0x3;
 				if self.cbgpal_ind & 0x01 == 0x00 {
 					self.cbgpal[palnum][colnum][0] | ((self.cbgpal[palnum][colnum][1] & 0x07) << 5)
 				} else {
@@ -195,8 +195,8 @@ impl GPU {
 			},
 			0xFF6A => { self.csprit_ind | (if self.csprit_inc { 0x80 } else { 0 }) },
 			0xFF6B => {
-				let palnum = self.csprit_ind / 8;
-				let colnum = (self.csprit_ind / 2) % 4;
+				let palnum = self.csprit_ind >> 3;
+				let colnum = (self.csprit_ind >> 1) & 0x3;
 				if self.csprit_ind & 0x01 == 0x00 {
 					self.csprit[palnum][colnum][0] | ((self.csprit[palnum][colnum][1] & 0x07) << 5)
 				} else {
@@ -249,8 +249,8 @@ impl GPU {
 			0xFF4F => self.vrambank = (v & 0x01) as u16,
 			0xFF68 => { self.cbgpal_ind = v & 0x3F; self.cbgpal_inc = v & 0x80 == 0x80; },
 			0xFF69 => {
-				let palnum = self.cbgpal_ind / 8;
-				let colnum = (self.cbgpal_ind / 2) % 4;
+				let palnum = self.cbgpal_ind >> 3;
+				let colnum = (self.cbgpal_ind >> 1) & 0x03;
 				if self.cbgpal_ind & 0x01 == 0x00 {
 					self.cbgpal[palnum][colnum][0] = v & 0x1F;
 					self.cbgpal[palnum][colnum][1] = (self.cbgpal[palnum][colnum][1] & 0x18) | (v >> 5);
@@ -258,12 +258,12 @@ impl GPU {
 					self.cbgpal[palnum][colnum][1] = (self.cbgpal[palnum][colnum][1] & 0x07) | ((v & 0x3) << 3);
 					self.cbgpal[palnum][colnum][2] = (v >> 2) & 0x1F;
 				}
-				if self.cbgpal_inc { self.cbgpal_ind = (self.cbgpal_ind + 1) & 0x3F; };
+				if self.cbgpal_inc { self.cbgpal_ind += 1; };
 			},
 			0xFF6A => { self.csprit_ind = v & 0x3F; self.csprit_inc = v & 0x80 == 0x80; },
 			0xFF6B => {
-				let palnum = self.csprit_ind / 8;
-				let colnum = (self.csprit_ind / 2) % 4;
+				let palnum = self.csprit_ind >> 3;
+				let colnum = (self.csprit_ind >> 1) & 0x03;
 				if self.csprit_ind & 0x01 == 0x00 {
 					self.csprit[palnum][colnum][0] = v & 0x1F;
 					self.csprit[palnum][colnum][1] = (self.csprit[palnum][colnum][1] & 0x18) | (v >> 5);
@@ -271,7 +271,7 @@ impl GPU {
 					self.csprit[palnum][colnum][1] = (self.csprit[palnum][colnum][1] & 0x07) | ((v & 0x3) << 3);
 					self.csprit[palnum][colnum][2] = (v >> 2) & 0x1F;
 				}
-				if self.csprit_inc { self.csprit_ind = (self.csprit_ind + 1) & 0x3F; };
+				if self.csprit_inc { self.csprit_ind += 1; };
 			},
 			_ => fail!("GPU does not handle write {:04X}", a),
 		}
@@ -478,14 +478,13 @@ impl GPU {
 					(if b2 & xbit != 0 { 2 } else { 0 });
 				if colnr == 0 { continue }
 
-				if belowbg && !self.isbg0((spritex + x) as uint) { continue; }
-
 				if self.gbmode == ::gbmode::Color {
 					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
 					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
 					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
 					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
 				} else {
+					if belowbg && !self.isbg0((spritex + x) as uint) { continue; }
 					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
 					self.setcolor((spritex + x) as uint, color);
 				}
