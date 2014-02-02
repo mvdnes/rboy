@@ -186,7 +186,7 @@ impl GPU {
 				self.sprite_size = if v & 0x04 == 0x04 { 16 } else { 8 };
 				self.sprite_on = v & 0x02 == 0x02;
 				self.bg_on = v & 0x01 == 0x01;
-				if !orig_lcd_on && self.lcd_on { self.modeclock = 0; self.line = 0; self.mode = 0; }
+				if orig_lcd_on && !self.lcd_on { self.modeclock = 0; self.line = 0; self.mode = 0; }
 			},
 			0xFF41 => {
 				self.lyc_inte = v & 0x40 == 0x40;
