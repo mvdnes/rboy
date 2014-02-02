@@ -256,7 +256,7 @@ fn check_checksum(data: &[u8]) {
 		value = value - data[i] - 1;
 	}
 	if data[0x14D] != value {
-		fail!("Cartridge checksum is invalid");
+		fail!("Cartridge checksum is invalid. {:02X} != {:02X}", data[0x14D], value);
 	}
 }
 
