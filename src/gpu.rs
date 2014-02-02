@@ -292,15 +292,9 @@ impl GPU {
 	}
 
 	fn renderscan(&mut self) {
-		if self.gbmode == ::gbmode::Color {
-			self.draw_bg_c();
-			//self.draw_win();
-			self.draw_sprites();
-		} else {
-			self.draw_bg();
-			self.draw_win();
-			self.draw_sprites();
-		}
+		self.draw_bg();
+		self.draw_win();
+		self.draw_sprites();
 	}
 
 	fn setcolor(&mut self, x: uint, color: u8) {
@@ -322,7 +316,19 @@ impl GPU {
 			let bgx = self.scx as uint + x;
 			let tilex = (bgx as u16 >> 3) & 31;
 
-			let tilenr: u8 = self.rb(self.bg_tilemap + tiley * 32 + tilex);
+			let tilenr: u8 = self.rbvram0(self.bg_tilemap + tiley * 32 + tilex);
+
+			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
+				let flags = self.rbvram1(self.bg_tilemap + tiley * 32 + tilex);
+				(flags & 0x03,
+				flags & (1 << 3) == 0,
+				flags & (1 << 5) != 0,
+				flags & (1 << 6) != 0,
+				flags & (1 << 7) != 0)
+			} else {
+				(0, true, false, false, false)
+			};
+
 			let tileaddress = (self.tilebase as int
 			+ (if self.tilebase == 0x8000 {
 				tilenr as u16 as int
@@ -330,13 +336,31 @@ impl GPU {
 				tilenr as i8 as int
 			}) * 16) as u16;
 
-			let b1 = self.rb(tileaddress + ((bgy as u16 & 0x07) * 2));
-			let b2 = self.rb(tileaddress + ((bgy as u16 & 0x07) * 2) + 1);
+			let a0 = match yflip {
+				false => tileaddress + ((bgy as u16 & 0x07) * 2),
+				true => tileaddress + (14 - ((bgy as u16 & 0x07) * 2)),
+			};
 
-			let xbit = bgx & 0x07;
-			let colnr = if b1 & (1 << (7 - xbit)) != 0 { 1 } else { 0 }
-				| if b2 & (1 << (7 - xbit)) != 0 { 2 } else { 0 };
-			self.setcolor(x, self.palb[colnr]);
+			let (b1, b2) = match vram0 {
+				true => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
+				false => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
+			};
+
+			let xbit = match xflip {
+				true => bgx & 0x07,
+				false => 7 - (bgx & 0x07),
+			};
+			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
+				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
+
+			if self.gbmode == ::gbmode::Color {
+				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
+				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
+				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
+				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
+			} else {
+				self.setcolor(x, self.palb[colnr]);
+			}
 		}
 	}
 
@@ -352,7 +376,19 @@ impl GPU {
 			if winx < 0 { continue }
 			let tilex: u16 = ((winx as u16) >> 3) & 31;
 
-			let tilenr: u8 = self.rb(self.win_tilemapbase + tiley * 32 + tilex);
+			let tilenr: u8 = self.rbvram0(self.win_tilemapbase + tiley * 32 + tilex);
+
+			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
+				let flags = self.rbvram1(self.bg_tilemap + tiley * 32 + tilex);
+				(flags & 0x03,
+				flags & (1 << 3) == 0,
+				flags & (1 << 5) != 0,
+				flags & (1 << 6) != 0,
+				flags & (1 << 7) != 0)
+			} else {
+				(0, true, false, false, false)
+			};
+
 			let tileaddress = (self.tilebase as int
 			+ (if self.tilebase == 0x8000 {
 				tilenr as u16 as int
@@ -360,13 +396,31 @@ impl GPU {
 				tilenr as i8 as int
 			}) * 16) as u16;
 
-			let b1 = self.rb(tileaddress + ((winy as u16 & 0x07) * 2));
-			let b2 = self.rb(tileaddress + ((winy as u16 & 0x07) * 2) + 1);
+			let a0 = match yflip {
+				false => tileaddress + ((winy as u16 & 0x07) * 2),
+				true => tileaddress + (14 - ((winy as u16 & 0x07) * 2)),
+			};
 
-			let xbit = winx & 0x07;
-			let colnr = if b1 & (1 << (7 - xbit)) != 0 { 1 } else { 0 }
-				| if b2 & (1 << (7 - xbit)) != 0 { 2 } else { 0 };
-			self.setcolor(x, self.palb[colnr]);
+			let (b1, b2) = match vram0 {
+				true => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
+				false => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
+			};
+
+			let xbit = match xflip {
+				true => winx & 0x07,
+				false => 7 - (winx & 0x07),
+			};
+
+			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
+				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
+			if self.gbmode == ::gbmode::Color {
+				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
+				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
+				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
+				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
+			} else {
+				self.setcolor(x, self.palb[colnr]);
+			}
 		}
 	}
 
@@ -385,6 +439,8 @@ impl GPU {
 			let xflip: bool = flags & (1 << 5) != 0;
 			let yflip: bool = flags & (1 << 6) != 0;
 			let belowbg: bool = flags & (1 << 7) != 0;
+			let c_palnr: u8 = flags & 0x03;
+			let c_vram0: bool = flags & (1 << 3) == 0;
 
 			let line = self.line as int;
 			let sprite_size = self.sprite_size as int;
@@ -397,10 +453,13 @@ impl GPU {
 			} else {
 				(line - spritey) as u16
 			};
-			
+
 			let tileaddress = 0x8000u16 + tilenum * 16 + tiley * 2;
-			let b1 = self.rb(tileaddress);
-			let b2 = self.rb(tileaddress + 1);
+			let (b1, b2) = if !c_vram0 && self.gbmode == ::gbmode::Color {
+				(self.rbvram1(tileaddress), self.rbvram1(tileaddress + 1))
+			} else {
+				(self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
+			};
 
 			for x in range(0, 8) {
 				if spritex + x < 0 || spritex + x >= (SCREEN_W as int) { continue }
@@ -411,60 +470,17 @@ impl GPU {
 				if colnr == 0 { continue }
 
 				if belowbg && !self.isbg0((spritex + x) as uint) { continue; }
-				let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
 
-				self.setcolor((spritex + x) as uint, color);
+				if self.gbmode == ::gbmode::Color {
+					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
+					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
+					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
+					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
+				} else {
+					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
+					self.setcolor((spritex + x) as uint, color);
+				}
 			}
-		}
-	}
-
-	fn draw_bg_c(&mut self) {
-		if !self.bg_on { return }
-
-		let bgy = self.scy + self.line;
-		let tiley = (bgy as u16 >> 3) & 31;
-		for x in range(0, SCREEN_W) {
-			let bgx = self.scx as uint + x;
-			let tilex = (bgx as u16 >> 3) & 31;
-
-			let tilenr: u8 = self.rbvram0(self.bg_tilemap + tiley * 32 + tilex);
-			let tileattr: u8 = self.rbvram1(self.bg_tilemap + tiley * 32 + tilex);
-
-			let palnr = tileattr & 0x3;
-			let vram0 = (tileattr & (1<<3)) == 0;
-			let xflip = (tileattr & (1 << 5)) != 0;
-			let yflip = (tileattr & (1 << 6)) != 0;
-			let prio = (tileattr & (1 << 7)) != 0;
-
-			let tileaddress = (self.tilebase as int
-			+ (if self.tilebase == 0x8000 {
-				tilenr as u16 as int
-			} else {
-				tilenr as i8 as int
-			}) * 16) as u16;
-
-			let a0 = if !yflip {
-				tileaddress + ((bgy as u16 & 0x07) * 2)
-			} else {
-				tileaddress + (14 - ((bgy as u16 & 0x07) * 2))
-			};
-			let (b1, b2) = match vram0 {
-				true => (self.rbvram0(a0), self.rbvram0(a0+1)),
-				false => (self.rbvram1(a0), self.rbvram1(a0+1)),
-			};
-
-			let xbit = if xflip { bgx & 0x07 } else { 7 - (bgx & 0x07) };
-			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
-				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
-
-			let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
-			self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8;
-			self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8;
-			self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8;
-/*			fail!("{:2X} {:2X} {:2X}"
-				  , self.cbgpal[palnr][colnr][0]
-				  , self.cbgpal[palnr][colnr][1]
-				  , self.cbgpal[palnr][colnr][2]);*/
 		}
 	}
 }
