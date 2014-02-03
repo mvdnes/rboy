@@ -391,8 +391,7 @@ impl GPU {
 	}
 
 	fn draw_win(&mut self) {
-		if (self.gbmode == ::gbmode::Classic && !self.win_on) ||
-			(self.gbmode != ::gbmode::Classic && !self.lcdc0) {
+		if !self.win_on || (self.gbmode != ::gbmode::Classic && !self.lcdc0) {
 			return
 		}
 
