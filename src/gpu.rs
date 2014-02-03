@@ -260,7 +260,7 @@ impl GPU {
 					self.cbgpal[palnum][colnum][1] = (self.cbgpal[palnum][colnum][1] & 0x07) | ((v & 0x3) << 3);
 					self.cbgpal[palnum][colnum][2] = (v >> 2) & 0x1F;
 				}
-				if self.cbgpal_inc { self.cbgpal_ind += 1; };
+				if self.cbgpal_inc { self.cbgpal_ind = (self.cbgpal_ind + 1) & 0x3F; };
 			},
 			0xFF6A => { self.csprit_ind = v & 0x3F; self.csprit_inc = v & 0x80 == 0x80; },
 			0xFF6B => {
@@ -273,7 +273,7 @@ impl GPU {
 					self.csprit[palnum][colnum][1] = (self.csprit[palnum][colnum][1] & 0x07) | ((v & 0x3) << 3);
 					self.csprit[palnum][colnum][2] = (v >> 2) & 0x1F;
 				}
-				if self.csprit_inc { self.csprit_ind += 1; };
+				if self.csprit_inc { self.csprit_ind = (self.csprit_ind + 1) & 0x3F; };
 			},
 			_ => fail!("GPU does not handle write {:04X}", a),
 		}

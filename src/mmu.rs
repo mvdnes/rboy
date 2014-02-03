@@ -122,6 +122,7 @@ impl MMU {
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
 			0xFF10 .. 0xFF26 => self.sound.rb(address),
+			0xFF4D => 0,
 			0xFF40 .. 0xFF4F => self.gpu.rb(address),
 			0xFF51 .. 0xFF55 => self.hdma_read(address),
 			0xFF68 .. 0xFF6B => self.gpu.rb(address),
@@ -149,8 +150,8 @@ impl MMU {
 			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
 			0xFF10 .. 0xFF26 => self.sound.wb(address, value),
 			0xFF46 => self.oamdma(value),
+			0xFF4D => {}, // CGB speed switch
 			0xFF40 .. 0xFF4F => self.gpu.wb(address, value),
-			//0xFF4D => {}, // CGB speed switch
 			0xFF51 .. 0xFF55 => self.hdma_write(address, value),
 			0xFF68 .. 0xFF6B => self.gpu.wb(address, value),
 			0xFF0F => self.intf = value,
