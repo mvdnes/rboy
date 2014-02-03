@@ -408,7 +408,7 @@ impl GPU {
 			let tilenr: u8 = self.rbvram0(self.win_tilemapbase + tiley * 32 + tilex);
 
 			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
-				let flags = self.rbvram1(self.bg_tilemap + tiley * 32 + tilex);
+				let flags = self.rbvram1(self.win_tilemapbase + tiley * 32 + tilex);
 				(flags & 0x07,
 				flags & (1 << 3) == 0,
 				flags & (1 << 5) != 0,
