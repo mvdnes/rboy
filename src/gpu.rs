@@ -4,6 +4,13 @@ static VOAM_SIZE: uint = 0xA0;
 static SCREEN_W: uint = 160;
 static SCREEN_H: uint = 144;
 
+#[deriving(Eq)]
+enum PrioType {
+	Color0,
+	PrioFlag,
+	Normal,
+}
+
 pub struct GPU {
 	priv mode: u8,
 	priv modeclock: uint,
@@ -41,7 +48,7 @@ pub struct GPU {
 	priv csprit: [[[u8,.. 3],.. 4],.. 8],
 	priv vrambank: u16,
 	data: ~[u8,.. SCREEN_W * SCREEN_H * 3],
-	priv bgprio: ~[bool,.. SCREEN_W],
+	priv bgprio: ~[PrioType,.. SCREEN_W],
 	updated: bool,
 	interrupt: u8,
 	gbmode: ::gbmode::GbMode,
@@ -79,7 +86,7 @@ impl GPU {
 			vram: ~([0,.. VRAM_SIZE]),
 			voam: ~([0,.. VOAM_SIZE]),
 			data: ~([0,.. SCREEN_W * SCREEN_H * 3]),
-			bgprio: ~([false,.. SCREEN_W]),
+			bgprio: ~([Normal,.. SCREEN_W]),
 			updated: false,
 			interrupt: 0,
 			gbmode: ::gbmode::Classic,
@@ -303,6 +310,10 @@ impl GPU {
 	}
 
 	fn renderscan(&mut self) {
+		for x in range(0, SCREEN_W) {
+			self.setcolor(x, 255);
+			self.bgprio[x] = Normal;
+		}
 		self.draw_bg();
 		self.draw_win();
 		self.draw_sprites();
@@ -364,14 +375,16 @@ impl GPU {
 			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
 				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
+			self.bgprio[x] =
+				if prio { PrioFlag }
+				else if colnr == 0 { Color0 }
+				else { Normal };
 			if self.gbmode == ::gbmode::Color {
 				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
-				self.bgprio[x] = prio;
 				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
 				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
 				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
 			} else {
-				self.bgprio[x] = colnr != 0;
 				self.setcolor(x, self.palb[colnr]);
 			}
 		}
@@ -430,14 +443,17 @@ impl GPU {
 
 			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
 				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
+
+			self.bgprio[x] =
+				if prio { PrioFlag }
+				else if colnr == 0 { Color0 }
+				else { Normal };
 			if self.gbmode == ::gbmode::Color {
-				self.bgprio[x] = prio;
 				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
 				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
 				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
 				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
 			} else {
-				self.bgprio[x] = colnr != 0;
 				self.setcolor(x, self.palb[colnr]);
 			}
 		}
@@ -480,7 +496,7 @@ impl GPU {
 				(self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
 			};
 
-			for x in range(0, 8) {
+			'xloop: for x in range(0, 8) {
 				if spritex + x < 0 || spritex + x >= (SCREEN_W as int) { continue }
 
 				let xbit: u8 = 1 << (if xflip { x } else { 7 - x });
@@ -489,13 +505,15 @@ impl GPU {
 				if colnr == 0 { continue }
 
 				if self.gbmode == ::gbmode::Color {
-					if !self.lcdc0 && belowbg && self.bgprio[spritex + x] { continue }
+					if self.lcdc0 && (self.bgprio[spritex + x] == PrioFlag || (belowbg && self.bgprio[spritex + x] != Color0)) {
+						continue 'xloop
+					}
 					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
 					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
 					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
 					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
 				} else {
-					if belowbg && self.bgprio[spritex + x] { continue }
+					if belowbg && self.bgprio[spritex + x] != Color0 { continue 'xloop }
 					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
 					self.setcolor((spritex + x) as uint, color);
 				}
