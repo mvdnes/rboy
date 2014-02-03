@@ -17,7 +17,7 @@ pub struct GPU {
 	priv line: u8,
 	priv lyc: u8,
 	priv lcd_on: bool,
-	priv win_tilemapbase: u16,
+	priv win_tilemap: u16,
 	priv win_on: bool,
 	priv tilebase: u16,
 	priv bg_tilemap: u16,
@@ -62,7 +62,7 @@ impl GPU {
 			line: 0,
 			lyc: 0,
 			lcd_on: false,
-			win_tilemapbase: 0x9C00,
+			win_tilemap: 0x9C00,
 			win_on: false,
 			tilebase: 0x8000,
 			bg_tilemap: 0x9C00,
@@ -165,7 +165,7 @@ impl GPU {
 			0xFE00 .. 0xFE9F => self.voam[a - 0xFE00],
 			0xFF40 => {
 				(if self.lcd_on { 0x80 } else { 0 }) |
-				(if self.win_tilemapbase == 0x9C00 { 0x40 } else { 0 }) |
+				(if self.win_tilemap == 0x9C00 { 0x40 } else { 0 }) |
 				(if self.win_on { 0x20 } else { 0 }) |
 				(if self.tilebase == 0x8000 { 0x10 } else { 0 }) |
 				(if self.bg_tilemap == 0x9C00 { 0x08 } else { 0 }) |
@@ -230,9 +230,9 @@ impl GPU {
 			0xFF40 => {
 				let orig_lcd_on = self.lcd_on;
 				self.lcd_on = v & 0x80 == 0x80;
-				self.win_tilemapbase = if v & 0x40 == 0x40 { 0x9C00 } else { 0x9800 };
+				self.win_tilemap = if v & 0x40 == 0x40 { 0x9C00 } else { 0x9800 };
 				self.win_on = v & 0x20 == 0x20;
-				self.tilebase = if v & 0x10 == 0x10 { 0x8000 } else { 0x9000 };
+				self.tilebase = if v & 0x10 == 0x10 { 0x8000 } else { 0x8800 };
 				self.bg_tilemap = if v & 0x08 == 0x08 { 0x9C00 } else { 0x9800 };
 				self.sprite_size = if v & 0x04 == 0x04 { 16 } else { 8 };
 				self.sprite_on = v & 0x02 == 0x02;
@@ -351,12 +351,12 @@ impl GPU {
 				(0, true, false, false, false)
 			};
 
-			let tileaddress = (self.tilebase as int
+			let tileaddress = (self.tilebase
 			+ (if self.tilebase == 0x8000 {
-				tilenr as u16 as int
+				tilenr as u16
 			} else {
-				tilenr as i8 as int
-			}) * 16) as u16;
+				(tilenr as i8 as i16 + 128) as u16
+			}) * 16);
 
 			let a0 = match yflip {
 				false => tileaddress + ((bgy as u16 & 0x07) * 2),
@@ -405,38 +405,38 @@ impl GPU {
 			if winx < 0 { continue }
 			let tilex: u16 = ((winx as u16) >> 3) & 31;
 
-			let tilenr: u8 = self.rbvram0(self.win_tilemapbase + tiley * 32 + tilex);
+			let tilenr: u8 = self.rbvram0(self.win_tilemap + tiley * 32 + tilex);
 
-			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
-				let flags = self.rbvram1(self.win_tilemapbase + tiley * 32 + tilex);
+			let (palnr, vram1, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
+				let flags = self.rbvram1(self.win_tilemap + tiley * 32 + tilex);
 				(flags & 0x07,
-				flags & (1 << 3) == 0,
+				flags & (1 << 3) != 0,
 				flags & (1 << 5) != 0,
 				flags & (1 << 6) != 0,
 				flags & (1 << 7) != 0)
 			} else {
-				(0, true, false, false, false)
+				(0, false, false, false, false)
 			};
 
-			let tileaddress = (self.tilebase as int
+			let tileaddress = (self.tilebase
 			+ (if self.tilebase == 0x8000 {
-				tilenr as u16 as int
+				tilenr as u16
 			} else {
-				tilenr as i8 as int
-			}) * 16) as u16;
+				(tilenr as i8 as i16 + 128) as u16
+			}) * 16);
 
 			let a0 = match yflip {
 				false => tileaddress + ((winy as u16 & 0x07) * 2),
-				true => tileaddress + (14 - ((winy as u16 & 0x07) * 2)),
+				true  => tileaddress + (14 - ((winy as u16 & 0x07) * 2)),
 			};
 
-			let (b1, b2) = match vram0 {
-				true => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
-				false => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
+			let (b1, b2) = match vram1 {
+				false => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
+				true  => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
 			};
 
 			let xbit = match xflip {
-				true => winx & 0x07,
+				true  => winx & 0x07,
 				false => 7 - (winx & 0x07),
 			};
 
