@@ -23,7 +23,7 @@ fn main() {
 	let args: ~[~str] = std::os::args();
 	let program = args[0].clone() + " <filename>";
 
-	let opts = ~[ getopts::groups::optflag("s", "serial", "Output serial to stdout") ];
+	let opts = ~[ getopts::groups::optflag("s", "serial", "Output serial to stdout"), getopts::groups::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::groups::getopts(args.tail(), opts) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f.to_err_msg()); return }
@@ -126,7 +126,10 @@ enum GBEvent {
 }
 
 fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
-	let mut c = CPU::new_cgb(filename);
+	let mut c = match matches.opt_present("classic") {
+		true => CPU::new(filename),
+		false => CPU::new_cgb(filename),
+	};	
 	c.mmu.serial.tostdout= matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
