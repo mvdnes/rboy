@@ -325,10 +325,6 @@ impl GPU {
 		self.data[self.line as uint * SCREEN_W * 3 + x * 3 + 2] = color;
 	}
 
-	fn isbg0(&self, x: uint) -> bool {
-		self.data[self.line as uint * SCREEN_W * 3 + x * 3] == self.palb[0]
-	}
-
 	fn draw_bg(&mut self) {
 		if self.gbmode != ::gbmode::Color && !self.lcdc0 { return }
 

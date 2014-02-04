@@ -1,9 +1,7 @@
-mod register;
-mod mmu;
 
 pub struct CPU {
-	priv reg: register::Registers,
-	mmu: mmu::MMU,
+	priv reg: ::register::Registers,
+	mmu: ::mmu::MMU,
 	halted: bool,
 	priv ime: bool,
 	priv setdi: uint,
@@ -20,21 +18,21 @@ static Z: u8 = (1 << 7);
 impl CPU {
 	pub fn new(romname: &str) -> CPU {
 		CPU {
-			reg: register::Registers::new(),
+			reg: ::register::Registers::new(),
 			halted: false,
 			ime: true,
 			setdi: 0,
 			setei: 0,
-			mmu: mmu::MMU::new(romname),
+			mmu: ::mmu::MMU::new(romname),
 			gbmode: ::gbmode::Classic,
 		}
 	}
 
 	pub fn new_cgb(romname: &str) -> CPU {
-		let mmu = mmu::MMU::new_cgb(romname);
+		let mmu = ::mmu::MMU::new_cgb(romname);
 		let mode = mmu.get_mode();
 		CPU {
-			reg: register::Registers::new_cgb(),
+			reg: ::register::Registers::new_cgb(),
 			halted: false,
 			ime: true,
 			setdi: 0,
@@ -805,11 +803,6 @@ impl CPU {
 	fn cpu_jr(&mut self) {
 		let n = self.fetchbyte() as i8;
 		self.reg.pc = ((self.reg.pc as u32 as i32) + (n as i32)) as u16;
-	}
-
-	pub fn is_loopback(&self) -> bool {
-		self.mmu.rb(self.reg.pc) == 0x18
-		&& self.mmu.rb(self.reg.pc + 1) == 0xFE
 	}
 }
 
