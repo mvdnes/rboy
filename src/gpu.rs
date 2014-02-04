@@ -288,24 +288,17 @@ impl GPU {
 
 	fn update_pal(&mut self) {
 		for i in range(0, 4) {
-			self.palb[i] = match (self.palbr >> 2*i) & 3 {
-				0 => 255,
-				1 => 192,
-				2 => 96,
-				_ => 0,
-			};
-			self.pal0[i] = match (self.pal0r >> 2*i) & 3 {
-				0 => 255,
-				1 => 192,
-				2 => 96,
-				_ => 0,
-			};
-			self.pal1[i] = match (self.pal1r >> 2*i) & 3 {
-				0 => 255,
-				1 => 192,
-				2 => 96,
-				_ => 0,
-			};
+			self.palb[i] = GPU::get_monochrome_pal_val(self.palbr, i);
+			self.pal0[i] = GPU::get_monochrome_pal_val(self.pal0r, i);
+			self.pal1[i] = GPU::get_monochrome_pal_val(self.pal1r, i);
+		}
+	}
+	fn get_monochrome_pal_val(value: u8, index: int) -> u8 {
+		match (value >> 2*index) & 0x03 {
+			0 => 255,
+			1 => 192,
+			2 => 96,
+			_ => 0
 		}
 	}
 
