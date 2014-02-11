@@ -65,7 +65,7 @@ impl Drop for MBC1 {
 	fn drop(&mut self) {
 		match self.savepath.clone() {
 			None => {},
-			Some(path) => { ::std::io::File::create(&path).write(self.ram); },
+			Some(path) => { ::std::io::File::create(&path).write(self.ram).unwrap(); },
 		};
 	}
 }
@@ -176,8 +176,8 @@ impl Drop for MBC3 {
 					Some(t) => t,
 					None => 0,
 				};
-				file.write_be_i64(rtc);
-				file.write(self.ram);
+				file.write_be_i64(rtc).unwrap();
+				file.write(self.ram).unwrap();
 			},
 		};
 	}
@@ -234,7 +234,7 @@ impl Drop for MBC5 {
 		match self.savepath.clone() {
 			None => {},
 			Some(path) => {
-				::std::io::File::create(&path).write(self.ram);
+				::std::io::File::create(&path).write(self.ram).unwrap();
 			},
 		};
 	}
