@@ -1,15 +1,14 @@
 .PHONY: src
-src: lib/libsdl-0.3.1.so
+src: lib/libsdl-0.3.1.rlib
 	cd src && make
 
 rust-sdl/README.md:
 	git submodule update --init rust-sdl
 
-lib/libsdl-0.3.1.so: rust-sdl/README.md
-	cd rust-sdl && rustpkg build sdl
+lib/libsdl-0.3.1.rlib: rust-sdl/README.md
+	cd rust-sdl && rustc src/sdl/lib.rs
 	mkdir lib
-	mv rust-sdl/build/*/sdl/libsdl* lib/libsdl-0.3.1.so
-	rm -rf rust-sdl/.rust
+	mv rust-sdl/libsdl*.rlib lib/libsdl-0.3.1.rlib
 
 .PHONY: clean
 clean:
