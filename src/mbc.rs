@@ -8,7 +8,7 @@ pub trait MBC {
 }
 
 struct MBC0 {
-	priv rom: ~[u8],
+	rom: ~[u8],
 }
 
 impl MBC0 {
@@ -18,13 +18,13 @@ impl MBC0 {
 }
 
 struct MBC1 {
-	priv rom: ~[u8],
-	priv ram: ~[u8],
-	priv ram_on: bool,
-	priv ram_mode: bool,
-	priv rombank: u32,
-	priv rambank: u32,
-	priv savepath: Option<Path>,
+	rom: ~[u8],
+	ram: ~[u8],
+	ram_on: bool,
+	ram_mode: bool,
+	rombank: u32,
+	rambank: u32,
+	savepath: Option<Path>,
 }
 
 impl MBC1 {
@@ -52,7 +52,10 @@ impl MBC1 {
 		match self.savepath.clone() {
 			None => {},
 			Some(savepath) => if savepath.is_file() {
-					self.ram = ::std::io::File::open(&savepath).read_to_end();
+					self.ram = match ::std::io::File::open(&savepath).read_to_end() {
+						Err(_) => fail!("Could not open save file"),
+						Ok(data) => data,
+					}
 			},
 		};
 	}
@@ -62,21 +65,21 @@ impl Drop for MBC1 {
 	fn drop(&mut self) {
 		match self.savepath.clone() {
 			None => {},
-			Some(path) => ::std::io::File::create(&path).write(self.ram),
+			Some(path) => { ::std::io::File::create(&path).write(self.ram); },
 		};
 	}
 }
 
 struct MBC3 {
-	priv rom: ~[u8],
-	priv ram: ~[u8],
-	priv rombank: u32,
-	priv rambank: u32,
-	priv ram_on: bool,
-	priv savepath: Option<Path>,
-	priv rtc_ram: ~[u8,.. 5],
-	priv rtc_lock: bool,
-	priv rtc_zero: Option<i64>,
+	rom: ~[u8],
+	ram: ~[u8],
+	rombank: u32,
+	rambank: u32,
+	ram_on: bool,
+	savepath: Option<Path>,
+	rtc_ram: ~[u8,.. 5],
+	rtc_lock: bool,
+	rtc_zero: Option<i64>,
 }
 
 impl MBC3 {
@@ -115,9 +118,15 @@ impl MBC3 {
 			None => {},
 			Some(savepath) => if savepath.is_file() {
 				let mut file = ::std::io::File::open(&savepath);
-				let rtc = file.read_be_i64();
+				let rtc = match file.read_be_i64() {
+					Err(_) => fail!("Could not read RTC"),
+					Ok(value) => value,
+				};
 				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
-				self.ram = file.read_to_end();
+				self.ram = match file.read_to_end() {
+					Err(_) => fail!("Could not read RAM"),
+					Ok(data) => data,
+				};
 			},
 		};
 	}
@@ -163,7 +172,7 @@ impl Drop for MBC3 {
 			None => {},
 			Some(path) => {
 				let mut file = ::std::io::File::create(&path);
-				let rtc = match (self.rtc_zero) {
+				let rtc = match self.rtc_zero {
 					Some(t) => t,
 					None => 0,
 				};
@@ -175,12 +184,12 @@ impl Drop for MBC3 {
 }
 
 struct MBC5 {
-	priv rom: ~[u8],
-	priv ram: ~[u8],
-	priv rombank: u32,
-	priv rambank: u32,
-	priv ram_on: bool,
-	priv savepath: Option<Path>,
+	rom: ~[u8],
+	ram: ~[u8],
+	rombank: u32,
+	rambank: u32,
+	ram_on: bool,
+	savepath: Option<Path>,
 }
 
 impl MBC5 {
@@ -211,7 +220,10 @@ impl MBC5 {
 		match self.savepath.clone() {
 			None => {},
 			Some(savepath) => if savepath.is_file() {
-				self.ram = ::std::io::File::open(&savepath).read_to_end();
+				self.ram = match ::std::io::File::open(&savepath).read_to_end() {
+					Err(_) => fail!("Could not read RAM"),
+					Ok(data) => data,
+				};
 			},
 		};
 	}
@@ -229,7 +241,10 @@ impl Drop for MBC5 {
 }
 
 pub fn get_mbc(file: &Path) -> ~MBC {
-	let data: ~[u8] = ::std::io::File::open(file).read_to_end();
+	let data: ~[u8] = match ::std::io::File::open(file).read_to_end() {
+		Err(_) => fail!("Could not read ROM"),
+		Ok(rom) => rom,
+	};
 	if data.len() < 0x150 { fail!("Rom size to small"); }
 	check_checksum(data);
 	match data[0x147] {

@@ -1,12 +1,13 @@
 #[crate_id = "rboy"];
 
 extern mod extra;
+extern mod getopts;
+extern mod sync;
 extern mod sdl;
 
 use cpu::CPU;
-use extra::getopts;
-use extra::comm::DuplexStream;
-use extra::arc::RWArc;
+use sync::DuplexStream;
+use sync::RWArc;
 
 mod register;
 mod mbc;
@@ -23,8 +24,8 @@ fn main() {
 	let args: ~[~str] = std::os::args();
 	let program = args[0].clone() + " <filename>";
 
-	let opts = ~[ getopts::groups::optflag("s", "serial", "Output serial to stdout"), getopts::groups::optflag("c", "classic", "Force Classic mode") ];
-	let matches = match getopts::groups::getopts(args.tail(), opts) {
+	let opts = ~[ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
+	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f.to_err_msg()); return }
 	};
@@ -32,7 +33,7 @@ fn main() {
 	let filename: ~str = if !matches.free.is_empty() {
 		matches.free[0].clone()
 	} else {
-		println!("{}", getopts::groups::usage(program, opts));
+		println!("{}", getopts::usage(program, opts));
 		return;
 	};
 
@@ -47,7 +48,7 @@ fn main() {
 	let rawscreen = ~[0x00u8,.. 160*144*3];
 	let arc = RWArc::new(rawscreen);
 	let arc2 = arc.clone();
-	do spawn { cpuloop(&cpustream, arc2, filename, &matches); }
+	spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
@@ -55,8 +56,9 @@ fn main() {
 	'main : loop {
 		periodic.recv();
 		match sdlstream.try_recv() {
-			Some(_) => recalculate_screen(screen, &arc),
-			None => {},
+			std::comm::Disconnected => { break 'main },
+			std::comm::Data(_) => recalculate_screen(screen, &arc),
+			std::comm::Empty => {},
 		}
 		'event : loop {
 			match sdl::event::poll_event() {
@@ -130,7 +132,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
 	};	
-	c.mmu.serial.tostdout= matches.opt_present("serial");
+	c.mmu.serial.tostdout = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let mut periodic = timer.periodic(8);
@@ -153,12 +155,15 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 		periodic.recv();
 
 		match channel.try_recv() {
-			None => {},
-			Some(Poweroff) => { break; },
-			Some(KeyUp(key)) => c.mmu.keypad.keyup(key),
-			Some(KeyDown(key)) => c.mmu.keypad.keydown(key),
-			Some(SpeedUp) => periodic = timer.periodic(1),
-			Some(SlowDown) => periodic = timer.periodic(8),
+			std::comm::Data(event) => match event {
+				Poweroff => { break; },
+				KeyUp(key) => c.mmu.keypad.keyup(key),
+				KeyDown(key) => c.mmu.keypad.keydown(key),
+				SpeedUp => periodic = timer.periodic(1),
+				SlowDown => periodic = timer.periodic(8),
+			},
+			std::comm::Empty => {},
+			std::comm::Disconnected => break,
 		};
 	}
 }

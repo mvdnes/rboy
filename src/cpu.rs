@@ -1,3 +1,4 @@
+use std::num::Bitwise;
 
 pub struct CPU {
 	priv reg: ::register::Registers,
