@@ -86,7 +86,6 @@ fn main() {
 			}
 		}
 	}
-	sdlstream.try_send(Poweroff);
 }
 
 fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
@@ -122,7 +121,6 @@ fn recalculate_screen(screen: &sdl::video::Surface, arc: &RWArc<~[u8]>) {
 enum GBEvent {
 	KeyUp(keypad::KeypadKey),
 	KeyDown(keypad::KeypadKey),
-	Poweroff,
 	SpeedUp,
 	SlowDown,
 }
@@ -156,7 +154,6 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 
 		match channel.try_recv() {
 			std::comm::Data(event) => match event {
-				Poweroff => { break; },
 				KeyUp(key) => c.mmu.keypad.keyup(key),
 				KeyDown(key) => c.mmu.keypad.keydown(key),
 				SpeedUp => periodic = timer.periodic(1),
