@@ -3,8 +3,8 @@ src: lib/libsdl-0.3.1.rlib
 	cd src && make
 
 rust-sdl/README.md: .gitmodules
-	git submodule update --init rust-sdl
 	git submodule sync rust-sdl
+	git submodule update --init rust-sdl
 
 lib/libsdl-0.3.1.rlib: rust-sdl/README.md
 	cd rust-sdl && rustc src/sdl/lib.rs
