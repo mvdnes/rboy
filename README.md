@@ -3,6 +3,12 @@ rboy
 
 A Gameboy Emulator in Rust using SDL
 
+Dependencies
+------------
+
+* Rust 0.10-pre
+* SDL
+
 Implemented
 -----------
 
@@ -19,13 +25,10 @@ Implemented
   - MBC5
   - save games
 
-Not implemented
----------------
 
-* Serial
-* Sound
+Special thanks to
+-----------------
 
-TODO
-----
-
-* Some fixes for sprites
+* http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-The-CPU
+* http://nocash.emubase.de/pandocs.htm
+* https://github.com/alexcrichton/jba (The Rust branch)
