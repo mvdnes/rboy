@@ -8,7 +8,7 @@ rust-sdl/README.md: .gitmodules
 
 lib/libsdl-0.3.1.rlib: rust-sdl/README.md
 	cd rust-sdl && rustc src/sdl/lib.rs
-	mkdir lib
+	mkdir -p lib
 	mv rust-sdl/libsdl*.rlib lib/libsdl-0.3.1.rlib
 
 .PHONY: clean
