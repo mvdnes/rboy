@@ -1,9 +1,9 @@
 #[crate_id = "rboy"];
 
-extern mod extra;
-extern mod getopts;
-extern mod sync;
-extern mod sdl;
+extern crate extra;
+extern crate getopts;
+extern crate sync;
+extern crate sdl;
 
 use cpu::CPU;
 use sync::DuplexStream;
