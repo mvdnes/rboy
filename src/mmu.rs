@@ -188,8 +188,8 @@ impl MMU {
 			0xFF51 .. 0xFF54 => { self.hdma[a - 0xFF51] = v; },
 			0xFF55 => {
 				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
-				let dst = (((self.hdma[2] as u16 << 8) | (self.hdma[3] as u16)) & 0x1FF0) | 0x8000;
-				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF)) { fail!("HDMA transfer with illegal start address {:04X}", src); }
+				let dst = (((self.hdma[2] as u16 << 8) | (self.hdma[3] as u16)) & 0x1FF0) + 0x8000;
+				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFFF)) { fail!("HDMA transfer with illegal start address {:04X}", src); }
 				let len: u16 = ((v as u16 & 0x7F) + 1) * 0x10;
 				for i in range(0, len) {
 					let b = self.rb(src+i);
