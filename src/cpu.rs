@@ -45,8 +45,7 @@ impl CPU {
 
 	pub fn cycle(&mut self) -> uint {
 		let ticks = self.docycle();
-		self.mmu.cycle(ticks);
-		return ticks
+		return self.mmu.cycle(ticks);
 	}
 
 	fn docycle(&mut self) -> uint {

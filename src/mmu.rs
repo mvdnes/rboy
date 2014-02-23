@@ -7,6 +7,13 @@ use sound::Sound;
 static WRAM_SIZE: uint = 0x8000;
 static ZRAM_SIZE: uint = 0x7F;
 
+#[deriving(Eq)]
+enum DMAType {
+	NoDMA,
+	GDMA,
+	HDMA,
+}
+
 pub struct MMU {
 	priv wram: ~[u8, ..WRAM_SIZE],
 	priv zram: ~[u8, ..ZRAM_SIZE],
@@ -18,6 +25,10 @@ pub struct MMU {
 	keypad: Keypad,
 	gpu: GPU,
 	sound: Sound,
+	priv hdma_status: DMAType,
+	priv hdma_src: u16,
+	priv hdma_dst: u16,
+	priv hdma_len: u8,
 	priv wrambank: u8,
 	priv mbc: ~::mbc::MBC,
 	priv gbmode: ::gbmode::GbMode,
@@ -39,6 +50,10 @@ impl MMU {
 			sound: Sound::new(),
 			mbc: ::mbc::get_mbc(&Path::new(romname)),
 			gbmode: ::gbmode::Classic,
+			hdma_src: 0,
+			hdma_dst: 0,
+			hdma_status: NoDMA,
+			hdma_len: 0xFF,
 		};
 		if res.rb(0x0143) == 0xC0 {
 			fail!("This game does not work in Classic mode");
@@ -62,6 +77,10 @@ impl MMU {
 			sound: Sound::new(),
 			mbc: ::mbc::get_mbc(&Path::new(romname)),
 			gbmode: ::gbmode::Color,
+			hdma_src: 0,
+			hdma_dst: 0,
+			hdma_status: NoDMA,
+			hdma_len: 0xFF,
 		};
 		res.determine_mode();
 		res.set_initial();
@@ -96,7 +115,9 @@ impl MMU {
 		self.gbmode
 	}
 
-	pub fn cycle(&mut self, ticks: uint) {
+	pub fn cycle(&mut self, cputicks: uint) -> uint {
+		let ticks = cputicks + self.perform_hdma();
+
 		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
@@ -107,6 +128,8 @@ impl MMU {
 		self.gpu.cycle(ticks);
 		self.intf |= self.gpu.interrupt;
 		self.gpu.interrupt = 0;
+
+		return ticks;
 	}
 
 	pub fn rb(&self, address: u16) -> u8 {
@@ -150,7 +173,7 @@ impl MMU {
 			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
 			0xFF10 .. 0xFF26 => self.sound.wb(address, value),
 			0xFF46 => self.oamdma(value),
-			0xFF4D => {}, // CGB speed switch
+			0xFF4D => { if value & 0x1 == 0x1 { fail!("Speed switch requested but not supported"); } }, // CGB speed switch
 			0xFF40 .. 0xFF4F => self.gpu.wb(address, value),
 			0xFF51 .. 0xFF55 => self.hdma_write(address, value),
 			0xFF68 .. 0xFF6B => self.gpu.wb(address, value),
@@ -178,25 +201,67 @@ impl MMU {
 	fn hdma_read(&self, a: u16) -> u8 {
 		match a {
 			0xFF51 .. 0xFF54 => { self.hdma[a - 0xFF51] },
-			0xFF55 => 0xFF,
+			0xFF55 => self.hdma_len | if self.hdma_status == NoDMA { 0x80 } else { 0 },
 			_ => fail!(),
 		}
 	}
 
 	fn hdma_write(&mut self, a: u16, v: u8) {
+		//println!("Writing 0x{:04X} = 0x{:02X}", a, v);
 		match a {
-			0xFF51 .. 0xFF54 => { self.hdma[a - 0xFF51] = v; },
+			0xFF51 => self.hdma[0] = v,
+			0xFF52 => self.hdma[1] = v & 0xF0,
+			0xFF53 => self.hdma[2] = v & 0x1F,
+			0xFF54 => self.hdma[3] = v & 0xF0,
 			0xFF55 => {
-				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
-				let dst = (((self.hdma[2] as u16 << 8) | (self.hdma[3] as u16)) & 0x1FF0) + 0x8000;
-				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFFF)) { fail!("HDMA transfer with illegal start address {:04X}", src); }
-				let len: u16 = ((v as u16 & 0x7F) + 1) * 0x10;
-				for i in range(0, len) {
-					let b = self.rb(src+i);
-					self.wb(dst+i, b);
+				//println!("FF55: 0x{:02X}", v);
+				if self.hdma_status == HDMA {
+					if v & 0x80 == 0 { self.hdma_status = NoDMA; };
+					return;
 				}
+				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
+				let dst = (self.hdma[2] as u16 << 8) | (self.hdma[3] as u16) | 0x8000;
+				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF0)) { fail!("HDMA transfer with illegal start address {:04X}", src); }
+
+				self.hdma_src = src;
+				self.hdma_dst = dst;
+				self.hdma_len = v & 0x7F;
+
+				self.hdma_status =
+					if v == 0x7F { NoDMA }
+					else if v & 0x80 == 0x80 { HDMA }
+					else { GDMA };
+				//println!("New status: {}", match self.hdma_status { NoDMA => "NoDMA", GDMA => "GDMA", HDMA => "HDMA" });
 			},
 			_ => fail!(),
 		};
+	}
+
+	fn perform_hdma(&mut self) -> uint {
+		let len: uint = match self.hdma_status {
+			NoDMA => 0,
+			GDMA => self.hdma_len as uint + 1,
+			HDMA => if self.gpu.may_hdma() { 1 } else { 0 },
+		};
+
+		'i: for _i in range(0, len) {
+			for j in range(0u16, 16) {
+				let b: u8 = self.rb(self.hdma_src + j);
+				self.gpu.wb(self.hdma_dst + j, b);
+			}
+			self.hdma_src += 0x10;
+			self.hdma_dst += 0x10;
+			self.hdma_len -= 1;
+			if self.hdma_len == 0xFF {
+				self.hdma_status = NoDMA;
+				break 'i;
+			}
+		}
+
+		if len > 0 {
+			(len * 16) + 1
+		} else {
+			0
+		}
 	}
 }

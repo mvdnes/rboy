@@ -52,6 +52,7 @@ pub struct GPU {
 	updated: bool,
 	interrupt: u8,
 	gbmode: ::gbmode::GbMode,
+	priv hblanking: bool,
 }
 
 impl GPU {
@@ -97,6 +98,7 @@ impl GPU {
 			csprit_ind: 0,
 			csprit: [[[0u8,.. 3],.. 4],.. 8],
 			vrambank: 0,
+			hblanking: false,
 		}
 	}
 
@@ -106,29 +108,35 @@ impl GPU {
 
 	pub fn cycle(&mut self, ticks: uint) {
 		if !self.lcd_on { return }
-		
-		self.modeclock += ticks;
 
-		// Full line takes 114 ticks
-		if self.modeclock >= 114 {
-			self.modeclock -= 114;
-			self.line = (self.line + 1) % 154;
-			self.check_interrupt_lyc();
+		let mut ticksleft = ticks;
 
-			// This is a VBlank line
-			if self.line >= 144 && self.mode != 1 {
-				self.change_mode(1);
+		while ticksleft > 0 {
+			let curticks = if ticksleft >= 20 { 20 } else { ticksleft };
+			self.modeclock += curticks;
+			ticksleft -= curticks;
+
+			// Full line takes 114 ticks
+			if self.modeclock >= 114 {
+				self.modeclock -= 114;
+				self.line = (self.line + 1) % 154;
+				self.check_interrupt_lyc();
+
+				// This is a VBlank line
+				if self.line >= 144 && self.mode != 1 {
+					self.change_mode(1);
+				}
 			}
-		}
 
-		// This is a normal line
-		if self.line < 144 {
-			if self.modeclock <= 20 {
-				if self.mode != 2 { self.change_mode(2); }
-			} else if self.modeclock <= (20 + 43) {
-				if self.mode != 3 { self.change_mode(3); }
-			} else { // the remaining 51
-				if self.mode != 0 { self.change_mode(0); }
+			// This is a normal line
+			if self.line < 144 {
+				if self.modeclock <= 20 {
+					if self.mode != 2 { self.change_mode(2); }
+				} else if self.modeclock <= (20 + 43) {
+					if self.mode != 3 { self.change_mode(3); }
+				} else { // the remaining 51
+					if self.mode != 0 { self.change_mode(0); }
+				}
 			}
 		}
 	}
@@ -145,6 +153,7 @@ impl GPU {
 		if match self.mode {
 			0 => {
 				self.renderscan();
+				self.hblanking = true;
 				self.m0_inte
 			},
 			1 => {
@@ -217,9 +226,11 @@ impl GPU {
 	}
 
 	fn rbvram0(&self, a: u16) -> u8 {
+		if a < 0x8000 || a >= 0xA000 { fail!("Shouldn't have used rbvram0"); }
 		self.vram[a & 0x1FFF]
 	}
 	fn rbvram1(&self, a: u16) -> u8 {
+		if a < 0x8000 || a >= 0xA000 { fail!("Shouldn't have used rbvram1"); }
 		self.vram[0x2000 + (a & 0x1FFF)]
 	}
 
@@ -507,5 +518,12 @@ impl GPU {
 				}
 			}
 		}
+	}
+
+	pub fn may_hdma(&mut self) -> bool {
+//		return self.mode == 0;
+		let res = self.hblanking;
+		self.hblanking = false;
+		return res
 	}
 }
