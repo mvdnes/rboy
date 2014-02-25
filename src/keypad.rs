@@ -61,14 +61,14 @@ impl Keypad {
 
 	pub fn keyup(&mut self, key: KeypadKey) {
 		match key {
-			Right => self.row1 |= (1 << 0),
-			Left => self.row1 |= (1 << 1),
-			Up => self.row1 |= (1 << 2),
-			Down => self.row1 |= (1 << 3),
-			A => self.row0 |= (1 << 0),
-			B => self.row0 |= (1 << 1),
-			Select => self.row0 |= (1 << 2),
-			Start => self.row0 |= (1 << 3),
+			Right => self.row1 |= 1 << 0,
+			Left => self.row1 |= 1 << 1,
+			Up => self.row1 |= 1 << 2,
+			Down => self.row1 |= 1 << 3,
+			A => self.row0 |= 1 << 0,
+			B => self.row0 |= 1 << 1,
+			Select => self.row0 |= 1 << 2,
+			Start => self.row0 |= 1 << 3,
 		}
 		self.update();
 	}

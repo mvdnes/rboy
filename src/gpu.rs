@@ -351,12 +351,12 @@ impl GPU {
 				(0, true, false, false, false)
 			};
 
-			let tileaddress = (self.tilebase
+			let tileaddress = self.tilebase
 			+ (if self.tilebase == 0x8000 {
 				tilenr as u16
 			} else {
 				(tilenr as i8 as i16 + 128) as u16
-			}) * 16);
+			}) * 16;
 
 			let a0 = match yflip {
 				false => tileaddress + ((bgy as u16 & 0x07) * 2),
@@ -418,12 +418,12 @@ impl GPU {
 				(0, false, false, false, false)
 			};
 
-			let tileaddress = (self.tilebase
+			let tileaddress = self.tilebase
 			+ (if self.tilebase == 0x8000 {
 				tilenr as u16
 			} else {
 				(tilenr as i8 as i16 + 128) as u16
-			}) * 16);
+			}) * 16;
 
 			let a0 = match yflip {
 				false => tileaddress + ((winy as u16 & 0x07) * 2),

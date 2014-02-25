@@ -294,7 +294,7 @@ impl MBC for MBC1 {
 
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
-			0x0000 .. 0x1FFF => { self.ram_on = (v == 0x0A); },
+			0x0000 .. 0x1FFF => { self.ram_on = v == 0x0A; },
 			0x2000 .. 0x3FFF => {
 				self.rombank = (self.rombank & 0x60) | match (v as u32) & 0x1F { 0 => 1, n => n }
 			},
@@ -332,7 +332,7 @@ impl MBC for MBC3 {
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
-			0x0000 .. 0x1FFF => self.ram_on = (v == 0x0A),
+			0x0000 .. 0x1FFF => self.ram_on = v == 0x0A,
 			0x2000 .. 0x3FFF => {
 				self.rombank = match v & 0x7F { 0 => 1, n => n as u32 }
 			},
@@ -369,7 +369,7 @@ impl MBC for MBC5 {
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
-			0x0000 .. 0x1FFF => self.ram_on = (v == 0x0A),
+			0x0000 .. 0x1FFF => self.ram_on = v == 0x0A,
 			0x2000 .. 0x2FFF => self.rombank = (self.rombank & 0x100) | (v as u32),
 			0x3000 .. 0x3FFF => self.rombank = (self.rombank & 0x0FF) | ((v & 0x1) as u32 << 8),
 			0x4000 .. 0x5FFF => self.rambank = (v & 0x0F) as u32,
