@@ -3,6 +3,7 @@
 extern crate extra;
 extern crate getopts;
 extern crate sync;
+extern crate time;
 extern crate sdl;
 
 use cpu::CPU;

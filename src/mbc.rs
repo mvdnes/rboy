@@ -1,5 +1,3 @@
-use extra::time;
-
 pub trait MBC {
 	fn readrom(&self, a: u16) -> u8;
 	fn readram(&self, a: u16) -> u8;
@@ -138,7 +136,7 @@ impl MBC3 {
 		};
 		if self.rtc_ram[4] & 0x40 == 0x40 { return }
 
-		let difftime: i64 = match time::get_time().sec - tzero {
+		let difftime: i64 = match ::time::get_time().sec - tzero {
 			n if n >= 0 => { n },
 			_ => { 0 },
 		};
@@ -156,7 +154,7 @@ impl MBC3 {
 
 	fn calc_rtc_zero(&mut self) {
 		if self.rtc_zero.is_none() { return }
-		let mut difftime: i64 = time::get_time().sec;
+		let mut difftime: i64 = ::time::get_time().sec;
 		difftime -= self.rtc_ram[0] as i64;
 		difftime -= (self.rtc_ram[1] as i64) * 60;
 		difftime -= (self.rtc_ram[2] as i64) * 3600;
