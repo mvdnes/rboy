@@ -108,6 +108,7 @@ impl GPU {
 
 	pub fn cycle(&mut self, ticks: uint) {
 		if !self.lcd_on { return }
+		self.hblanking = false;
 
 		let mut ticksleft = ticks;
 
@@ -520,10 +521,7 @@ impl GPU {
 		}
 	}
 
-	pub fn may_hdma(&mut self) -> bool {
-//		return self.mode == 0;
-		let res = self.hblanking;
-		self.hblanking = false;
-		return res
+	pub fn may_hdma(&self) -> bool {
+		return self.hblanking;
 	}
 }
