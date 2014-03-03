@@ -234,8 +234,7 @@ impl MMU {
 	}
 
 	fn perform_vramdma(&mut self) -> uint {
-		match self.hdma_status
-		{
+		match self.hdma_status {
 			NoDMA => 0,
 			GDMA => self.perform_gdma(),
 			HDMA => self.perform_hdma(),
@@ -243,9 +242,7 @@ impl MMU {
 	}
 
 	fn perform_hdma(&mut self) -> uint {
-		if self.gpu.may_hdma() == false
-			|| self.hdma_len == 0xFF
-		{
+		if self.gpu.may_hdma() == false || self.hdma_len == 0xFF {
 			return 0;
 		}
 
@@ -256,8 +253,7 @@ impl MMU {
 
 	fn perform_gdma(&mut self) -> uint {
 		let len = self.hdma_len as uint + 1;
-		for _i in range(0, len)
-		{
+		for _i in range(0, len) {
 			self.perform_vramdma_row();
 		}
 
@@ -266,8 +262,7 @@ impl MMU {
 	}
 
 	fn perform_vramdma_row(&mut self) {
-		for j in range(0u16, 0x10)
-		{
+		for j in range(0u16, 0x10) {
 			let b: u8 = self.rb(self.hdma_src + j);
 			self.gpu.wb(self.hdma_dst + j, b);
 		}
