@@ -116,7 +116,7 @@ impl MMU {
 	}
 
 	pub fn cycle(&mut self, cputicks: uint) -> uint {
-		let ticks = cputicks + self.perform_hdma();
+		let ticks = cputicks + self.perform_vramdma();
 
 		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
@@ -207,14 +207,12 @@ impl MMU {
 	}
 
 	fn hdma_write(&mut self, a: u16, v: u8) {
-		//println!("Writing 0x{:04X} = 0x{:02X}", a, v);
 		match a {
 			0xFF51 => self.hdma[0] = v,
 			0xFF52 => self.hdma[1] = v & 0xF0,
 			0xFF53 => self.hdma[2] = v & 0x1F,
 			0xFF54 => self.hdma[3] = v & 0xF0,
 			0xFF55 => {
-				//println!("FF55: 0x{:02X}", v);
 				if self.hdma_status == HDMA {
 					if v & 0x80 == 0 { self.hdma_status = NoDMA; };
 					return;
@@ -228,40 +226,53 @@ impl MMU {
 				self.hdma_len = v & 0x7F;
 
 				self.hdma_status =
-					if v == 0x7F { NoDMA }
-					else if v & 0x80 == 0x80 { HDMA }
+					if v & 0x80 == 0x80 { HDMA }
 					else { GDMA };
-				//println!("New status: {}", match self.hdma_status { NoDMA => "NoDMA", GDMA => "GDMA", HDMA => "HDMA" });
 			},
 			_ => fail!(),
 		};
 	}
 
-	fn perform_hdma(&mut self) -> uint {
-		let len: uint = match self.hdma_status {
+	fn perform_vramdma(&mut self) -> uint {
+		match self.hdma_status
+		{
 			NoDMA => 0,
-			GDMA => self.hdma_len as uint + 1,
-			HDMA => if self.gpu.may_hdma() { 1 } else { 0 },
-		};
+			GDMA => self.perform_gdma(),
+			HDMA => self.perform_hdma(),
+		}
+	}
 
-		'i: for _i in range(0, len) {
-			for j in range(0u16, 16) {
-				let b: u8 = self.rb(self.hdma_src + j);
-				self.gpu.wb(self.hdma_dst + j, b);
-			}
-			self.hdma_src += 0x10;
-			self.hdma_dst += 0x10;
-			self.hdma_len -= 1;
-			if self.hdma_len == 0xFF {
-				self.hdma_status = NoDMA;
-				break 'i;
-			}
+	fn perform_hdma(&mut self) -> uint {
+		if self.gpu.may_hdma() == false
+			|| self.hdma_len == 0xFF
+		{
+			return 0;
 		}
 
-		if len > 0 {
-			(len * 16) + 1
-		} else {
-			0
+		self.perform_vramdma_row();
+
+		return 0x10;
+	}
+
+	fn perform_gdma(&mut self) -> uint {
+		let len = self.hdma_len as uint + 1;
+		for _i in range(0, len)
+		{
+			self.perform_vramdma_row();
 		}
+
+		self.hdma_status = NoDMA;
+		return len * 0x10;
+	}
+
+	fn perform_vramdma_row(&mut self) {
+		for j in range(0u16, 0x10)
+		{
+			let b: u8 = self.rb(self.hdma_src + j);
+			self.gpu.wb(self.hdma_dst + j, b);
+		}
+		self.hdma_src += 0x10;
+		self.hdma_dst += 0x10;
+		self.hdma_len -= 1;
 	}
 }
