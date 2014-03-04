@@ -1,5 +1,7 @@
 #[crate_id = "rboy"];
 
+extern crate native;
+extern crate green;
 extern crate extra;
 extern crate getopts;
 extern crate sync;
@@ -20,6 +22,9 @@ mod keypad;
 mod gpu;
 mod sound;
 mod gbmode;
+
+#[start]
+fn start(argc: int, argv: **u8) -> int { green::start(argc, argv, main) }
 
 fn main() {
 	let args: ~[~str] = std::os::args();
@@ -49,7 +54,7 @@ fn main() {
 	let rawscreen = ~[0x00u8,.. 160*144*3];
 	let arc = RWArc::new(rawscreen);
 	let arc2 = arc.clone();
-	spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
+	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
@@ -161,7 +166,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 				SlowDown => periodic = timer.periodic(8),
 			},
 			std::comm::Empty => {},
-			std::comm::Disconnected => break,
+			std::comm::Disconnected => { break },
 		};
 	}
 }
