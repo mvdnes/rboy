@@ -122,14 +122,13 @@ impl MMU {
 	}
 
 	pub fn cycle(&mut self, cputicks: uint) -> uint {
-		let dma_ticks = self.perform_vramdma();
+		let ticks = cputicks + self.perform_vramdma();
 
-		let gputicks =
-			if self.gbspeed == ::gbmode::Single { cputicks }
-			else { cputicks / 2 }
-		+ dma_ticks;
+		let gputicks = ticks /
+			if self.gbspeed == ::gbmode::Single { 1 }
+			else { 2 };
 
-		self.timer.cycle(cputicks + dma_ticks);
+		self.timer.cycle(ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
 
@@ -271,7 +270,7 @@ impl MMU {
 
 		self.perform_vramdma_row();
 
-		return 0x10 * 2;
+		return 0x10 * (if self.gbspeed == ::gbmode::Single { 4 } else { 2 });
 	}
 
 	fn perform_gdma(&mut self) -> uint {
