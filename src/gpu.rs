@@ -320,7 +320,6 @@ impl GPU {
 			self.bgprio[x] = Normal;
 		}
 		self.draw_bg();
-		self.draw_win();
 		self.draw_sprites();
 	}
 
@@ -331,18 +330,45 @@ impl GPU {
 	}
 
 	fn draw_bg(&mut self) {
-		if self.gbmode != ::gbmode::Color && !self.lcdc0 { return }
+		let drawbg = self.gbmode == ::gbmode::Color || self.lcdc0;
+
+		let winy =
+			if !self.win_on || (self.gbmode != ::gbmode::Classic && !self.lcdc0) { -1 }
+			else { self.line as int - self.winy as int };
+
+		if winy < 0 && drawbg == false {
+			return;
+		}
+
+		let wintiley = (winy as u16 >> 3) & 31;
 
 		let bgy = self.scy + self.line;
-		let tiley = (bgy as u16 >> 3) & 31;
-		for x in range(0, SCREEN_W) {
-			let bgx = self.scx as uint + x;
-			let tilex = (bgx as u16 >> 3) & 31;
+		let bgtiley = (bgy as u16 >> 3) & 31;
 
-			let tilenr: u8 = self.rbvram0(self.bg_tilemap + tiley * 32 + tilex);
+		for x in range(0, SCREEN_W) {
+			let winx: int = - ((self.winx as int) - 7) + (x as int);
+			let bgx = self.scx as uint + x;
+
+			let (tilemapbase, tiley, tilex, pixely, pixelx) = if winy >= 0 && winx >= 0 {
+				(self.win_tilemap,
+				wintiley,
+				(winx as u16 >> 3),
+				winy as u16 & 0x07,
+				winx as u8 & 0x07)
+			} else if drawbg {
+				(self.bg_tilemap,
+				bgtiley,
+				(bgx as u16 >> 3) & 31,
+				bgy as u16 & 0x07,
+				bgx as u8 & 0x07)
+			} else {
+				continue;
+			};
+
+			let tilenr: u8 = self.rbvram0(tilemapbase + tiley * 32 + tilex);
 
 			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
-				let flags = self.rbvram1(self.bg_tilemap + tiley * 32 + tilex);
+				let flags = self.rbvram1(tilemapbase + tiley * 32 + tilex);
 				(flags & 0x07,
 				flags & (1 << 3) == 0,
 				flags & (1 << 5) != 0,
@@ -360,8 +386,8 @@ impl GPU {
 			}) * 16;
 
 			let a0 = match yflip {
-				false => tileaddress + ((bgy as u16 & 0x07) * 2),
-				true => tileaddress + (14 - ((bgy as u16 & 0x07) * 2)),
+				false => tileaddress + (pixely * 2),
+				true => tileaddress + (14 - (pixely * 2)),
 			};
 
 			let (b1, b2) = match vram0 {
@@ -370,77 +396,9 @@ impl GPU {
 			};
 
 			let xbit = match xflip {
-				true => bgx & 0x07,
-				false => 7 - (bgx & 0x07),
+				true => pixelx,
+				false => 7 - pixelx,
 			};
-			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
-				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
-
-			self.bgprio[x] =
-				if prio { PrioFlag }
-				else if colnr == 0 { Color0 }
-				else { Normal };
-			if self.gbmode == ::gbmode::Color {
-				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
-				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
-				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
-				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
-			} else {
-				self.setcolor(x, self.palb[colnr]);
-			}
-		}
-	}
-
-	fn draw_win(&mut self) {
-		if !self.win_on || (self.gbmode != ::gbmode::Classic && !self.lcdc0) {
-			return
-		}
-
-		let winy = self.line as int - self.winy as int;
-		if winy < 0 { return }
-
-		let tiley: u16 = ((winy as u16) >> 3) & 31;
-
-		for x in range(0, SCREEN_W) {
-			let winx: int = - ((self.winx as int) - 7) + (x as int);
-			if winx < 0 { continue }
-			let tilex: u16 = ((winx as u16) >> 3) & 31;
-
-			let tilenr: u8 = self.rbvram0(self.win_tilemap + tiley * 32 + tilex);
-
-			let (palnr, vram1, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
-				let flags = self.rbvram1(self.win_tilemap + tiley * 32 + tilex);
-				(flags & 0x07,
-				flags & (1 << 3) != 0,
-				flags & (1 << 5) != 0,
-				flags & (1 << 6) != 0,
-				flags & (1 << 7) != 0)
-			} else {
-				(0, false, false, false, false)
-			};
-
-			let tileaddress = self.tilebase
-			+ (if self.tilebase == 0x8000 {
-				tilenr as u16
-			} else {
-				(tilenr as i8 as i16 + 128) as u16
-			}) * 16;
-
-			let a0 = match yflip {
-				false => tileaddress + ((winy as u16 & 0x07) * 2),
-				true  => tileaddress + (14 - ((winy as u16 & 0x07) * 2)),
-			};
-
-			let (b1, b2) = match vram1 {
-				false => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
-				true  => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
-			};
-
-			let xbit = match xflip {
-				true  => winx & 0x07,
-				false => 7 - (winx & 0x07),
-			};
-
 			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
 				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
