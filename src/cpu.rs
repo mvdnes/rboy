@@ -44,7 +44,7 @@ impl CPU {
 	}
 
 	pub fn cycle(&mut self) -> uint {
-		let ticks = self.docycle();
+		let ticks = self.docycle() * 2;
 		return self.mmu.cycle(ticks);
 	}
 
@@ -136,7 +136,7 @@ impl CPU {
 			0x0D => { self.reg.c = self.alu_dec(self.reg.c); 1 },
 			0x0E => { self.reg.c = self.fetchbyte(); 2 },
 			0x0F => { self.reg.a = self.alu_rrc(self.reg.a); self.reg.flag(Z, false); 1 },
-			0x10 => { 1 }, // Should be STOP
+			0x10 => { self.mmu.switch_speed(); 1 }, // STOP
 			0x11 => { let v = self.fetchword(); self.reg.setde(v); 3 },
 			0x12 => { self.mmu.wb(self.reg.de(), self.reg.a); 2 },
 			0x13 => { let v = self.reg.de() + 1; self.reg.setde(v); 2 },

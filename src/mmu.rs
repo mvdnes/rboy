@@ -32,6 +32,8 @@ pub struct MMU {
 	priv wrambank: u8,
 	priv mbc: ~::mbc::MBC,
 	priv gbmode: ::gbmode::GbMode,
+	priv gbspeed: ::gbmode::GbSpeed,
+	priv speed_switch_req: bool,
 }
 
 impl MMU {
@@ -50,6 +52,8 @@ impl MMU {
 			sound: Sound::new(),
 			mbc: ::mbc::get_mbc(&Path::new(romname)),
 			gbmode: ::gbmode::Classic,
+			gbspeed: ::gbmode::Single,
+			speed_switch_req: false,
 			hdma_src: 0,
 			hdma_dst: 0,
 			hdma_status: NoDMA,
@@ -77,6 +81,8 @@ impl MMU {
 			sound: Sound::new(),
 			mbc: ::mbc::get_mbc(&Path::new(romname)),
 			gbmode: ::gbmode::Color,
+			gbspeed: ::gbmode::Single,
+			speed_switch_req: false,
 			hdma_src: 0,
 			hdma_dst: 0,
 			hdma_status: NoDMA,
@@ -116,20 +122,25 @@ impl MMU {
 	}
 
 	pub fn cycle(&mut self, cputicks: uint) -> uint {
-		let ticks = cputicks + self.perform_vramdma();
+		let dma_ticks = self.perform_vramdma();
 
-		self.timer.cycle(ticks);
+		let gputicks =
+			if self.gbspeed == ::gbmode::Single { cputicks }
+			else { cputicks / 2 }
+		+ dma_ticks;
+
+		self.timer.cycle(cputicks + dma_ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
 
 		self.intf |= self.keypad.interrupt;
 		self.keypad.interrupt = 0;
 
-		self.gpu.cycle(ticks);
+		self.gpu.cycle(gputicks);
 		self.intf |= self.gpu.interrupt;
 		self.gpu.interrupt = 0;
 
-		return ticks;
+		return gputicks;
 	}
 
 	pub fn rb(&self, address: u16) -> u8 {
@@ -145,7 +156,7 @@ impl MMU {
 			0xFF04 .. 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
 			0xFF10 .. 0xFF26 => self.sound.rb(address),
-			0xFF4D => 0,
+			0xFF4D => (if self.gbspeed == ::gbmode::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
 			0xFF40 .. 0xFF4F => self.gpu.rb(address),
 			0xFF51 .. 0xFF55 => self.hdma_read(address),
 			0xFF68 .. 0xFF6B => self.gpu.rb(address),
@@ -173,7 +184,7 @@ impl MMU {
 			0xFF04 .. 0xFF07 => self.timer.wb(address, value),
 			0xFF10 .. 0xFF26 => self.sound.wb(address, value),
 			0xFF46 => self.oamdma(value),
-			0xFF4D => { if value & 0x1 == 0x1 { warn!("Speed switch requested but not supported"); } }, // CGB speed switch
+			0xFF4D => if value & 0x1 == 0x1 { self.speed_switch_req = true; },
 			0xFF40 .. 0xFF4F => self.gpu.wb(address, value),
 			0xFF51 .. 0xFF55 => self.hdma_write(address, value),
 			0xFF68 .. 0xFF6B => self.gpu.wb(address, value),
@@ -188,6 +199,18 @@ impl MMU {
 	pub fn ww(&mut self, address: u16, value: u16) {
 		self.wb(address, (value & 0xFF) as u8);
 		self.wb(address + 1, (value >> 8) as u8);
+	}
+
+	pub fn switch_speed(&mut self) {
+		if self.speed_switch_req {
+			info!("Switching speed");
+			if self.gbspeed == ::gbmode::Double {
+				self.gbspeed = ::gbmode::Single;
+			} else {
+				self.gbspeed = ::gbmode::Double;
+			}
+		}
+		self.speed_switch_req = false;
 	}
 
 	fn oamdma(&mut self, value: u8) {
@@ -248,7 +271,7 @@ impl MMU {
 
 		self.perform_vramdma_row();
 
-		return 0x10;
+		return 0x10 * 2;
 	}
 
 	fn perform_gdma(&mut self) -> uint {
@@ -258,7 +281,7 @@ impl MMU {
 		}
 
 		self.hdma_status = NoDMA;
-		return len * 0x10;
+		return len * 0x10 * 2;
 	}
 
 	fn perform_vramdma_row(&mut self) {

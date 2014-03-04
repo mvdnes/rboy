@@ -136,7 +136,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let mut periodic = timer.periodic(8);
 
-	let waitticks = (4194.304 * 4.0) as uint;
+	let waitticks = (4194.304 * 8.0) as uint;
 
 	let mut ticks = 0;
 	loop {
