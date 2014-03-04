@@ -367,15 +367,15 @@ impl GPU {
 
 			let tilenr: u8 = self.rbvram0(tilemapbase + tiley * 32 + tilex);
 
-			let (palnr, vram0, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
+			let (palnr, vram1, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
 				let flags = self.rbvram1(tilemapbase + tiley * 32 + tilex);
 				(flags & 0x07,
-				flags & (1 << 3) == 0,
+				flags & (1 << 3) != 0,
 				flags & (1 << 5) != 0,
 				flags & (1 << 6) != 0,
 				flags & (1 << 7) != 0)
 			} else {
-				(0, true, false, false, false)
+				(0, false, false, false, false)
 			};
 
 			let tileaddress = self.tilebase
@@ -390,9 +390,9 @@ impl GPU {
 				true => tileaddress + (14 - (pixely * 2)),
 			};
 
-			let (b1, b2) = match vram0 {
-				true => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
-				false => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
+			let (b1, b2) = match vram1 {
+				false => (self.rbvram0(a0), self.rbvram0(a0 + 1)),
+				true => (self.rbvram1(a0), self.rbvram1(a0 + 1)),
 			};
 
 			let xbit = match xflip {
@@ -433,7 +433,7 @@ impl GPU {
 			let yflip: bool = flags & (1 << 6) != 0;
 			let belowbg: bool = flags & (1 << 7) != 0;
 			let c_palnr: u8 = flags & 0x07;
-			let c_vram0: bool = flags & (1 << 3) == 0;
+			let c_vram1: bool = flags & (1 << 3) != 0;
 
 			let line = self.line as int;
 			let sprite_size = self.sprite_size as int;
@@ -448,7 +448,7 @@ impl GPU {
 			};
 
 			let tileaddress = 0x8000u16 + tilenum * 16 + tiley * 2;
-			let (b1, b2) = if !c_vram0 && self.gbmode == ::gbmode::Color {
+			let (b1, b2) = if c_vram1 && self.gbmode == ::gbmode::Color {
 				(self.rbvram1(tileaddress), self.rbvram1(tileaddress + 1))
 			} else {
 				(self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
@@ -467,9 +467,9 @@ impl GPU {
 						continue 'xloop
 					}
 					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
-					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
-					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
-					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
+					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8;
+					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8;
+					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8;
 				} else {
 					if belowbg && self.bgprio[spritex + x] != Color0 { continue 'xloop }
 					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
