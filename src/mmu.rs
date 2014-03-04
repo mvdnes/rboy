@@ -269,6 +269,7 @@ impl MMU {
 		}
 
 		self.perform_vramdma_row();
+		if self.hdma_len == 0xFF { self.hdma_status = NoDMA; }
 
 		return 0x10 * (if self.gbspeed == ::gbmode::Single { 4 } else { 2 });
 	}
