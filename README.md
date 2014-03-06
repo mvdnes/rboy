@@ -3,6 +3,10 @@ rboy
 
 A Gameboy Emulator in Rust using SDL
 
+Build status
+------------
+[![Build Status](https://travis-ci.org/mvdnes/rboy.png?branch=master)](https://travis-ci.org/mvdnes/rboy)
+
 Dependencies
 ------------
 
