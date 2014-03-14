@@ -52,7 +52,7 @@ fn main() {
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
 
-	let (sdlstream, cpustream) = DuplexStream::new();
+	let (sdlstream, cpustream) = sync::duplex();
 	let rawscreen = ~[0x00u8,.. 160*144*3];
 	let arc = RWArc::new(rawscreen);
 	let arc2 = arc.clone();
