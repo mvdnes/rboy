@@ -2,7 +2,6 @@
 
 extern crate native;
 extern crate green;
-extern crate extra;
 extern crate getopts;
 extern crate sync;
 extern crate time;
