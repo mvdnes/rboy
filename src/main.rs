@@ -23,7 +23,7 @@ mod gpu;
 mod sound;
 mod gbmode;
 
-static SCALE: int = 3;
+static SCALE: int = 2;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int { green::start(argc, argv, main) }
