@@ -1,5 +1,8 @@
 #[crate_id = "rboy"];
 
+#[feature(phase)];
+#[phase(syntax, link)] extern crate log;
+
 extern crate native;
 extern crate green;
 extern crate getopts;
