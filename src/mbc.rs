@@ -35,7 +35,7 @@ impl MBC1 {
 
 		let mut res = MBC1 {
 			rom: data,
-			ram: ::std::vec::from_elem(ramsize, 0u8),
+			ram: ::std::slice::from_elem(ramsize, 0u8),
 			ram_on: false,
 			ram_mode: false,
 			rombank: 1,
@@ -98,7 +98,7 @@ impl MBC3 {
 
 		let mut res = MBC3 {
 			rom: data,
-			ram: ::std::vec::from_elem(ramsize, 0u8),
+			ram: ::std::slice::from_elem(ramsize, 0u8),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,
@@ -204,7 +204,7 @@ impl MBC5 {
 
 		let mut res = MBC5 {
 			rom: data,
-			ram: ::std::vec::from_elem(ramsize, 0u8),
+			ram: ::std::slice::from_elem(ramsize, 0u8),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,

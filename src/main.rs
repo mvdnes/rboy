@@ -1,7 +1,5 @@
 #[crate_id = "rboy"];
 
-#[allow(deprecated_owned_vector)];
-
 #[feature(phase)];
 #[phase(syntax, link)] extern crate log;
 

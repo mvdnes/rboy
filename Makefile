@@ -7,7 +7,7 @@ rust-sdl/README.md: .gitmodules
 	git submodule update --init rust-sdl
 
 rust-sdl-build: rust-sdl/README.md
-	cd rust-sdl && rustc -O src/sdl/lib.rs -A deprecated_owned_vector
+	cd rust-sdl && rustc -O src/sdl/lib.rs
 	mkdir -p lib
 	mv rust-sdl/libsdl*.rlib lib/
 	touch rust-sdl-build
