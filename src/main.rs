@@ -31,17 +31,17 @@ static SCALE: int = 2;
 fn start(argc: int, argv: **u8) -> int { green::start(argc, argv, main) }
 
 fn main() {
-	let args: ~[~str] = std::os::args();
+	let args = std::os::args();
 	let program = args[0].clone() + " <filename>";
 
-	let opts = ~[ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
+	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f.to_err_msg()); return }
 	};
 
-	let filename: ~str = if !matches.free.is_empty() {
-		matches.free[0].clone()
+	let filename = if !matches.free.is_empty() {
+		matches.free.get(0).clone()
 	} else {
 		println!("{}", getopts::usage(program, opts));
 		return;
