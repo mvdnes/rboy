@@ -4,7 +4,6 @@
 #[phase(syntax, link)] extern crate log;
 
 extern crate native;
-extern crate green;
 extern crate getopts;
 extern crate sync;
 extern crate time;
@@ -28,7 +27,7 @@ mod gbmode;
 static SCALE: int = 2;
 
 #[start]
-fn start(argc: int, argv: **u8) -> int { green::start(argc, argv, main) }
+fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
 
 fn main() {
 	let args = std::os::args();
