@@ -11,7 +11,7 @@ extern crate sdl;
 
 use cpu::CPU;
 use sync::DuplexStream;
-use sync::RWArc;
+use sync::{Arc,RWLock};
 
 mod register;
 mod mbc;
@@ -55,7 +55,7 @@ fn main() {
 
 	let (sdlstream, cpustream) = sync::duplex();
 	let rawscreen = ~[0x00u8,.. 160*144*3];
-	let arc = RWArc::new(rawscreen);
+	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
 
@@ -111,19 +111,18 @@ fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
 	}
 }
 
-fn recalculate_screen(screen: &sdl::video::Surface, arc: &RWArc<~[u8]>) {
-	arc.read(|data| 
-		for y in range(0, 144) {
-			for x in range(0, 160) {
-				screen.fill_rect(
-					Some(sdl::Rect { x: (x*SCALE) as i16, y: (y*SCALE) as i16, w: SCALE as u16, h: SCALE as u16 }),
-					sdl::video::RGB(data[y*160*3 + x*3 + 0],
-					                data[y*160*3 + x*3 + 1],
-					                data[y*160*3 + x*3 + 2])
-				);
-			}
+fn recalculate_screen(screen: &sdl::video::Surface, arc: &Arc<RWLock<~[u8]>>) {
+	let data = arc.read();
+	for y in range(0, 144) {
+		for x in range(0, 160) {
+			screen.fill_rect(
+				Some(sdl::Rect { x: (x*SCALE) as i16, y: (y*SCALE) as i16, w: SCALE as u16, h: SCALE as u16 }),
+				sdl::video::RGB(data[y*160*3 + x*3 + 0],
+				                data[y*160*3 + x*3 + 1],
+				                data[y*160*3 + x*3 + 2])
+			);
 		}
-	);
+	}
 	screen.flip();
 }
 
@@ -134,7 +133,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~str, matches: &getopts::Matches) {
+fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filename: ~str, matches: &getopts::Matches) {
 	let mut c = match matches.opt_present("classic") {
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
@@ -152,9 +151,9 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: RWArc<~[u8]>, filename: ~
 			ticks += c.cycle();
 			if c.mmu.gpu.updated {
 				c.mmu.gpu.updated = false;
-				arc.write(|data|
-					for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
-				);
+				let mut data = arc.write();
+				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
+				data.downgrade();
 				channel.try_send(0);
 			}
 		}
