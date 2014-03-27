@@ -1,8 +1,10 @@
 # Use the language closest to rust, as rust itself is not supported
 language: c
 
-on_success: never
-on_failure: always
+notifications:
+  email:
+    on_success: never
+    on_failure: always
 
 before_install:
   - yes | sudo add-apt-repository ppa:hansjorg/rust
