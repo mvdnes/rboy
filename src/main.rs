@@ -1,6 +1,7 @@
-#[crate_id = "rboy"];
+#![crate_id = "rboy"]
+#![license = "MIT"]
 
-#[feature(phase)];
+#![feature(phase)]
 #[phase(syntax, link)] extern crate log;
 
 extern crate native;
