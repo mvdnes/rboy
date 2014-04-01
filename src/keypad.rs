@@ -1,9 +1,9 @@
 
 pub struct Keypad {
-	priv row0: u8,
-	priv row1: u8,
-	priv data: u8,
-	interrupt: u8,
+	row0: u8,
+	row1: u8,
+	data: u8,
+	pub interrupt: u8,
 }
 
 pub enum KeypadKey {

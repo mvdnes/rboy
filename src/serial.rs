@@ -1,8 +1,8 @@
 
 pub struct Serial {
-	tostdout: bool,
-	priv data: u8,
-	priv control: u8,
+	pub tostdout: bool,
+	data: u8,
+	control: u8,
 }
 
 impl Serial {

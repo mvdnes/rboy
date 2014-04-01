@@ -1,13 +1,13 @@
 use std::num::Bitwise;
 
 pub struct CPU {
-	priv reg: ::register::Registers,
-	mmu: ::mmu::MMU,
-	halted: bool,
-	priv ime: bool,
-	priv setdi: uint,
-	priv setei: uint,
-	priv gbmode: ::gbmode::GbMode,
+	reg: ::register::Registers,
+	pub mmu: ::mmu::MMU,
+	pub halted: bool,
+	ime: bool,
+	setdi: uint,
+	setei: uint,
+	gbmode: ::gbmode::GbMode,
 }
 
 static C: u8 = (1 << 4);

@@ -1,13 +1,13 @@
 
 pub struct Timer {
-	priv divider: u8,
-	priv counter: u8,
-	priv modulo: u8,
-	priv enabled: bool,
-	priv step: uint,
-	priv internalcnt: uint,
-	priv internaldiv: uint,
-	interrupt: u8,
+	divider: u8,
+	counter: u8,
+	modulo: u8,
+	enabled: bool,
+	step: uint,
+	internalcnt: uint,
+	internaldiv: uint,
+	pub interrupt: u8,
 }
 
 impl Timer {
