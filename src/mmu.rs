@@ -29,7 +29,7 @@ pub struct MMU {
 	hdma_src: u16,
 	hdma_dst: u16,
 	hdma_len: u8,
-	wrambank: u8,
+	wrambank: uint,
 	mbc: ~::mbc::MBC,
 	gbmode: ::gbmode::GbMode,
 	gbspeed: ::gbmode::GbSpeed,
@@ -147,8 +147,8 @@ impl MMU {
 			0x0000 .. 0x7FFF => self.mbc.readrom(address),
 			0x8000 .. 0x9FFF => self.gpu.rb(address),
 			0xA000 .. 0xBFFF => self.mbc.readram(address),
-			0xC000 .. 0xCFFF | 0xE000 .. 0xEFFF => self.wram[address & 0x0FFF],
-			0xD000 .. 0xDFFF | 0xF000 .. 0xFDFF => self.wram[(self.wrambank as u16 * 0x1000) | address & 0x0FFF],
+			0xC000 .. 0xCFFF | 0xE000 .. 0xEFFF => self.wram[address as uint & 0x0FFF],
+			0xD000 .. 0xDFFF | 0xF000 .. 0xFDFF => self.wram[(self.wrambank * 0x1000) | address as uint & 0x0FFF],
 			0xFE00 .. 0xFE9F => self.gpu.rb(address),
 			0xFF00 => self.keypad.rb(),
 			0xFF01 .. 0xFF02 => self.serial.rb(address),
@@ -159,8 +159,8 @@ impl MMU {
 			0xFF40 .. 0xFF4F => self.gpu.rb(address),
 			0xFF51 .. 0xFF55 => self.hdma_read(address),
 			0xFF68 .. 0xFF6B => self.gpu.rb(address),
-			0xFF70 => self.wrambank,
-			0xFF80 .. 0xFFFE => self.zram[address & 0x007F],
+			0xFF70 => self.wrambank as u8,
+			0xFF80 .. 0xFFFE => self.zram[address as uint & 0x007F],
 			0xFFFF => self.inte,
 			_ => { warn!("rb not implemented for {:X}", address); 0 },
 		}
@@ -175,8 +175,8 @@ impl MMU {
 			0x0000 .. 0x7FFF => self.mbc.writerom(address, value),
 			0x8000 .. 0x9FFF => self.gpu.wb(address, value),
 			0xA000 .. 0xBFFF => self.mbc.writeram(address, value),
-			0xC000 .. 0xCFFF | 0xE000 .. 0xEFFF => self.wram[address & 0x0FFF] = value,
-			0xD000 .. 0xDFFF | 0xF000 .. 0xFDFF => self.wram[(self.wrambank as u16 * 0x1000) | address & 0x0FFF] = value,
+			0xC000 .. 0xCFFF | 0xE000 .. 0xEFFF => self.wram[address as uint & 0x0FFF] = value,
+			0xD000 .. 0xDFFF | 0xF000 .. 0xFDFF => self.wram[(self.wrambank * 0x1000) | (address as uint & 0x0FFF)] = value,
 			0xFE00 .. 0xFE9F => self.gpu.wb(address, value),
 			0xFF00 => self.keypad.wb(value),
 			0xFF01 .. 0xFF02 => self.serial.wb(address, value),
@@ -188,8 +188,8 @@ impl MMU {
 			0xFF51 .. 0xFF55 => self.hdma_write(address, value),
 			0xFF68 .. 0xFF6B => self.gpu.wb(address, value),
 			0xFF0F => self.intf = value,
-			0xFF70 => { self.wrambank = match value & 0x7 { 0 => 1, n => n }; },
-			0xFF80 .. 0xFFFE => self.zram[address & 0x007F] = value,
+			0xFF70 => { self.wrambank = match value & 0x7 { 0 => 1, n => n as uint }; },
+			0xFF80 .. 0xFFFE => self.zram[address as uint & 0x007F] = value,
 			0xFFFF => self.inte = value,
 			_ => warn!("wb not implemented for {:X}", address),
 		};
@@ -222,7 +222,7 @@ impl MMU {
 
 	fn hdma_read(&self, a: u16) -> u8 {
 		match a {
-			0xFF51 .. 0xFF54 => { self.hdma[a - 0xFF51] },
+			0xFF51 .. 0xFF54 => { self.hdma[(a - 0xFF51) as uint] },
 			0xFF55 => self.hdma_len | if self.hdma_status == NoDMA { 0x80 } else { 0 },
 			_ => fail!(),
 		}

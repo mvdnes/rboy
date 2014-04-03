@@ -25,7 +25,7 @@ mod gpu;
 mod sound;
 mod gbmode;
 
-static SCALE: int = 2;
+static SCALE: uint = 2;
 
 #[start]
 fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
@@ -49,7 +49,7 @@ fn main() {
 
 	sdl::init([sdl::InitVideo]);
 	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
-	let screen = match sdl::video::set_video_mode(160*SCALE, 144*SCALE, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
+	let screen = match sdl::video::set_video_mode(160*SCALE as int, 144*SCALE as int, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
 		Ok(screen) => screen,
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
@@ -114,8 +114,8 @@ fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
 
 fn recalculate_screen(screen: &sdl::video::Surface, arc: &Arc<RWLock<~[u8]>>) {
 	let data = arc.read();
-	for y in range(0, 144) {
-		for x in range(0, 160) {
+	for y in range(0u, 144) {
+		for x in range(0u, 160) {
 			screen.fill_rect(
 				Some(sdl::Rect { x: (x*SCALE) as i16, y: (y*SCALE) as i16, w: SCALE as u16, h: SCALE as u16 }),
 				sdl::video::RGB(data[y*160*3 + x*3 + 0],
