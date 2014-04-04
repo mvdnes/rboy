@@ -1,7 +1,7 @@
-rboy
+RBoy
 ====
 
-A Gameboy Emulator in Rust using SDL
+A Gameboy Color Emulator written in Rust using SDL
 
 Build status
 ------------
@@ -10,7 +10,7 @@ Build status
 Dependencies
 ------------
 
-* Rust 0.10-pre
+* Rust (master)
 * SDL
 
 Implemented
@@ -19,7 +19,10 @@ Implemented
 * CPU
   - All instructions correct
   - All timings correct
+  - Double speed mode
 * GPU
+  - Normal mode
+  - Color mode
 * Keypad
 * Timer
 * MMU
