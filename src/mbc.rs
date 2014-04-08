@@ -52,7 +52,7 @@ impl MBC1 {
 			Some(savepath) => if savepath.is_file() {
 					self.ram = match ::std::io::File::open(&savepath).read_to_end() {
 						Err(_) => fail!("Could not open save file"),
-						Ok(data) => data,
+						Ok(data) => data.as_slice().to_owned(),
 					}
 			},
 		};
@@ -123,7 +123,7 @@ impl MBC3 {
 				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
 				self.ram = match file.read_to_end() {
 					Err(_) => fail!("Could not read RAM"),
-					Ok(data) => data,
+					Ok(data) => data.as_slice().to_owned(),
 				};
 			},
 		};
@@ -220,7 +220,7 @@ impl MBC5 {
 			Some(savepath) => if savepath.is_file() {
 				self.ram = match ::std::io::File::open(&savepath).read_to_end() {
 					Err(_) => fail!("Could not read RAM"),
-					Ok(data) => data,
+					Ok(data) => data.as_slice().to_owned(),
 				};
 			},
 		};
@@ -241,7 +241,7 @@ impl Drop for MBC5 {
 pub fn get_mbc(file: &Path) -> ~MBC {
 	let data: ~[u8] = match ::std::io::File::open(file).read_to_end() {
 		Err(_) => fail!("Could not read ROM"),
-		Ok(rom) => rom,
+		Ok(rom) => rom.as_slice().to_owned(),
 	};
 	if data.len() < 0x150 { fail!("Rom size to small"); }
 	check_checksum(data);
