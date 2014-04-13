@@ -155,7 +155,6 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filen
 				c.mmu.gpu.updated = false;
 				let mut data = arc.write();
 				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
-				data.downgrade();
 				if channel.send_opt(0).is_err() { break 'cpuloop };
 			}
 		}
