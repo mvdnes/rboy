@@ -13,6 +13,7 @@ extern crate sdl;
 use cpu::CPU;
 use sync::DuplexStream;
 use sync::{Arc,RWLock};
+use std::comm::{Disconnected,Empty};
 
 mod register;
 mod mbc;
@@ -66,9 +67,9 @@ fn main() {
 	'main : loop {
 		periodic.recv();
 		match sdlstream.try_recv() {
-			std::comm::Disconnected => { break 'main },
-			std::comm::Data(_) => recalculate_screen(screen, &arc),
-			std::comm::Empty => {},
+			Err(Disconnected) => { break 'main },
+			Ok(_) => recalculate_screen(screen, &arc),
+			Err(Empty) => {},
 		}
 		'event : loop {
 			match sdl::event::poll_event() {
@@ -147,7 +148,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filen
 	let waitticks = (4194.304 * 4.0) as uint;
 
 	let mut ticks = 0;
-	loop {
+	'cpuloop: loop {
 		while ticks < waitticks {
 			ticks += c.cycle();
 			if c.mmu.gpu.updated {
@@ -155,21 +156,21 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filen
 				let mut data = arc.write();
 				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
 				data.downgrade();
-				channel.try_send(0);
+				if channel.send_opt(0).is_err() { break 'cpuloop };
 			}
 		}
 		ticks -= waitticks;
 		periodic.recv();
 
 		match channel.try_recv() {
-			std::comm::Data(event) => match event {
+			Ok(event) => match event {
 				KeyUp(key) => c.mmu.keypad.keyup(key),
 				KeyDown(key) => c.mmu.keypad.keydown(key),
 				SpeedUp => periodic = timer.periodic(1),
 				SlowDown => periodic = timer.periodic(8),
 			},
-			std::comm::Empty => {},
-			std::comm::Disconnected => { break },
+			Err(Empty) => {},
+			Err(Disconnected) => { break },
 		};
 	}
 }
