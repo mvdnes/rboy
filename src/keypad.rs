@@ -73,3 +73,58 @@ impl Keypad {
 		self.update();
 	}
 }
+
+#[cfg(test)]
+mod test {
+	use super::KeypadKey;
+	use super::{Right, Left, Up, Down};
+	use super::{A, B, Select, Start};
+
+	#[test]
+	fn keys_row0() {
+		let mut keypad = super::Keypad::new();
+		let keys0 : [KeypadKey, ..4] = [A, B, Select, Start];
+
+		for i in range(0u, keys0.len()) {
+			keypad.keydown(keys0[i]);
+
+			keypad.wb(0x00);
+			assert_eq!(keypad.rb(), 0x00);
+
+			keypad.wb(0x10);
+			assert_eq!(keypad.rb(), 0x1F & !(1 << i));
+
+			keypad.wb(0x20);
+			assert_eq!(keypad.rb(), 0x2F);
+
+			keypad.wb(0x30);
+			assert_eq!(keypad.rb(), 0x3F);
+
+			keypad.keyup(keys0[i]);
+		}
+	}
+
+	#[test]
+	fn keys_row1() {
+		let mut keypad = super::Keypad::new();
+		let keys1 : [KeypadKey, ..4] = [Right, Left, Up, Down];
+
+		for i in range(0u, keys1.len()) {
+			keypad.keydown(keys1[i]);
+
+			keypad.wb(0x00);
+			assert_eq!(keypad.rb(), 0x00);
+
+			keypad.wb(0x10);
+			assert_eq!(keypad.rb(), 0x1F);
+
+			keypad.wb(0x20);
+			assert_eq!(keypad.rb(), 0x2F & !(1 << i));
+
+			keypad.wb(0x30);
+			assert_eq!(keypad.rb(), 0x3F);
+
+			keypad.keyup(keys1[i]);
+		}
+	}
+}
