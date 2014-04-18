@@ -2,6 +2,10 @@
 src: rust-sdl-build
 	cd src && make
 
+.PHONY: test
+test: rust-sdl-build
+	cd src && make test
+
 rust-sdl/README.md: .gitmodules
 	git submodule sync rust-sdl
 	git submodule update --init rust-sdl

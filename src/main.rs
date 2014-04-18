@@ -28,6 +28,7 @@ mod gbmode;
 
 static SCALE: uint = 2;
 
+#[cfg(not(test))]
 #[start]
 fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
 

@@ -1,3 +1,4 @@
 src/rboy
+src/rboy_test
 lib
 rust-sdl-build
