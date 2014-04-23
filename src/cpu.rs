@@ -806,3 +806,27 @@ impl CPU {
 	}
 }
 
+#[cfg(test)]
+mod test
+{
+	use super::CPU;
+
+	#[test]
+	fn cpu_instrs()
+	{
+		let (tx, rx) = channel();
+		let (mut r, w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
+		spawn(proc()
+		{
+			::std::io::stdio::set_stdout(~w);
+			let mut c = CPU::new("tests/cpu_instrs.gb");
+			c.mmu.serial.tostdout = true;
+			let mut ticks = 0;
+			while ticks < 63802933
+			{
+				ticks += c.cycle();
+			}
+		});
+		assert_eq!(r.read_to_str().unwrap(), "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned());
+	}
+}
