@@ -9,6 +9,8 @@ extern crate getopts;
 extern crate sync;
 extern crate time;
 extern crate sdl;
+#[cfg(test)]
+extern crate test;
 
 use cpu::CPU;
 use sync::DuplexStream;

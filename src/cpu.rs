@@ -810,6 +810,7 @@ impl CPU {
 mod test
 {
 	use super::CPU;
+	use test::Bencher;
 
 	#[test]
 	fn cpu_instrs()
@@ -828,5 +829,14 @@ mod test
 			}
 		});
 		assert_eq!(r.read_to_str().unwrap(), "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned());
+	}
+
+	#[bench]
+	fn bench_noop(b: &mut Bencher) {
+		let mut c = CPU::new("tests/cpu_instrs.gb");
+		c.halted = true;
+		b.iter(|| {
+			c.cycle();
+		});
 	}
 }
