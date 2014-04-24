@@ -27,6 +27,7 @@ mod keypad;
 mod gpu;
 mod sound;
 mod gbmode;
+mod util;
 
 static SCALE: uint = 2;
 

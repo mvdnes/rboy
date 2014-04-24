@@ -1,3 +1,5 @@
+use util::handle_io;
+
 pub trait MBC {
 	fn readrom(&self, a: u16) -> u8;
 	fn readram(&self, a: u16) -> u8;
@@ -47,10 +49,10 @@ impl MBC1 {
 	}
 
 	fn loadram(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(savepath) => if savepath.is_file() {
-					self.ram = match ::std::io::File::open(&savepath).read_to_end() {
+			Some(ref savepath) => if savepath.is_file() {
+					self.ram = match ::std::io::File::open(savepath).read_to_end() {
 						Err(_) => fail!("Could not open save file"),
 						Ok(data) => data.as_slice().to_owned(),
 					}
@@ -61,9 +63,12 @@ impl MBC1 {
 
 impl Drop for MBC1 {
 	fn drop(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(path) => { ::std::io::File::create(&path).write(self.ram).unwrap(); },
+			Some(ref path) =>
+			{
+				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
+			},
 		};
 	}
 }
@@ -112,10 +117,10 @@ impl MBC3 {
 	}
 
 	fn loadram(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(savepath) => if savepath.is_file() {
-				let mut file = ::std::io::File::open(&savepath);
+			Some(ref savepath) => if savepath.is_file() {
+				let mut file = ::std::io::File::open(savepath);
 				let rtc = match file.read_be_i64() {
 					Err(_) => fail!("Could not read RTC"),
 					Ok(value) => value,
@@ -166,16 +171,17 @@ impl MBC3 {
 
 impl Drop for MBC3 {
 	fn drop(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(path) => {
-				let mut file = ::std::io::File::create(&path);
+			Some(ref path) => {
+				let mut file = ::std::io::File::create(path);
 				let rtc = match self.rtc_zero {
 					Some(t) => t,
 					None => 0,
 				};
-				file.write_be_i64(rtc).unwrap();
-				file.write(self.ram).unwrap();
+				let mut ok = true;
+				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile", false).is_ok(); };
+				if ok { handle_io(file.write(self.ram), "Could not write savefile", false); };
 			},
 		};
 	}
@@ -215,10 +221,10 @@ impl MBC5 {
 	}
 
 	fn loadram(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(savepath) => if savepath.is_file() {
-				self.ram = match ::std::io::File::open(&savepath).read_to_end() {
+			Some(ref savepath) => if savepath.is_file() {
+				self.ram = match ::std::io::File::open(savepath).read_to_end() {
 					Err(_) => fail!("Could not read RAM"),
 					Ok(data) => data.as_slice().to_owned(),
 				};
@@ -229,20 +235,18 @@ impl MBC5 {
 
 impl Drop for MBC5 {
 	fn drop(&mut self) {
-		match self.savepath.clone() {
+		match self.savepath {
 			None => {},
-			Some(path) => {
-				::std::io::File::create(&path).write(self.ram).unwrap();
+			Some(ref path) =>
+			{
+				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
 			},
 		};
 	}
 }
 
 pub fn get_mbc(file: &Path) -> ~MBC {
-	let data: ~[u8] = match ::std::io::File::open(file).read_to_end() {
-		Err(_) => fail!("Could not read ROM"),
-		Ok(rom) => rom.as_slice().to_owned(),
-	};
+	let data: ~[u8] = handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM", true).unwrap().as_slice().to_owned();
 	if data.len() < 0x150 { fail!("Rom size to small"); }
 	check_checksum(data);
 	match data[0x147] {
