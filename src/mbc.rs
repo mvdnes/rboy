@@ -67,7 +67,7 @@ impl Drop for MBC1 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
+				let _ = handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
 			},
 		};
 	}
@@ -181,7 +181,7 @@ impl Drop for MBC3 {
 				};
 				let mut ok = true;
 				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile", false).is_ok(); };
-				if ok { handle_io(file.write(self.ram), "Could not write savefile", false); };
+				if ok { handle_io(file.write(self.ram), "Could not write savefile", false).is_ok(); };
 			},
 		};
 	}
@@ -239,7 +239,7 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
+				let _ = handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
 			},
 		};
 	}
