@@ -17,30 +17,39 @@ static Z: u8 = (1 << 7);
 
 
 impl CPU {
-	pub fn new(romname: &str) -> CPU {
-		CPU {
+	pub fn new(romname: &str) -> Option<CPU> {
+		let cpu_mmu = match ::mmu::MMU::new(romname)
+		{
+			Some(mmu) => { mmu },
+			None => { return None; },
+		};
+		Some(CPU {
 			reg: ::register::Registers::new(),
 			halted: false,
 			ime: true,
 			setdi: 0,
 			setei: 0,
-			mmu: ::mmu::MMU::new(romname),
+			mmu: cpu_mmu,
 			gbmode: ::gbmode::Classic,
-		}
+		})
 	}
 
-	pub fn new_cgb(romname: &str) -> CPU {
-		let mmu = ::mmu::MMU::new_cgb(romname);
-		let mode = mmu.get_mode();
-		CPU {
+	pub fn new_cgb(romname: &str) -> Option<CPU> {
+		let cpu_mmu = match ::mmu::MMU::new_cgb(romname)
+		{
+			Some(mmu) => { mmu },
+			None => { return None; },
+		};
+		let mode = cpu_mmu.get_mode();
+		Some(CPU {
 			reg: ::register::Registers::new_cgb(),
 			halted: false,
 			ime: true,
 			setdi: 0,
 			setei: 0,
-			mmu: mmu,
+			mmu: cpu_mmu,
 			gbmode: mode,
-		}
+		})
 	}
 
 	pub fn cycle(&mut self) -> uint {
@@ -810,7 +819,8 @@ impl CPU {
 mod test
 {
 	use super::CPU;
-	use test::Bencher;
+
+	static CPUINSTRS: &'static str = "tests/cpu_instrs.gb";
 
 	#[test]
 	fn cpu_instrs()
@@ -819,8 +829,12 @@ mod test
 		let (mut r, w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
 		spawn(proc()
 		{
+			let mut c = match CPU::new(CPUINSTRS)
+			{
+				None => return,
+				Some(cpu) => cpu,
+			};
 			::std::io::stdio::set_stdout(~w);
-			let mut c = CPU::new("tests/cpu_instrs.gb");
 			c.mmu.serial.tostdout = true;
 			let mut ticks = 0;
 			while ticks < 63802933
@@ -828,15 +842,7 @@ mod test
 				ticks += c.cycle();
 			}
 		});
-		assert_eq!(r.read_to_str().unwrap(), "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned());
-	}
-
-	#[bench]
-	fn bench_noop(b: &mut Bencher) {
-		let mut c = CPU::new("tests/cpu_instrs.gb");
-		c.halted = true;
-		b.iter(|| {
-			c.cycle();
-		});
+		assert!(r.read_to_str().unwrap() == "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned(),
+			"cpu_instrs did not produce the expected result.");
 	}
 }

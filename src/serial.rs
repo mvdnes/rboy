@@ -20,7 +20,7 @@ impl Serial {
 					::std::io::stdio::flush();
 				}
 			},
-			_ => { fail!("Serial does not handle address {:4X} (write)", a); },
+			_ => fail!("Serial does not handle address {:4X} (write)", a),
 		};
 	}
 

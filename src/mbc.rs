@@ -12,8 +12,8 @@ struct MBC0 {
 }
 
 impl MBC0 {
-	pub fn new(data: ~[u8]) -> MBC0 {
-		MBC0 { rom: data }
+	pub fn new(data: ~[u8]) -> Option<MBC0> {
+		Some(MBC0 { rom: data })
 	}
 }
 
@@ -28,7 +28,7 @@ struct MBC1 {
 }
 
 impl MBC1 {
-	pub fn new(data: ~[u8], file: &Path) -> MBC1 {
+	pub fn new(data: ~[u8], file: &Path) -> Option<MBC1> {
 		let (svpath, ramsize) = match data[0x147] {
 			0x02 => (None, ram_size(data[0x149])),
 			0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
@@ -44,20 +44,26 @@ impl MBC1 {
 			rambank: 0,
 			savepath: svpath,
 		};
-		res.loadram();
-		return res
+		match res.loadram()
+		{
+			false => None,
+			true => Some(res),
+		}
 	}
 
-	fn loadram(&mut self) {
+	fn loadram(&mut self) -> bool {
 		match self.savepath {
 			None => {},
-			Some(ref savepath) => if savepath.is_file() {
-					self.ram = match ::std::io::File::open(savepath).read_to_end() {
-						Err(_) => fail!("Could not open save file"),
-						Ok(data) => data.as_slice().to_owned(),
-					}
+			Some(ref savepath) => if savepath.is_file()
+			{
+				self.ram = match ::std::io::File::open(savepath).read_to_end()
+				{
+					Err(_) => { error!("Could not open save file"); return false },
+					Ok(data) => data.as_slice().to_owned(),
+				}
 			},
 		};
+		true
 	}
 }
 
@@ -67,7 +73,7 @@ impl Drop for MBC1 {
 			None => {},
 			Some(ref path) =>
 			{
-				let _ = handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
+				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile");
 			},
 		};
 	}
@@ -86,7 +92,7 @@ struct MBC3 {
 }
 
 impl MBC3 {
-	pub fn new(data: ~[u8], file: &Path) -> MBC3 {
+	pub fn new(data: ~[u8], file: &Path) -> Option<MBC3> {
 		let subtype = data[0x147];
 		let svpath = match subtype {
 			0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
@@ -112,26 +118,30 @@ impl MBC3 {
 			rtc_lock: false,
 			rtc_zero: rtc,
 		};
-		res.loadram();
-		return res
+		match res.loadram()
+		{
+			false => None,
+			true => Some(res),
+		}
 	}
 
-	fn loadram(&mut self) {
+	fn loadram(&mut self) -> bool {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
 				let mut file = ::std::io::File::open(savepath);
-				let rtc = match file.read_be_i64() {
-					Err(_) => fail!("Could not read RTC"),
-					Ok(value) => value,
+				let rtc = match handle_io(file.read_be_i64(), "Could not read RTC") {
+					None => { return false; },
+					Some(value) => value,
 				};
 				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
-				self.ram = match file.read_to_end() {
-					Err(_) => fail!("Could not read RAM"),
-					Ok(data) => data.as_slice().to_owned(),
+				self.ram = match handle_io(file.read_to_end(), "Could not read ROM") {
+					None => { return false; },
+					Some(data) => data.as_slice().to_owned(),
 				};
 			},
 		};
+		true
 	}
 
 	fn calc_rtc_reg(&mut self) {
@@ -180,8 +190,8 @@ impl Drop for MBC3 {
 					None => 0,
 				};
 				let mut ok = true;
-				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile", false).is_ok(); };
-				if ok { handle_io(file.write(self.ram), "Could not write savefile", false).is_ok(); };
+				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile").is_some(); };
+				if ok { handle_io(file.write(self.ram), "Could not write savefile"); };
 			},
 		};
 	}
@@ -197,7 +207,7 @@ struct MBC5 {
 }
 
 impl MBC5 {
-	pub fn new(data: ~[u8], file: &Path) -> MBC5 {
+	pub fn new(data: ~[u8], file: &Path) -> Option<MBC5> {
 		let subtype = data[0x147];
 		let svpath = match subtype {
 			0x1B | 0x1E => Some(file.with_extension("gbsave")),
@@ -216,20 +226,24 @@ impl MBC5 {
 			ram_on: false,
 			savepath: svpath,
 		};
-		res.loadram();
-		return res
+		match res.loadram()
+		{
+			false => None,
+			true => Some(res),
+		}
 	}
 
-	fn loadram(&mut self) {
+	fn loadram(&mut self) -> bool {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
 				self.ram = match ::std::io::File::open(savepath).read_to_end() {
-					Err(_) => fail!("Could not read RAM"),
+					Err(_) => { error!("Could not read RAM"); return false; },
 					Ok(data) => data.as_slice().to_owned(),
 				};
 			},
 		};
+		true
 	}
 }
 
@@ -239,22 +253,29 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				let _ = handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile", false);
+				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile");
 			},
 		};
 	}
 }
 
-pub fn get_mbc(file: &Path) -> ~MBC {
-	let data: ~[u8] = handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM", true).unwrap().as_slice().to_owned();
+pub fn get_mbc(file: &Path) -> Option<~MBC> {
+	let data: ~[u8] = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
+	{
+		Some(mbc) => { mbc.as_slice().to_owned() },
+		None => { return None; },
+	};
 	if data.len() < 0x150 { fail!("Rom size to small"); }
-	check_checksum(data);
+	if !check_checksum(data)
+	{
+		return None;
+	}
 	match data[0x147] {
-		0x00 => ~MBC0::new(data) as ~MBC,
-		0x01 .. 0x03 => ~MBC1::new(data, file) as ~MBC,
-		0x0F .. 0x13 => ~MBC3::new(data, file) as ~MBC,
-		0x19 .. 0x1E => ~MBC5::new(data, file) as ~MBC,
-		m => fail!("Unsupported MBC type: {:02X}", m),
+		0x00 => MBC0::new(data).map(|v| ~v as ~MBC),
+		0x01 .. 0x03 => MBC1::new(data, file).map(|v| ~v as ~MBC),
+		0x0F .. 0x13 => MBC3::new(data, file).map(|v| ~v as ~MBC),
+		0x19 .. 0x1E => MBC5::new(data, file).map(|v| ~v as ~MBC),
+		m => { error!("Unsupported MBC type: {:02X}", m); None },
 	}
 }
 
@@ -268,13 +289,15 @@ fn ram_size(v: u8) -> uint {
 	}
 }
 
-fn check_checksum(data: &[u8]) {
+fn check_checksum(data: &[u8]) -> bool {
 	let mut value: u8 = 0;
 	for i in range(0x134u, 0x14D) {
 		value = value - data[i] - 1;
 	}
-	if data[0x14D] != value {
-		fail!("Cartridge checksum is invalid. {:02X} != {:02X}", data[0x14D], value);
+	match data[0x14D] == value
+	{
+		true => true,
+		false => { error!("Cartridge checksum is invalid. {:02X} != {:02X}", data[0x14D], value); false },
 	}
 }
 

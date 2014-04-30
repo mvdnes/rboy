@@ -140,10 +140,15 @@ enum GBEvent {
 }
 
 fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filename: ~str, matches: &getopts::Matches) {
-	let mut c = match matches.opt_present("classic") {
+	let opt_c = match matches.opt_present("classic") {
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
-	};	
+	};
+	let mut c = match opt_c
+	{
+		Some(cpu) => { cpu },
+		None => { error!("Could not get a valid gameboy"); return; },
+	};
 	c.mmu.serial.tostdout = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();

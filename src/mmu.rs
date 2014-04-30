@@ -37,7 +37,12 @@ pub struct MMU {
 }
 
 impl MMU {
-	pub fn new(romname: &str) -> MMU {
+	pub fn new(romname: &str) -> Option<MMU> {
+		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
+		{
+			Some(mbc) => { mbc },
+			None => { return None; },
+		};
 		let mut res = MMU {
 			wram: ~([0, ..WRAM_SIZE]),
 			zram: ~([0, ..ZRAM_SIZE]),
@@ -50,7 +55,7 @@ impl MMU {
 			keypad: Keypad::new(),
 			gpu: GPU::new(),
 			sound: Sound::new(),
-			mbc: ::mbc::get_mbc(&Path::new(romname)),
+			mbc: mmu_mbc,
 			gbmode: ::gbmode::Classic,
 			gbspeed: ::gbmode::Single,
 			speed_switch_req: false,
@@ -60,13 +65,19 @@ impl MMU {
 			hdma_len: 0xFF,
 		};
 		if res.rb(0x0143) == 0xC0 {
-			fail!("This game does not work in Classic mode");
+			error!("This game does not work in Classic mode");
+			return None;
 		}
 		res.set_initial();
-		return res
+		Some(res)
 	}
 
-	pub fn new_cgb(romname: &str) -> MMU {
+	pub fn new_cgb(romname: &str) -> Option<MMU> {
+		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
+		{
+			Some(mbc) => { mbc },
+			None => { return None; },
+		};
 		let mut res = MMU {
 			wram: ~([0,.. WRAM_SIZE]),
 			zram: ~([0,.. ZRAM_SIZE]),
@@ -79,7 +90,7 @@ impl MMU {
 			keypad: Keypad::new(),
 			gpu: GPU::new_cgb(),
 			sound: Sound::new(),
-			mbc: ::mbc::get_mbc(&Path::new(romname)),
+			mbc: mmu_mbc,
 			gbmode: ::gbmode::Color,
 			gbspeed: ::gbmode::Single,
 			speed_switch_req: false,
@@ -90,7 +101,7 @@ impl MMU {
 		};
 		res.determine_mode();
 		res.set_initial();
-		return res;
+		Some(res)
 	}
 
 	fn set_initial(&mut self) {
@@ -224,7 +235,7 @@ impl MMU {
 		match a {
 			0xFF51 .. 0xFF54 => { self.hdma[(a - 0xFF51) as uint] },
 			0xFF55 => self.hdma_len | if self.hdma_status == NoDMA { 0x80 } else { 0 },
-			_ => fail!(),
+			_ => fail!("The address {:04X} should not be handled by hdma_read", a),
 		}
 	}
 
@@ -251,7 +262,7 @@ impl MMU {
 					if v & 0x80 == 0x80 { HDMA }
 					else { GDMA };
 			},
-			_ => fail!(),
+			_ => fail!("The address {:04X} should not be handled by hdma_write", a),
 		};
 	}
 

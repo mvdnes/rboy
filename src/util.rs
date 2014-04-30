@@ -1,15 +1,14 @@
-use std::io::{IoResult,IoError};
+use std::io::IoResult;
 
-pub fn handle_io<T>(result: IoResult<T>, message: &str, fail: bool) -> Result<T, IoError>
+pub fn handle_io<T>(result: IoResult<T>, message: &str) -> Option<T>
 {
 	match result
 	{
-		Ok(_) => {},
+		Ok(ok) => { Some(ok) },
 		Err(ref error) =>
 		{
-			if fail { fail!("{:s}: {}", message, error) }
-			else { error!("{:s}: {}", message, error) }
+			error!("{:s}: {}", message, error);
+			None
 		},
-	};
-	result
+	}
 }
