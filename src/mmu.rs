@@ -15,8 +15,8 @@ enum DMAType {
 }
 
 pub struct MMU {
-	wram: ~[u8, ..WRAM_SIZE],
-	zram: ~[u8, ..ZRAM_SIZE],
+	wram: [u8, ..WRAM_SIZE],
+	zram: [u8, ..ZRAM_SIZE],
 	hdma: [u8, ..4],
 	pub inte: u8,
 	pub intf: u8,
@@ -30,7 +30,7 @@ pub struct MMU {
 	hdma_dst: u16,
 	hdma_len: u8,
 	wrambank: uint,
-	mbc: ~::mbc::MBC,
+	mbc: Box<::mbc::MBC>,
 	gbmode: ::gbmode::GbMode,
 	gbspeed: ::gbmode::GbSpeed,
 	speed_switch_req: bool,
@@ -44,8 +44,8 @@ impl MMU {
 			None => { return None; },
 		};
 		let mut res = MMU {
-			wram: ~([0, ..WRAM_SIZE]),
-			zram: ~([0, ..ZRAM_SIZE]),
+			wram: [0, ..WRAM_SIZE],
+			zram: [0, ..ZRAM_SIZE],
 			hdma: [0, ..4],
 			wrambank: 1,
 			inte: 0,
@@ -79,8 +79,8 @@ impl MMU {
 			None => { return None; },
 		};
 		let mut res = MMU {
-			wram: ~([0,.. WRAM_SIZE]),
-			zram: ~([0,.. ZRAM_SIZE]),
+			wram: [0,.. WRAM_SIZE],
+			zram: [0,.. ZRAM_SIZE],
 			wrambank: 1,
 			hdma: [0,.. 4],
 			inte: 0,

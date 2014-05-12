@@ -834,7 +834,7 @@ mod test
 				None => return,
 				Some(cpu) => cpu,
 			};
-			::std::io::stdio::set_stdout(~w);
+			::std::io::stdio::set_stdout(box w);
 			c.mmu.serial.tostdout = true;
 			let mut ticks = 0;
 			while ticks < 63802933

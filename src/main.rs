@@ -37,7 +37,6 @@ fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
 
 fn main() {
 	let args = std::os::args();
-	let program = args[0].clone() + " <filename>";
 
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
@@ -48,7 +47,7 @@ fn main() {
 	let filename = if !matches.free.is_empty() {
 		matches.free.get(0).clone()
 	} else {
-		println!("{}", getopts::usage(program, opts));
+		println!("{}", getopts::usage(StrBuf::from_str(*args.get(0)).append(" <filename>").into_owned(), opts));
 		return;
 	};
 
@@ -72,7 +71,7 @@ fn main() {
 		periodic.recv();
 		match sdlstream.try_recv() {
 			Err(Disconnected) => { break 'main },
-			Ok(_) => recalculate_screen(screen, &arc),
+			Ok(_) => recalculate_screen(&screen, &arc),
 			Err(Empty) => {},
 		}
 		'event : loop {

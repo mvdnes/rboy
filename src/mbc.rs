@@ -86,7 +86,7 @@ struct MBC3 {
 	rambank: uint,
 	ram_on: bool,
 	savepath: Option<Path>,
-	rtc_ram: ~[u8,.. 5],
+	rtc_ram: [u8,.. 5],
 	rtc_lock: bool,
 	rtc_zero: Option<i64>,
 }
@@ -114,7 +114,7 @@ impl MBC3 {
 			rambank: 0,
 			ram_on: false,
 			savepath: svpath,
-			rtc_ram: ~([0u8,.. 5]),
+			rtc_ram: [0u8,.. 5],
 			rtc_lock: false,
 			rtc_zero: rtc,
 		};
@@ -259,7 +259,7 @@ impl Drop for MBC5 {
 	}
 }
 
-pub fn get_mbc(file: &Path) -> Option<~MBC> {
+pub fn get_mbc(file: &Path) -> Option<Box<MBC>> {
 	let data: ~[u8] = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
 	{
 		Some(mbc) => { mbc.as_slice().to_owned() },
@@ -271,10 +271,10 @@ pub fn get_mbc(file: &Path) -> Option<~MBC> {
 		return None;
 	}
 	match data[0x147] {
-		0x00 => MBC0::new(data).map(|v| ~v as ~MBC),
-		0x01 .. 0x03 => MBC1::new(data, file).map(|v| ~v as ~MBC),
-		0x0F .. 0x13 => MBC3::new(data, file).map(|v| ~v as ~MBC),
-		0x19 .. 0x1E => MBC5::new(data, file).map(|v| ~v as ~MBC),
+		0x00 => MBC0::new(data).map(|v| box v as Box<MBC>),
+		0x01 .. 0x03 => MBC1::new(data, file).map(|v| box v as Box<MBC>),
+		0x0F .. 0x13 => MBC3::new(data, file).map(|v| box v as Box<MBC>),
+		0x19 .. 0x1E => MBC5::new(data, file).map(|v| box v as Box<MBC>),
 		m => { error!("Unsupported MBC type: {:02X}", m); None },
 	}
 }
