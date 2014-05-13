@@ -11,7 +11,8 @@ before_install:
 install:
   - sudo apt-get install libsdl1.2-dev libsdl-mixer1.2-dev libsdl-image1.2-dev
   - tar -xf rust-nightly-x86_64-unknown-linux-gnu.tar.gz
-  - export RUSTC=`pwd`/rust-nightly-x86_64-unknown-linux-gnu/bin/rustc
+  - export RUSTC=$(pwd)/rust-nightly-x86_64-unknown-linux-gnu/bin/rustc
 script:
+  - $RUSTC -v
   - make
   - make test
