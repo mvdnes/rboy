@@ -1,3 +1,5 @@
+RUSTC?=rustc
+
 .PHONY: src
 src: rust-sdl-build
 	cd src && make
@@ -11,7 +13,7 @@ rust-sdl/README.md: .gitmodules
 	git submodule update --init rust-sdl
 
 rust-sdl-build: rust-sdl/README.md
-	cd rust-sdl && rustc -O src/sdl/lib.rs
+	cd rust-sdl && $(RUSTC) -O src/sdl/lib.rs
 	mkdir -p lib
 	mv rust-sdl/libsdl*.rlib lib/
 	touch rust-sdl-build
