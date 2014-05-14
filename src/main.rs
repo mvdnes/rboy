@@ -138,7 +138,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: ~str, matches: &getopts::Matches) {
+fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: &str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
