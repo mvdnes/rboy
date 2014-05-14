@@ -819,12 +819,22 @@ impl CPU {
 mod test
 {
 	use super::CPU;
+	use sync::{RWLock, Arc, Barrier};
 
 	static CPUINSTRS: &'static str = "tests/cpu_instrs.gb";
 
 	#[test]
 	fn cpu_instrs()
 	{
+		let barrier0 = Arc::new(Barrier::new(3));
+		let barrier1 = barrier0.clone();
+		let barrier2 = barrier1.clone();
+
+		let sum_classic0 = Arc::new(RWLock::new(0));
+		let sum_classic1 = sum_classic0.clone();
+		let sum_color0 = Arc::new(RWLock::new(0));
+		let sum_color1 = sum_color0.clone();
+
 		let (tx, rx) = channel();
 		let (mut r, w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
 		spawn(proc()
@@ -841,8 +851,39 @@ mod test
 			{
 				ticks += c.cycle();
 			}
+			let mut s = sum_classic1.write();
+			for i in range(0, c.mmu.gpu.data.len())
+			{
+				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
+			}
+			barrier1.wait();
 		});
+
+		spawn(proc()
+		{
+			let mut c = match CPU::new_cgb(CPUINSTRS)
+			{
+				None => fail!("Could not instantiate Color CPU"),
+				Some(cpu) => cpu,
+			};
+			let mut ticks = 0;
+			while ticks < 63802933
+			{
+				ticks += c.cycle();
+			}
+			let mut s = sum_color1.write();
+			for i in range(0, c.mmu.gpu.data.len())
+			{
+				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
+			}
+			barrier2.wait();
+		});
+
+		barrier0.wait();
+
 		assert!(r.read_to_str().unwrap() == "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned(),
-			"cpu_instrs did not produce the expected result.");
+			"cpu_instrs did not output the expected result to serial");
+		assert!(*sum_classic0.read() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
+		assert!(*sum_color0.read() == 479666872, "cpu_instrs was not graphically correct in Color mode");
 	}
 }
