@@ -59,7 +59,7 @@ fn main() {
 	};
 
 	let (sdlstream, cpustream) = sync::duplex();
-	let rawscreen = ~[0x00u8,.. 160*144*3];
+	let rawscreen = [0x00u8,.. 160*144*3];
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename, &matches));
@@ -116,7 +116,7 @@ fn sdl_to_keypad(key: sdl::event::Key) -> Option<keypad::KeypadKey> {
 	}
 }
 
-fn recalculate_screen(screen: &sdl::video::Surface, arc: &Arc<RWLock<~[u8]>>) {
+fn recalculate_screen(screen: &sdl::video::Surface, arc: &Arc<RWLock<[u8,.. 160*144*3]>>) {
 	let data = arc.read();
 	for y in range(0u, 144) {
 		for x in range(0u, 160) {
@@ -138,7 +138,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<~[u8]>>, filename: ~str, matches: &getopts::Matches) {
+fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: ~str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
