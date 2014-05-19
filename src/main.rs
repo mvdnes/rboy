@@ -36,12 +36,7 @@ static SCALE: uint = 2;
 fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
 
 fn main() {
-	let mut args = Vec::new();
-	for a in std::os::args().iter()
-	{
-		args.push(a.to_strbuf());
-	}
-
+	let args = std::os::args().move_iter().map(|s| s.into_strbuf()).collect::<Vec<StrBuf>>();
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
