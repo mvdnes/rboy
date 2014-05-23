@@ -467,9 +467,9 @@ impl GPU {
 						continue 'xloop
 					}
 					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
-					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8;
-					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8;
-					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8;
+					self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
+					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
+					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
 				} else {
 					if belowbg && self.bgprio[(spritex + x) as uint] != Color0 { continue 'xloop }
 					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
