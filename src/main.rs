@@ -36,7 +36,7 @@ static SCALE: uint = 2;
 fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
 
 fn main() {
-	let args = std::os::args().move_iter().map(|s| s.into_strbuf()).collect::<Vec<StrBuf>>();
+	let args = std::os::args();
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
@@ -46,7 +46,7 @@ fn main() {
 	let filename = if !matches.free.is_empty() {
 		matches.free.get(0).clone()
 	} else {
-		println!("{}", getopts::usage(args.get(0).clone().append(" <filename>").to_str(), opts));
+		println!("{}", getopts::usage(args.get(0).clone().append(" <filename>").as_slice(), opts));
 		return;
 	};
 
@@ -61,7 +61,7 @@ fn main() {
 	let rawscreen = [0x00u8,.. 160*144*3];
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
-	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename.to_str(), &matches));
+	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
