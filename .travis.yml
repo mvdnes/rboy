@@ -7,12 +7,11 @@ notifications:
     on_failure: always
 
 before_install:
-  - wget http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+  - curl http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz | tar xz
 install:
   - sudo apt-get install libsdl1.2-dev libsdl-mixer1.2-dev libsdl-image1.2-dev
-  - tar -xf rust-nightly-x86_64-unknown-linux-gnu.tar.gz
-  - export RUSTC=$(pwd)/rust-nightly-x86_64-unknown-linux-gnu/bin/rustc
+  - sudo rust-nightly-x86_64-unknown-linux-gnu/install.sh
 script:
-  - $RUSTC -v
+  - rustc -v
   - make
   - make test
