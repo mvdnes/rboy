@@ -4,7 +4,7 @@ static VOAM_SIZE: uint = 0xA0;
 static SCREEN_W: uint = 160;
 static SCREEN_H: uint = 144;
 
-#[deriving(Eq)]
+#[deriving(PartialEq)]
 enum PrioType {
 	Color0,
 	PrioFlag,
