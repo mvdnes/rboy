@@ -332,7 +332,7 @@ impl CPU {
 			0xC8 => { if self.reg.getflag(Z) { self.reg.pc = self.popstack(); 5 } else { 2 } },
 			0xC9 => { self.reg.pc = self.popstack(); 4 },
 			0xCA => { if self.reg.getflag(Z) { self.reg.pc = self.fetchword(); 4 } else { self.reg.pc += 2; 3 } },
-			0xCB => { self.callCB() },
+			0xCB => { self.call_cb() },
 			0xCC => { if self.reg.getflag(Z) { self.pushstack(self.reg.pc + 2); self.reg.pc = self.fetchword(); 6 } else { self.reg.pc += 2; 3 } },
 			0xCD => { self.pushstack(self.reg.pc + 2); self.reg.pc = self.fetchword(); 6 },
 			0xCE => { let v = self.fetchbyte(); self.alu_add(v, true); 2 },
@@ -378,7 +378,7 @@ impl CPU {
 		}
 	}
 	
-	fn callCB(&mut self) -> uint {
+	fn call_cb(&mut self) -> uint {
 		match self.fetchbyte() {
 			0x00 => { self.reg.b = self.alu_rlc(self.reg.b); 2 },
 			0x01 => { self.reg.c = self.alu_rlc(self.reg.c); 2 },
@@ -881,7 +881,7 @@ mod test
 
 		barrier0.wait();
 
-		assert!(r.read_to_str().unwrap() == "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n".to_owned(),
+		assert!(r.read_to_str().unwrap().as_slice() == "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
 			"cpu_instrs did not output the expected result to serial");
 		assert!(*sum_classic0.read() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
 		assert!(*sum_color0.read() == 479666872, "cpu_instrs was not graphically correct in Color mode");
