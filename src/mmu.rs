@@ -128,10 +128,6 @@ impl MMU {
 		self.gpu.gbmode = mode;
 	}
 
-	pub fn get_mode(&self) -> ::gbmode::GbMode {
-		self.gbmode
-	}
-
 	pub fn cycle(&mut self, cputicks: uint) -> uint {
 		let ticks = cputicks + self.perform_vramdma();
 

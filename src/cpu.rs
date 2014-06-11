@@ -7,7 +7,6 @@ pub struct CPU {
 	ime: bool,
 	setdi: uint,
 	setei: uint,
-	gbmode: ::gbmode::GbMode,
 }
 
 static C: u8 = (1 << 4);
@@ -30,7 +29,6 @@ impl CPU {
 			setdi: 0,
 			setei: 0,
 			mmu: cpu_mmu,
-			gbmode: ::gbmode::Classic,
 		})
 	}
 
@@ -40,7 +38,6 @@ impl CPU {
 			Some(mmu) => { mmu },
 			None => { return None; },
 		};
-		let mode = cpu_mmu.get_mode();
 		Some(CPU {
 			reg: ::register::Registers::new_cgb(),
 			halted: false,
@@ -48,7 +45,6 @@ impl CPU {
 			setdi: 0,
 			setei: 0,
 			mmu: cpu_mmu,
-			gbmode: mode,
 		})
 	}
 
