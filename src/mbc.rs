@@ -8,18 +8,18 @@ pub trait MBC {
 }
 
 struct MBC0 {
-	rom: ~[u8],
+	rom: Vec<u8>,
 }
 
 impl MBC0 {
-	pub fn new(data: ~[u8]) -> Option<MBC0> {
+	pub fn new(data: Vec<u8>) -> Option<MBC0> {
 		Some(MBC0 { rom: data })
 	}
 }
 
 struct MBC1 {
-	rom: ~[u8],
-	ram: ~[u8],
+	rom: Vec<u8>,
+	ram: Vec<u8>,
 	ram_on: bool,
 	ram_mode: bool,
 	rombank: uint,
@@ -28,10 +28,10 @@ struct MBC1 {
 }
 
 impl MBC1 {
-	pub fn new(data: ~[u8], file: &Path) -> Option<MBC1> {
-		let (svpath, ramsize) = match data[0x147] {
-			0x02 => (None, ram_size(data[0x149])),
-			0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
+	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC1> {
+		let (svpath, ramsize) = match *data.get(0x147) {
+			0x02 => (None, ram_size(*data.get(0x149))),
+			0x03 => (Some(file.with_extension("gbsave")), ram_size(*data.get(0x149))),
 			_ => (None, 0),
 		};
 
@@ -73,15 +73,15 @@ impl Drop for MBC1 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile");
+				handle_io(::std::io::File::create(path).write(self.ram.as_slice()), "Could not write savefile");
 			},
 		};
 	}
 }
 
 struct MBC3 {
-	rom: ~[u8],
-	ram: ~[u8],
+	rom: Vec<u8>,
+	ram: Vec<u8>,
 	rombank: uint,
 	rambank: uint,
 	ram_on: bool,
@@ -92,14 +92,14 @@ struct MBC3 {
 }
 
 impl MBC3 {
-	pub fn new(data: ~[u8], file: &Path) -> Option<MBC3> {
-		let subtype = data[0x147];
+	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC3> {
+		let subtype = *data.get(0x147);
 		let svpath = match subtype {
 			0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
 			_ => None,
 		};
 		let ramsize = match subtype {
-			0x10 | 0x12 | 0x13 => ram_size(data[0x149]),
+			0x10 | 0x12 | 0x13 => ram_size(*data.get(0x149)),
 			_ => 0,
 		};
 		let rtc = match subtype {
@@ -191,15 +191,15 @@ impl Drop for MBC3 {
 				};
 				let mut ok = true;
 				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile").is_some(); };
-				if ok { handle_io(file.write(self.ram), "Could not write savefile"); };
+				if ok { handle_io(file.write(self.ram.as_slice()), "Could not write savefile"); };
 			},
 		};
 	}
 }
 
 struct MBC5 {
-	rom: ~[u8],
-	ram: ~[u8],
+	rom: Vec<u8>,
+	ram: Vec<u8>,
 	rombank: uint,
 	rambank: uint,
 	ram_on: bool,
@@ -207,14 +207,14 @@ struct MBC5 {
 }
 
 impl MBC5 {
-	pub fn new(data: ~[u8], file: &Path) -> Option<MBC5> {
-		let subtype = data[0x147];
+	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC5> {
+		let subtype = *data.get(0x147);
 		let svpath = match subtype {
 			0x1B | 0x1E => Some(file.with_extension("gbsave")),
 			_ => None,
 		};
 		let ramsize = match subtype {
-			0x1A | 0x1B | 0x1D | 0x1E => ram_size(data[0x149]),
+			0x1A | 0x1B | 0x1D | 0x1E => ram_size(*data.get(0x149)),
 			_ => 0,
 		};
 
@@ -253,24 +253,24 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(::std::io::File::create(path).write(self.ram), "Could not write savefile");
+				handle_io(::std::io::File::create(path).write(self.ram.as_slice()), "Could not write savefile");
 			},
 		};
 	}
 }
 
 pub fn get_mbc(file: &Path) -> Option<Box<MBC>> {
-	let data: ~[u8] = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
+	let data: Vec<u8> = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
 	{
-		Some(mbc) => { mbc.as_slice().to_owned() },
+		Some(mbc) => { mbc },
 		None => { return None; },
 	};
 	if data.len() < 0x150 { fail!("Rom size to small"); }
-	if !check_checksum(data)
+	if !check_checksum(&data)
 	{
 		return None;
 	}
-	match data[0x147] {
+	match *data.get(0x147) {
 		0x00 => MBC0::new(data).map(|v| box v as Box<MBC>),
 		0x01 .. 0x03 => MBC1::new(data, file).map(|v| box v as Box<MBC>),
 		0x0F .. 0x13 => MBC3::new(data, file).map(|v| box v as Box<MBC>),
@@ -289,20 +289,20 @@ fn ram_size(v: u8) -> uint {
 	}
 }
 
-fn check_checksum(data: &[u8]) -> bool {
+fn check_checksum(data: &Vec<u8>) -> bool {
 	let mut value: u8 = 0;
 	for i in range(0x134u, 0x14D) {
-		value = value - data[i] - 1;
+		value = value - *data.get(i) - 1;
 	}
-	match data[0x14D] == value
+	match *data.get(0x14D) == value
 	{
 		true => true,
-		false => { error!("Cartridge checksum is invalid. {:02X} != {:02X}", data[0x14D], value); false },
+		false => { error!("Cartridge checksum is invalid. {:02X} != {:02X}", *data.get(0x14D), value); false },
 	}
 }
 
 impl MBC for MBC0 {
-	fn readrom(&self, a: u16) -> u8 { self.rom[a as uint] }
+	fn readrom(&self, a: u16) -> u8 { *self.rom.get(a as uint) }
 	fn readram(&self, _a: u16) -> u8 { 0 }
 	fn writerom(&mut self, _a: u16, _v: u8) { () }
 	fn writeram(&mut self, _a: u16, _v: u8) { () }
@@ -310,13 +310,13 @@ impl MBC for MBC0 {
 
 impl MBC for MBC1 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF) ] }
+		if a < 0x4000 { *self.rom.get(a as uint) }
+		else { *self.rom.get(self.rombank * 0x4000 | ((a as uint) & 0x3FFF) ) }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as uint)]
+		*self.ram.get((rambank * 0x2000) | ((a & 0x1FFF) as uint))
 	}
 
 	fn writerom(&mut self, a: u16, v: u8) {
@@ -340,19 +340,19 @@ impl MBC for MBC1 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if !self.ram_on { return }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as uint)] = v;
+		*self.ram.get_mut((rambank * 0x2000) | ((a & 0x1FFF) as uint)) = v;
 	}
 }
 
 impl MBC for MBC3 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
+		if a < 0x4000 { *self.rom.get(a as uint) }
+		else { *self.rom.get(self.rombank * 0x4000 | ((a as uint) & 0x3FFF)) }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		if self.rambank <= 3 {
-			self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)]
+			*self.ram.get(self.rambank * 0x2000 | ((a as uint) & 0x1FFF))
 		} else {
 			self.rtc_ram[self.rambank - 0x08]
 		}
@@ -378,7 +378,7 @@ impl MBC for MBC3 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
 		if self.rambank <= 3 {
-			self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
+			*self.ram.get_mut(self.rambank * 0x2000 | ((a as uint) & 0x1FFF)) = v;
 		} else {
 			self.rtc_ram[self.rambank - 0x8] = v;
 			self.calc_rtc_zero();
@@ -387,12 +387,12 @@ impl MBC for MBC3 {
 }
 impl MBC for MBC5 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
+		if a < 0x4000 { *self.rom.get(a as uint) }
+		else { *self.rom.get(self.rombank * 0x4000 | ((a as uint) & 0x3FFF)) }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
-		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)]
+		*self.ram.get(self.rambank * 0x2000 | ((a as uint) & 0x1FFF))
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
@@ -406,7 +406,7 @@ impl MBC for MBC5 {
 	}
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
-		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
+		*self.ram.get_mut(self.rambank * 0x2000 | ((a as uint) & 0x1FFF)) = v;
 	}
 }
 
