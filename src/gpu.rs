@@ -423,6 +423,7 @@ impl GPU {
 		// TODO: limit of 10 sprites per line
 
 		for i in range(0u16, 40) {
+			let i = 40 - i - 1;
 			let spriteaddr = 0xFE00 + i * 4;
 			let spritey = self.rb(spriteaddr + 0) as u16 as int - 16;
 			let spritex = self.rb(spriteaddr + 1) as u16 as int - 8;
