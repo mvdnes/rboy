@@ -6,16 +6,14 @@
 
 extern crate native;
 extern crate getopts;
-extern crate sync;
 extern crate time;
 extern crate sdl;
 #[cfg(test)]
 extern crate test;
 
 use cpu::CPU;
-use sync::DuplexStream;
-use sync::{Arc,RWLock};
-use std::comm::{Disconnected,Empty};
+use std::sync::{Arc,RWLock};
+use std::comm::{DuplexStream,Disconnected,Empty};
 
 mod register;
 mod mbc;
@@ -57,7 +55,7 @@ fn main() {
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
 
-	let (sdlstream, cpustream) = sync::duplex();
+	let (sdlstream, cpustream) = std::comm::duplex();
 	let rawscreen = [0x00u8,.. 160*144*3];
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
