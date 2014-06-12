@@ -815,7 +815,7 @@ impl CPU {
 mod test
 {
 	use super::CPU;
-	use sync::{RWLock, Arc, Barrier};
+	use std::sync::{RWLock, Arc, Barrier};
 
 	static CPUINSTRS: &'static str = "tests/cpu_instrs.gb";
 
