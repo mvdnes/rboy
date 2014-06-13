@@ -1,3 +1,4 @@
+use std::iter::range_step_inclusive;
 
 static VRAM_SIZE: uint = 0x4000;
 static VOAM_SIZE: uint = 0xA0;
@@ -422,9 +423,8 @@ impl GPU {
 
 		// TODO: limit of 10 sprites per line
 
-		for i in range(0u16, 40) {
-			let i = 40 - i - 1;
-			let spriteaddr = 0xFE00 + i * 4;
+		for i in range_step_inclusive(39, 0, -1) {
+			let spriteaddr = 0xFE00 + (i as u16) * 4;
 			let spritey = self.rb(spriteaddr + 0) as u16 as int - 16;
 			let spritex = self.rb(spriteaddr + 1) as u16 as int - 8;
 			let tilenum = (self.rb(spriteaddr + 2) & (if self.sprite_size == 16 { 0xFE } else { 0xFF })) as u16;
