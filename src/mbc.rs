@@ -37,7 +37,7 @@ impl MBC1 {
 
 		let mut res = MBC1 {
 			rom: data,
-			ram: ::std::vec::Vec::from_elem(ramsize, 0u8).as_slice().to_owned(),
+			ram: ::std::vec::Vec::from_elem(ramsize, 0u8),
 			ram_on: false,
 			ram_mode: false,
 			rombank: 1,
@@ -59,7 +59,7 @@ impl MBC1 {
 				self.ram = match ::std::io::File::open(savepath).read_to_end()
 				{
 					Err(_) => { error!("Could not open save file"); return false },
-					Ok(data) => data.as_slice().to_owned(),
+					Ok(data) => data,
 				}
 			},
 		};
@@ -109,7 +109,7 @@ impl MBC3 {
 
 		let mut res = MBC3 {
 			rom: data,
-			ram: ::std::vec::Vec::from_elem(ramsize, 0u8).as_slice().to_owned(),
+			ram: ::std::vec::Vec::from_elem(ramsize, 0u8),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,
@@ -137,7 +137,7 @@ impl MBC3 {
 				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
 				self.ram = match handle_io(file.read_to_end(), "Could not read ROM") {
 					None => { return false; },
-					Some(data) => data.as_slice().to_owned(),
+					Some(data) => data,
 				};
 			},
 		};
@@ -220,7 +220,7 @@ impl MBC5 {
 
 		let mut res = MBC5 {
 			rom: data,
-			ram: ::std::vec::Vec::from_elem(ramsize, 0u8).as_slice().to_owned(),
+			ram: ::std::vec::Vec::from_elem(ramsize, 0u8),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,
@@ -239,7 +239,7 @@ impl MBC5 {
 			Some(ref savepath) => if savepath.is_file() {
 				self.ram = match ::std::io::File::open(savepath).read_to_end() {
 					Err(_) => { error!("Could not read RAM"); return false; },
-					Ok(data) => data.as_slice().to_owned(),
+					Ok(data) => data,
 				};
 			},
 		};
