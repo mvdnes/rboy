@@ -413,7 +413,8 @@ impl GPU {
 				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
 				self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
 			} else {
-				self.setcolor(x, self.palb[colnr]);
+				let color = self.palb[colnr];
+				self.setcolor(x, color);
 			}
 		}
 	}
