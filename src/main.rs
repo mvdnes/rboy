@@ -38,7 +38,7 @@ fn main() {
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
-		Err(f) => { println!("{}", f.to_err_msg()); return }
+		Err(f) => { println!("{}", f); return }
 	};
 
 	let filename = if !matches.free.is_empty() {
