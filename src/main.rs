@@ -14,6 +14,8 @@ extern crate test;
 use cpu::CPU;
 use std::sync::{Arc,RWLock};
 use std::comm::{DuplexStream,Disconnected,Empty};
+use std::task::TaskBuilder;
+use native::NativeTaskBuilder;
 
 mod register;
 mod mbc;
@@ -59,7 +61,8 @@ fn main() {
 	let rawscreen = [0x00u8,.. 160*144*3];
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
-	native::task::spawn(proc() cpuloop(&cpustream, arc2, filename.as_slice(), &matches));
+
+	TaskBuilder::new().native().spawn(proc() cpuloop(&cpustream, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
