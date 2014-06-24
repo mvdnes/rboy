@@ -1,5 +1,3 @@
-use std::num::Int;
-
 pub struct CPU {
 	reg: ::register::Registers,
 	pub mmu: ::mmu::MMU,
@@ -13,7 +11,6 @@ static C: u8 = (1 << 4);
 static H: u8 = (1 << 5);
 static N: u8 = (1 << 6);
 static Z: u8 = (1 << 7);
-
 
 impl CPU {
 	pub fn new(romname: &str) -> Option<CPU> {

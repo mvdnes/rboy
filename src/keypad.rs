@@ -1,4 +1,3 @@
-
 pub struct Keypad {
 	row0: u8,
 	row1: u8,

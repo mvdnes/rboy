@@ -1,4 +1,3 @@
-
 pub struct Serial {
 	pub tostdout: bool,
 	data: u8,

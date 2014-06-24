@@ -1,4 +1,3 @@
-
 pub struct Sound {
 	data: [u8,.. 0x30],
 }

@@ -1,4 +1,3 @@
-
 pub struct Timer {
 	divider: u8,
 	counter: u8,
