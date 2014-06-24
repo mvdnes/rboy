@@ -7,10 +7,10 @@ notifications:
     on_failure: always
 
 before_install:
-  - curl http://static.rust-lang.org/dist/rust-nightly-x86_64-unknown-linux-gnu.tar.gz | tar xz
+  - yes | sudo add-apt-repository ppa:hansjorg/rust
+  - sudo apt-get update
 install:
-  - sudo apt-get install libsdl1.2-dev libsdl-mixer1.2-dev libsdl-image1.2-dev
-  - sudo rust-nightly-x86_64-unknown-linux-gnu/install.sh
+  - sudo apt-get install libsdl1.2-dev rust-nightly
 script:
   - rustc -v
   - make
