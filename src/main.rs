@@ -30,6 +30,8 @@ mod gbmode;
 mod util;
 
 static SCALE: uint = 2;
+static EXITCODE_INCORRECTOPTIONS: int = 1;
+static EXITCODE_CPULOADFAILS: int = 2;
 
 #[cfg(not(test))]
 #[start]
@@ -47,6 +49,7 @@ fn main() {
 		matches.free.get(0).clone()
 	} else {
 		println!("{}", getopts::usage(args.get(0).clone().append(" <filename>").as_slice(), opts));
+		std::os::set_exit_status(EXITCODE_INCORRECTOPTIONS);
 		return;
 	};
 
@@ -146,7 +149,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144
 	let mut c = match opt_c
 	{
 		Some(cpu) => { cpu },
-		None => { error!("Could not get a valid gameboy"); return; },
+		None => { error!("Could not get a valid gameboy"); std::os::set_exit_status(EXITCODE_CPULOADFAILS); return; },
 	};
 	c.mmu.serial.tostdout = matches.opt_present("serial");
 
