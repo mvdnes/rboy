@@ -399,7 +399,7 @@ impl GPU {
 			let xbit = match xflip {
 				true => pixelx,
 				false => 7 - pixelx,
-			};
+			} as uint;
 			let colnr = if b1 & (1 << xbit) != 0 { 1 } else { 0 }
 				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
@@ -424,7 +424,7 @@ impl GPU {
 
 		// TODO: limit of 10 sprites per line
 
-		for i in range_step_inclusive(39, 0, -1) {
+		for i in range_step_inclusive(39i, 0, -1) {
 			let spriteaddr = 0xFE00 + (i as u16) * 4;
 			let spritey = self.rb(spriteaddr + 0) as u16 as int - 16;
 			let spritex = self.rb(spriteaddr + 1) as u16 as int - 8;
@@ -456,10 +456,10 @@ impl GPU {
 				(self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
 			};
 
-			'xloop: for x in range(0, 8) {
+			'xloop: for x in range(0i, 8) {
 				if spritex + x < 0 || spritex + x >= (SCREEN_W as int) { continue }
 
-				let xbit = 1 << (if xflip { x } else { 7 - x });
+				let xbit = 1 << (if xflip { x } else { 7 - x } as uint);
 				let colnr = (if b1 & xbit != 0 { 1 } else { 0 }) |
 					(if b2 & xbit != 0 { 2 } else { 0 });
 				if colnr == 0 { continue }

@@ -100,7 +100,7 @@ impl CPU {
 		if self.ime == false { return 0 }
 		self.ime = false;
 
-		let n = triggered.trailing_zeros();
+		let n = triggered.trailing_zeros() as uint;
 		if n >= 5 { fail!("Invalid interrupt triggered"); }
 		self.mmu.intf &= !(1 << n);
 		let pc = self.reg.pc;
@@ -783,7 +783,7 @@ impl CPU {
 	}
 
 	fn alu_bit(&mut self, a: u8, b: u8) {
-		let r = a & (1 << b) == 0;
+		let r = a & (1 << (b as uint)) == 0;
 		self.reg.flag(N, false);
 		self.reg.flag(H, true);
 		self.reg.flag(Z, r);

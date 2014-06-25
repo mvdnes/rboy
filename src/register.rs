@@ -133,19 +133,19 @@ mod test
 		assert_eq!(reg.f & 0x0F, 0);
 
 		reg.setf(0x00);
-		for i in range(0, 8)
+		for i in range(0u, 8)
 		{
 			assert_eq!(reg.getflag(1 << i), false);
 		}
 
 		reg.setf(0xFF);
-		for i in range(0, 8)
+		for i in range(0u, 8)
 		{
 			assert_eq!(reg.getflag(1 << i), i >= 4);
 		}
 
 		reg.setf(0x00);
-		for i in range(0, 8)
+		for i in range(0u, 8)
 		{
 			let mask = 1 << i;
 			assert_eq!(reg.getflag(mask), false);
