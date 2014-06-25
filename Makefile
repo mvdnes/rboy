@@ -1,12 +1,21 @@
 RUSTC?=rustc
 
-.PHONY: src
-src: rust-sdl-build
-	cd src && make
+SOURCES=$(wildcard src/*.rs) $(wildcard src/*/*.rs)
+PACKEDROMS=$(wildcard roms/*.gb.gz)
+ROMS=$(PACKEDROMS:.gb.gz=.gb)
+
+rboy: rust-sdl-build $(SOURCES)
+	$(RUSTC) -O -L lib src/main.rs
+
+rboy_test: rust-sdl-build $(SOURCES)
+	$(RUSTC) -O -L lib src/main.rs --test -A dead_code -o $@
 
 .PHONY: test
-test: rust-sdl-build
-	cd src && make test
+test: rboy_test $(ROMS)
+	./rboy_test
+
+$(ROMS): %.gb : %.gb.gz
+	gunzip -c $< > $@
 
 rust-sdl/README.md: .gitmodules
 	git submodule sync rust-sdl
@@ -20,9 +29,9 @@ rust-sdl-build: rust-sdl/README.md
 
 .PHONY: clean
 clean:
-	cd src && make clean
+	$(RM) rboy rboy_test $(ROMS)
 
 .PHONY: distclean
 distclean: clean
 	git submodule deinit -f rust-sdl
-	rm -rf lib rust-sdl-build
+	$(RM) -rf lib rust-sdl-build

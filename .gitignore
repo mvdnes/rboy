@@ -1,5 +1,5 @@
-src/rboy
-src/rboy_test
-src/tests/*.gb
+rboy
+rboy_test
+roms/*.gb
 lib
 rust-sdl-build

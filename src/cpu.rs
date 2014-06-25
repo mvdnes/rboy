@@ -819,7 +819,7 @@ mod test
 	use super::CPU;
 	use std::sync::{RWLock, Arc, Barrier};
 
-	static CPUINSTRS: &'static str = "tests/cpu_instrs.gb";
+	static CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
 
 	#[test]
 	fn cpu_instrs()
@@ -839,7 +839,7 @@ mod test
 		{
 			let mut c = match CPU::new(CPUINSTRS)
 			{
-				None => return,
+				None => { barrier1.wait(); fail!("Could not instantiate Classic CPU"); },
 				Some(cpu) => cpu,
 			};
 			::std::io::stdio::set_stdout(box w);
@@ -861,7 +861,7 @@ mod test
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS)
 			{
-				None => fail!("Could not instantiate Color CPU"),
+				None => { barrier2.wait(); fail!("Could not instantiate Color CPU"); },
 				Some(cpu) => cpu,
 			};
 			let mut ticks = 0;
