@@ -11,6 +11,14 @@ pub struct Registers {
 	pub sp: u16,
 }
 
+pub enum CpuFlag
+{
+	C = 0b00010000,
+	H = 0b00100000,
+	N = 0b01000000,
+	Z = 0b10000000,
+}
+
 impl Registers {
 	pub fn new() -> Registers {
 		Registers {
@@ -73,7 +81,8 @@ impl Registers {
 		self.l = (value & 0x00FF) as u8;
 	}
 
-	pub fn flag(&mut self, mask: u8, set: bool) {
+	pub fn flag(&mut self, flags: CpuFlag, set: bool) {
+		let mask = flags as u8;
 		match set {
 			true  => self.f |=  mask,
 			false => self.f &= !mask,
@@ -81,7 +90,8 @@ impl Registers {
 		self.f &= 0xF0;
 	}
 
-	pub fn getflag(&self, mask: u8) -> bool {
+	pub fn getflag(&self, flags: CpuFlag) -> bool {
+		let mask = flags as u8;
 		self.f & mask > 0
 	}
 
@@ -96,6 +106,7 @@ impl Registers {
 mod test
 {
 	use super::Registers;
+	use super::{C, H, N, Z};
 
 	#[test]
 	fn wide_registers()
@@ -128,29 +139,18 @@ mod test
 	fn flags()
 	{
 		let mut reg = Registers::new();
+		let flags = [C, H, N, Z];
 
 		// Check if initially the flags are good
 		assert_eq!(reg.f & 0x0F, 0);
 
 		reg.setf(0x00);
-		for i in range(0u, 8)
+		for i in range(0u, 4)
 		{
-			assert_eq!(reg.getflag(1 << i), false);
-		}
-
-		reg.setf(0xFF);
-		for i in range(0u, 8)
-		{
-			assert_eq!(reg.getflag(1 << i), i >= 4);
-		}
-
-		reg.setf(0x00);
-		for i in range(0u, 8)
-		{
-			let mask = 1 << i;
+			let mask = flags[i];
 			assert_eq!(reg.getflag(mask), false);
 			reg.flag(mask, true);
-			assert_eq!(reg.getflag(mask), i >= 4);
+			assert_eq!(reg.getflag(mask), true);
 			reg.flag(mask, false);
 			assert_eq!(reg.getflag(mask), false);
 		}

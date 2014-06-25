@@ -1,3 +1,5 @@
+use register::{C, N, H, Z};
+
 pub struct CPU {
 	reg: ::register::Registers,
 	pub mmu: ::mmu::MMU,
@@ -6,11 +8,6 @@ pub struct CPU {
 	setdi: uint,
 	setei: uint,
 }
-
-static C: u8 = (1 << 4);
-static H: u8 = (1 << 5);
-static N: u8 = (1 << 6);
-static Z: u8 = (1 << 7);
 
 impl CPU {
 	pub fn new(romname: &str) -> Option<CPU> {
@@ -172,7 +169,7 @@ impl CPU {
 			0x2C => { self.reg.l = self.alu_inc(oldregs.l); 1 },
 			0x2D => { self.reg.l = self.alu_dec(oldregs.l); 1 },
 			0x2E => { self.reg.l = self.fetchbyte(); 2 },
-			0x2F => { self.reg.a = !self.reg.a; self.reg.flag(N | H, true); 1 },
+			0x2F => { self.reg.a = !self.reg.a; self.reg.flag(H, true); self.reg.flag(N, true); 1 },
 			0x30 => { if !self.reg.getflag(C) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2 } },
 			0x31 => { self.reg.sp = self.fetchword(); 3 },
 			0x32 => { self.mmu.wb(self.reg.hld(), self.reg.a); 2 },
@@ -180,7 +177,7 @@ impl CPU {
 			0x34 => { let a = self.reg.hl(); let v = self.mmu.rb(a); let v2 = self.alu_inc(v); self.mmu.wb(a, v2); 3 },
 			0x35 => { let a = self.reg.hl(); let v = self.mmu.rb(a); let v2 = self.alu_dec(v); self.mmu.wb(a, v2); 3 },
 			0x36 => { let v = self.fetchbyte(); self.mmu.wb(self.reg.hl(), v); 3 },
-			0x37 => { self.reg.flag(C, true); self.reg.flag(N | H, false); 1 },
+			0x37 => { self.reg.flag(C, true); self.reg.flag(H, false); self.reg.flag(N, false); 1 },
 			0x38 => { if self.reg.getflag(C) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2  } },
 			0x39 => { let v = self.reg.sp; self.alu_add16(v); 2 },
 			0x3A => { self.reg.a = self.mmu.rb(self.reg.hld()); 2 },
@@ -188,7 +185,7 @@ impl CPU {
 			0x3C => { self.reg.a = self.alu_inc(oldregs.a); 1 },
 			0x3D => { self.reg.a = self.alu_dec(oldregs.a); 1 },
 			0x3E => { self.reg.a = self.fetchbyte(); 2 },
-			0x3F => { let v = !self.reg.getflag(C); self.reg.flag(C, v); self.reg.flag(N | H, false); 1 },
+			0x3F => { let v = !self.reg.getflag(C); self.reg.flag(C, v); self.reg.flag(H, false); self.reg.flag(N, false); 1 },
 			0x40 => { 1 },
 			0x41 => { self.reg.b = self.reg.c; 1 },
 			0x42 => { self.reg.b = self.reg.d; 1 },
@@ -664,21 +661,26 @@ impl CPU {
 		let r = self.reg.a & b;
 		self.reg.flag(Z, r == 0);
 		self.reg.flag(H, true);
-		self.reg.flag(N | C, false);
+		self.reg.flag(C, false);
+		self.reg.flag(N, false);
 		self.reg.a = r;
 	}
 
 	fn alu_or(&mut self, b: u8) {
 		let r = self.reg.a | b;
 		self.reg.flag(Z, r == 0);
-		self.reg.flag(H | N | C, false);
+		self.reg.flag(C, false);
+		self.reg.flag(H, false);
+		self.reg.flag(N, false);
 		self.reg.a = r;
 	}
 
 	fn alu_xor(&mut self, b: u8) {
 		let r = self.reg.a ^ b;
 		self.reg.flag(Z, r == 0);
-		self.reg.flag(H | N | C, false);
+		self.reg.flag(C, false);
+		self.reg.flag(H, false);
+		self.reg.flag(N, false);
 		self.reg.a = r;
 	}
 
@@ -715,7 +717,8 @@ impl CPU {
 
 	fn alu_add16imm(&mut self, a: u16) -> u16 {
 		let b = self.fetchbyte() as i8 as i16 as u16;
-		self.reg.flag(Z | N, false);
+		self.reg.flag(N, false);
+		self.reg.flag(Z, false);
 		self.reg.flag(H, (a & 0x000F) + (b & 0x000F) > 0x000F);
 		self.reg.flag(C, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
 		return a + b
@@ -723,12 +726,15 @@ impl CPU {
 
 	fn alu_swap(&mut self, a: u8) -> u8 {
 		self.reg.flag(Z, a == 0);
-		self.reg.flag(N | H | C, false);
+		self.reg.flag(C, false);
+		self.reg.flag(H, false);
+		self.reg.flag(N, false);
 		(a >> 4) | (a << 4)
 	}
 
 	fn alu_srflagupdate(&mut self, r: u8, c: bool) {
-		self.reg.flag(H | N, false);
+		self.reg.flag(H, false);
+		self.reg.flag(N, false);
 		self.reg.flag(Z, r == 0);
 		self.reg.flag(C, c);
 	}
