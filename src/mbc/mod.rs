@@ -18,7 +18,7 @@ pub fn get_mbc(file: &Path) -> Option<Box<MBC>> {
 		Some(mbc) => { mbc },
 		None => { return None; },
 	};
-	if data.len() < 0x150 { fail!("Rom size to small"); }
+	if data.len() < 0x150 { error!("Rom size to small"); return None; }
 	if !check_checksum(&data)
 	{
 		return None;
