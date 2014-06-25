@@ -151,7 +151,8 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144
 	c.mmu.serial.tostdout = matches.opt_present("serial");
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let mut periodic = timer.periodic(8);
+	let periodic = timer.periodic(8);
+	let mut limit_speed = true;
 
 	let waitticks = (4194.304 * 4.0) as uint;
 
@@ -167,14 +168,14 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144
 			}
 		}
 		ticks -= waitticks;
-		periodic.recv();
+		if limit_speed { periodic.recv(); }
 
 		match channel.try_recv() {
 			Ok(event) => match event {
 				KeyUp(key) => c.mmu.keypad.keyup(key),
 				KeyDown(key) => c.mmu.keypad.keydown(key),
-				SpeedUp => periodic = timer.periodic(1),
-				SlowDown => periodic = timer.periodic(8),
+				SpeedUp => limit_speed = false,
+				SlowDown => limit_speed = true,
 			},
 			Err(Empty) => {},
 			Err(Disconnected) => { break },
