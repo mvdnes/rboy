@@ -1,37 +1,27 @@
 RUSTC?=rustc
+CARGO?=cargo
 
 SOURCES=$(wildcard src/*.rs) $(wildcard src/*/*.rs)
 PACKEDROMS=$(wildcard roms/*.gb.gz)
 ROMS=$(PACKEDROMS:.gb.gz=.gb)
 
-rboy: rust-sdl-build $(SOURCES)
-	$(RUSTC) -O -L lib src/main.rs
+target/rboy: $(SOURCES)
+	$(CARGO) build
 
-rboy_test: rust-sdl-build $(SOURCES)
-	$(RUSTC) -O -L lib src/main.rs --test -A dead_code -o $@
+target/rboy_test: $(SOURCES)
+	$(RUSTC) -O -L target/deps src/rboy.rs --test -A dead_code -o $@
 
 .PHONY: test
-test: rboy_test $(ROMS)
-	./rboy_test
+test: target/rboy_test $(ROMS)
+	$<
 
 $(ROMS): %.gb : %.gb.gz
 	gunzip -c $< > $@
 
-rust-sdl/README.md: .gitmodules
-	git submodule sync rust-sdl
-	git submodule update --init rust-sdl
-
-rust-sdl-build: rust-sdl/README.md
-	cd rust-sdl && $(RUSTC) -O src/sdl/lib.rs
-	mkdir -p lib
-	mv rust-sdl/libsdl*.rlib lib/
-	touch rust-sdl-build
-
 .PHONY: clean
 clean:
-	$(RM) rboy rboy_test $(ROMS)
+	$(RM) target/rboy target/rboy_test $(ROMS)
 
 .PHONY: distclean
 distclean: clean
-	git submodule deinit -f rust-sdl
-	$(RM) -rf lib rust-sdl-build
+	$(RM) -r target

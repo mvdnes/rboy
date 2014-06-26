@@ -1,5 +1,2 @@
-rboy
-rboy_test
 roms/*.gb
-lib
-rust-sdl-build
+target

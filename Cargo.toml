@@ -1,0 +1,13 @@
+[package]
+
+name = "rboy"
+version = "0.1.0"
+authors = [ "mvdnes" ]
+
+[[bin]]
+
+name = "rboy"
+
+[dependencies.sdl]
+
+git = "https://github.com/brson/rust-sdl.git"
