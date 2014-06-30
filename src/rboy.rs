@@ -33,10 +33,6 @@ static SCALE: uint = 2;
 static EXITCODE_INCORRECTOPTIONS: int = 1;
 static EXITCODE_CPULOADFAILS: int = 2;
 
-#[cfg(not(test))]
-#[start]
-fn start(argc: int, argv: **u8) -> int { native::start(argc, argv, main) }
-
 fn main() {
 	let args = std::os::args();
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
