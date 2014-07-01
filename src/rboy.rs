@@ -153,7 +153,7 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144
 	let periodic = timer.periodic(8);
 	let mut limit_speed = true;
 
-	let waitticks = (4194.304 * 4.0) as uint;
+	let waitticks = (4194.304f32 * 4.0) as uint;
 
 	let mut ticks = 0;
 	'cpuloop: loop {
