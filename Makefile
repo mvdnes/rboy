@@ -4,15 +4,17 @@ CARGO?=cargo
 SOURCES=$(wildcard src/*.rs) $(wildcard src/*/*.rs)
 PACKEDROMS=$(wildcard roms/*.gb.gz)
 ROMS=$(PACKEDROMS:.gb.gz=.gb)
+TARGET=target
 
-target/rboy: $(SOURCES)
+$(TARGET)/rboy: $(SOURCES)
 	$(CARGO) build
 
-target/rboy_test: $(SOURCES)
-	$(RUSTC) -O -L target/deps src/rboy.rs --test -A dead_code -o $@
+$(TARGET)/rboy_test: $(SOURCES)
+	mkdir -p $(TARGET)
+	$(RUSTC) -O src/rboy.rs --test -o $@
 
 .PHONY: test
-test: target/rboy_test $(ROMS)
+test: $(TARGET)/rboy_test $(ROMS)
 	$<
 
 $(ROMS): %.gb : %.gb.gz
@@ -20,8 +22,8 @@ $(ROMS): %.gb : %.gb.gz
 
 .PHONY: clean
 clean:
-	$(RM) target/rboy target/rboy_test $(ROMS)
+	$(RM) $(TARGET)/rboy $(TARGET)/rboy_test $(ROMS)
 
 .PHONY: distclean
 distclean: clean
-	$(RM) -r target
+	$(RM) -r $(TARGET)

@@ -3,7 +3,7 @@ use register::{C, N, H, Z};
 pub struct CPU {
 	reg: ::register::Registers,
 	pub mmu: ::mmu::MMU,
-	pub halted: bool,
+	halted: bool,
 	ime: bool,
 	setdi: uint,
 	setei: uint,
