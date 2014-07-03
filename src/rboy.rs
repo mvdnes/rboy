@@ -13,7 +13,7 @@ extern crate test;
 
 use cpu::CPU;
 use std::sync::{Arc,RWLock};
-use std::comm::{DuplexStream,Disconnected,Empty};
+use std::comm::{Sender,Receiver,Disconnected,Empty};
 use std::task::TaskBuilder;
 use native::NativeTaskBuilder;
 
@@ -56,19 +56,20 @@ fn main() {
 		Err(err) => fail!("failed to open screen: {}", err),
 	};
 
-	let (sdlstream, cpustream) = std::comm::duplex();
+	let (sdl_tx, cpu_rx) = std::comm::channel();
+	let (cpu_tx, sdl_rx) = std::comm::channel();
 	let rawscreen = [0x00u8,.. 160*144*3];
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 
-	TaskBuilder::new().native().spawn(proc() cpuloop(&cpustream, arc2, filename.as_slice(), &matches));
+	TaskBuilder::new().native().spawn(proc() cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(8);
 
 	'main : loop {
 		periodic.recv();
-		match sdlstream.try_recv() {
+		match sdl_rx.try_recv() {
 			Err(Disconnected) => { break 'main },
 			Ok(_) => recalculate_screen(&screen, &arc),
 			Err(Empty) => {},
@@ -80,18 +81,18 @@ fn main() {
 				sdl::event::KeyEvent(sdl::event::EscapeKey, _, _, _)
 					=> break 'main,
 				sdl::event::KeyEvent(sdl::event::LShiftKey, true, _, _)
-					=> sdlstream.send(SpeedUp),
+					=> sdl_tx.send(SpeedUp),
 				sdl::event::KeyEvent(sdl::event::LShiftKey, false, _, _)
-					=> sdlstream.send(SlowDown),
+					=> sdl_tx.send(SlowDown),
 				sdl::event::KeyEvent(sdlkey, true, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdlstream.send(KeyDown(key)),
+						Some(key) => sdl_tx.send(KeyDown(key)),
 						None => {},
 					}
 				},
 				sdl::event::KeyEvent(sdlkey, false, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdlstream.send(KeyUp(key)),
+						Some(key) => sdl_tx.send(KeyUp(key)),
 						None => {},
 					}
 				},
@@ -137,7 +138,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: &str, matches: &getopts::Matches) {
+fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: &str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => CPU::new(filename),
 		false => CPU::new_cgb(filename),
@@ -163,13 +164,13 @@ fn cpuloop(channel: &DuplexStream<uint, GBEvent>, arc: Arc<RWLock<[u8,.. 160*144
 				c.mmu.gpu.updated = false;
 				let mut data = arc.write();
 				for i in range(0, data.len()) { data[i] = c.mmu.gpu.data[i]; }
-				if channel.send_opt(0).is_err() { break 'cpuloop };
+				if cpu_tx.send_opt(0).is_err() { break 'cpuloop };
 			}
 		}
 		ticks -= waitticks;
 		if limit_speed { periodic.recv(); }
 
-		match channel.try_recv() {
+		match cpu_rx.try_recv() {
 			Ok(event) => match event {
 				KeyUp(key) => c.mmu.keypad.keyup(key),
 				KeyDown(key) => c.mmu.keypad.keydown(key),
