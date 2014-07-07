@@ -1,6 +1,6 @@
-#![crate_id = "rboy"]
-#![license = "MIT"]
-#![crate_type = "lib"]
+#![crate_name = "rboy"]
+#![license    = "MIT" ]
+#![crate_type = "lib" ]
 
 #![feature(phase)]
 #[phase(plugin, link)] extern crate log;
