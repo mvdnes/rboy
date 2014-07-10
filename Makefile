@@ -15,7 +15,7 @@ $(TARGET)/rboy_test: $(SOURCES)
 
 .PHONY: opt
 opt: $(TARGET)/rboy
-	$(RUSTC) -O src/rboy.rs --out-dir $(TARGET)
+	$(RUSTC) -O src/rboy.rs --out-dir $(TARGET) -L $(TARGET)/deps
 	$(RUSTC) -L $(TARGET) -L $(TARGET)/deps -O src/bin/rboy.rs -o $(TARGET)/rboy_opt
 
 .PHONY: test

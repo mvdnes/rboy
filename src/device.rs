@@ -1,5 +1,8 @@
 use cpu::CPU;
 use keypad::KeypadKey;
+use std::sync::Arc;
+use std::collections::DList;
+use spinlock::Spinlock;
 
 pub struct Device
 {
@@ -56,5 +59,10 @@ impl Device
 	pub fn keydown(&mut self, key: KeypadKey)
 	{
 		self.cpu.mmu.keypad.keydown(key);
+	}
+
+	pub fn set_sound_buffer(&mut self, buffer: Arc<Spinlock<DList<u8>>>)
+	{
+		self.cpu.mmu.sound.attach_buffer(buffer);
 	}
 }

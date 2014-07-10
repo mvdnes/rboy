@@ -146,6 +146,8 @@ impl MMU {
 		self.intf |= self.gpu.interrupt;
 		self.gpu.interrupt = 0;
 
+		self.sound.cycle(gputicks);
+
 		return gputicks;
 	}
 

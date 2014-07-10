@@ -15,3 +15,11 @@ name = "rboy"
 [dependencies.sdl]
 
 git = "https://github.com/brson/rust-sdl.git"
+
+[dependencies.lazy_static]
+
+git = "https://github.com/Kimundi/lazy-static.rs.git"
+
+[dependencies.spinlock]
+
+git = "https://github.com/mvdnes/spinlock-rs.git"
