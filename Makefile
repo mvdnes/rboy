@@ -11,7 +11,7 @@ $(TARGET)/rboy: $(SOURCES)
 
 $(TARGET)/rboy_test: $(SOURCES)
 	mkdir -p $(TARGET)
-	$(RUSTC) -O src/rboy.rs --test -o $@
+	$(RUSTC) -L $(TARGET)/deps -O src/rboy.rs --test -o $@
 
 .PHONY: opt
 opt: $(TARGET)/rboy
