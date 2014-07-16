@@ -33,4 +33,4 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	$(RM) -r $(TARGET) $(ROMS)
+	$(RM) -r $(TARGET) $(OPT_TARGET) $(ROMS)
