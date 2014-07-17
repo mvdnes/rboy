@@ -35,9 +35,9 @@ fn main() {
 	};
 
 	let filename = if !matches.free.is_empty() {
-		matches.free.get(0).clone()
+		matches.free[0].clone()
 	} else {
-		println!("{}", getopts::usage(args.get(0).clone().append(" <filename>").as_slice(), opts));
+		println!("{}", getopts::usage(args[0].clone().append(" <filename>").as_slice(), opts));
 		std::os::set_exit_status(EXITCODE_INCORRECTOPTIONS);
 		return;
 	};

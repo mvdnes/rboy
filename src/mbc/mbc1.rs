@@ -13,9 +13,9 @@ pub struct MBC1 {
 
 impl MBC1 {
 	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC1> {
-		let (svpath, ramsize) = match *data.get(0x147) {
-			0x02 => (None, ram_size(*data.get(0x149))),
-			0x03 => (Some(file.with_extension("gbsave")), ram_size(*data.get(0x149))),
+		let (svpath, ramsize) = match data[0x147] {
+			0x02 => (None, ram_size(data[0x149])),
+			0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
 			_ => (None, 0),
 		};
 
@@ -65,13 +65,13 @@ impl Drop for MBC1 {
 
 impl MBC for MBC1 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { *self.rom.get(a as uint) }
-		else { *self.rom.get(self.rombank * 0x4000 | ((a as uint) & 0x3FFF) ) }
+		if a < 0x4000 { self.rom[a as uint] }
+		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		*self.ram.get((rambank * 0x2000) | ((a & 0x1FFF) as uint))
+		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as uint)]
 	}
 
 	fn writerom(&mut self, a: u16, v: u8) {

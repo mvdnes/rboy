@@ -12,13 +12,13 @@ pub struct MBC5 {
 
 impl MBC5 {
 	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC5> {
-		let subtype = *data.get(0x147);
+		let subtype = data[0x147];
 		let svpath = match subtype {
 			0x1B | 0x1E => Some(file.with_extension("gbsave")),
 			_ => None,
 		};
 		let ramsize = match subtype {
-			0x1A | 0x1B | 0x1D | 0x1E => ram_size(*data.get(0x149)),
+			0x1A | 0x1B | 0x1D | 0x1E => ram_size(data[0x149]),
 			_ => 0,
 		};
 
@@ -65,12 +65,12 @@ impl Drop for MBC5 {
 
 impl MBC for MBC5 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { *self.rom.get(a as uint) }
-		else { *self.rom.get(self.rombank * 0x4000 | ((a as uint) & 0x3FFF)) }
+		if a < 0x4000 { self.rom[a as uint] }
+		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
-		*self.ram.get(self.rambank * 0x2000 | ((a as uint) & 0x1FFF))
+		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)]
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {

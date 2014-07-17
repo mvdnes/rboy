@@ -23,7 +23,7 @@ pub fn get_mbc(file: &Path) -> Option<Box<MBC>> {
 	{
 		return None;
 	}
-	match *data.get(0x147) {
+	match data[0x147] {
 		0x00 => mbc0::MBC0::new(data).map(|v| box v as Box<MBC>),
 		0x01 .. 0x03 => mbc1::MBC1::new(data, file).map(|v| box v as Box<MBC>),
 		0x0F .. 0x13 => mbc3::MBC3::new(data, file).map(|v| box v as Box<MBC>),
@@ -45,11 +45,11 @@ fn ram_size(v: u8) -> uint {
 fn check_checksum(data: &Vec<u8>) -> bool {
 	let mut value: u8 = 0;
 	for i in range(0x134u, 0x14D) {
-		value = value - *data.get(i) - 1;
+		value = value - data[i] - 1;
 	}
-	match *data.get(0x14D) == value
+	match data[0x14D] == value
 	{
 		true => true,
-		false => { error!("Cartridge checksum is invalid. {:02X} != {:02X}", *data.get(0x14D), value); false },
+		false => { error!("Cartridge checksum is invalid. {:02X} != {:02X}", data[0x14D], value); false },
 	}
 }
