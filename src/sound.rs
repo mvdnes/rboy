@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::collections::{Deque, DList};
+use std::collections::DList;
 use spinlock::Spinlock;
 
 pub struct Sound {
@@ -37,7 +37,7 @@ impl Sound {
 
 		for _ in range(0, cycles)
 		{
-			data.push_back(0);
+			data.push(0);
 		}
 	}
 }
