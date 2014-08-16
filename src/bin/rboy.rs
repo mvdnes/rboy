@@ -11,6 +11,7 @@
                        extern crate rboy;
 
 use rboy::device::Device;
+use std::time::Duration;
 use std::sync::{Arc,RWLock};
 use std::comm::{Sender,Receiver,Disconnected,Empty};
 use std::task::TaskBuilder;
@@ -58,7 +59,7 @@ fn main() {
 	TaskBuilder::new().native().spawn(proc() cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let periodic = timer.periodic(8);
+	let periodic = timer.periodic(Duration::milliseconds(8));
 
 	'main : loop {
 		periodic.recv();
@@ -148,7 +149,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 	open_audio();
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
-	let periodic = timer.periodic(8);
+	let periodic = timer.periodic(Duration::milliseconds(8));
 	let mut limit_speed = true;
 
 	let waitticks = (4194.304f32 * 4.0) as uint;
