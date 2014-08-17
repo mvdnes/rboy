@@ -8,7 +8,7 @@ notifications:
 
 install:
   - sudo apt-get install libsdl1.2-dev
-  - curl http://www.rust-lang.org/rustup.sh | sudo sh -
+  - curl https://static.rust-lang.org/rustup.sh | sudo sh -
 script:
   - make
   - make test
