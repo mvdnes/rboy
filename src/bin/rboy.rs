@@ -27,6 +27,18 @@ lazy_static! {
 	static ref SOUND_BUFFER: Arc<Spinlock<DList<u8>>> = Arc::new(Spinlock::new(DList::new()));
 }
 
+#[cfg(test)]
+fn set_exit_status(_exitcode: int)
+{
+    // Let the test-suite determine this
+}
+
+#[cfg(not(test))]
+fn set_exit_status(exitcode: int)
+{
+    std::os::set_exit_status(exitcode);
+}
+
 fn main() {
 	let args = std::os::args();
 	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
@@ -39,7 +51,7 @@ fn main() {
 		matches.free[0].clone()
 	} else {
 		println!("{}", getopts::usage(args[0].clone().append(" <filename>").as_slice(), opts));
-		std::os::set_exit_status(EXITCODE_INCORRECTOPTIONS);
+		set_exit_status(EXITCODE_INCORRECTOPTIONS);
 		return;
 	};
 
@@ -140,7 +152,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 	let mut c = match opt_c
 	{
 		Some(cpu) => { cpu },
-		None => { error!("Could not get a valid gameboy"); std::os::set_exit_status(EXITCODE_CPULOADFAILS); return; },
+		None => { error!("Could not get a valid gameboy"); set_exit_status(EXITCODE_CPULOADFAILS); return; },
 	};
 	c.set_stdout(matches.opt_present("serial"));
 
@@ -214,4 +226,14 @@ fn open_audio()
 fn close_audio()
 {
 	sdl::audio::close();
+}
+
+#[cfg(test)]
+mod test
+{
+    #[test]
+    fn no_dead_code()
+    {
+        super::main();
+    }
 }
