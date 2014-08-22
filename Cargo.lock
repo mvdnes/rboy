@@ -1,0 +1,24 @@
+[root]
+name = "rboy"
+version = "0.1.0"
+dependencies = [
+ "lazy_static 0.1.0 (git+https://github.com/Kimundi/lazy-static.rs.git#bd9aadd4324c0bd9062d81f0ff70f401c40605d7)",
+ "sdl 0.3.4 (git+https://github.com/brson/rust-sdl.git#b449abf2889a1694a18fb254c203f684d25ed954)",
+ "spinlock 0.1.0 (git+https://github.com/mvdnes/spinlock-rs.git#0c0c880fd9d7d66a195b0b82be321e99bc9923d0)",
+]
+
+[[package]]
+name = "lazy_static"
+version = "0.1.0"
+source = "git+https://github.com/Kimundi/lazy-static.rs.git#bd9aadd4324c0bd9062d81f0ff70f401c40605d7"
+
+[[package]]
+name = "sdl"
+version = "0.3.4"
+source = "git+https://github.com/brson/rust-sdl.git#b449abf2889a1694a18fb254c203f684d25ed954"
+
+[[package]]
+name = "spinlock"
+version = "0.1.0"
+source = "git+https://github.com/mvdnes/spinlock-rs.git#0c0c880fd9d7d66a195b0b82be321e99bc9923d0"
+

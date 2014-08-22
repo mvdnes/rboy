@@ -2,24 +2,22 @@
 
 name = "rboy"
 version = "0.1.0"
-authors = [ "mvdnes" ]
+authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 
 [lib]
 
 name = "rboy"
 
-[[bin]]
-
-name = "rboy"
-
 [dependencies.sdl]
-
 git = "https://github.com/brson/rust-sdl.git"
 
 [dependencies.lazy_static]
-
 git = "https://github.com/Kimundi/lazy-static.rs.git"
 
 [dependencies.spinlock]
-
 git = "https://github.com/mvdnes/spinlock-rs.git"
+
+[[bin]]
+name = "rboy"
+test = false
+doc = false

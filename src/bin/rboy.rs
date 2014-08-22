@@ -27,12 +27,6 @@ lazy_static! {
 	static ref SOUND_BUFFER: Arc<Spinlock<DList<u8>>> = Arc::new(Spinlock::new(DList::new()));
 }
 
-#[cfg(test)]
-fn set_exit_status(_exitcode: int)
-{
-    // Let the test-suite determine this
-}
-
 #[cfg(not(test))]
 fn set_exit_status(exitcode: int)
 {
@@ -226,14 +220,4 @@ fn open_audio()
 fn close_audio()
 {
 	sdl::audio::close();
-}
-
-#[cfg(test)]
-mod test
-{
-    #[test]
-    fn no_dead_code()
-    {
-        super::main();
-    }
 }
