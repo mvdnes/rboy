@@ -1,5 +1,4 @@
-# Use the language closest to rust, as rust itself is not supported
-language: c
+language: rust
 
 notifications:
   email:
@@ -8,7 +7,6 @@ notifications:
 
 install:
   - sudo apt-get install libsdl1.2-dev
-  - curl https://static.rust-lang.org/rustup.sh | sudo sh -
 script:
   - make
   - make test
