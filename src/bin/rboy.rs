@@ -3,8 +3,6 @@
 #![feature(phase)]
 
 #[phase(plugin, link)] extern crate log;
-#[phase(plugin)]       extern crate lazy_static;
-                       extern crate spinlock;
                        extern crate native;
                        extern crate getopts;
                        extern crate sdl;
@@ -15,17 +13,11 @@ use std::time::Duration;
 use std::sync::{Arc,RWLock};
 use std::comm::{Sender,Receiver,Disconnected,Empty};
 use std::task::TaskBuilder;
-use std::collections::{Deque, DList};
 use native::NativeTaskBuilder;
-use spinlock::Spinlock;
 
 static SCALE: uint = 2;
 static EXITCODE_INCORRECTOPTIONS: int = 1;
 static EXITCODE_CPULOADFAILS: int = 2;
-
-lazy_static! {
-	static ref SOUND_BUFFER: Arc<Spinlock<DList<u8>>> = Arc::new(Spinlock::new(DList::new()));
-}
 
 #[cfg(not(test))]
 fn set_exit_status(exitcode: int)
@@ -150,10 +142,6 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 	};
 	c.set_stdout(matches.opt_present("serial"));
 
-	let soundbuffer = SOUND_BUFFER.clone();
-	c.set_sound_buffer(soundbuffer);
-	open_audio();
-
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
 	let mut limit_speed = true;
@@ -185,39 +173,4 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 			Err(Disconnected) => { break },
 		};
 	}
-	close_audio();
-}
-
-fn sound_callback(sdlbuf: &mut [u8])
-{
-	let soundbuffer = SOUND_BUFFER.clone();
-	let mut data = soundbuffer.lock();
-
-	for i in range(0, sdlbuf.len())
-	{
-		sdlbuf[i] = data.pop_front().unwrap_or(0);
-	}
-}
-
-fn open_audio()
-{
-	let spec = sdl::audio::DesiredAudioSpec
-	{
-		freq: 44100,
-		format: sdl::audio::S8AudioFormat,
-		channels: sdl::audio::Stereo,
-		samples: 1024,
-		callback: sound_callback,
-	};
-	match sdl::audio::open(spec)
-	{
-		Ok(_) => {},
-		Err(()) => error!("Could not open audio"),
-	}
-	sdl::audio::pause(false);
-}
-
-fn close_audio()
-{
-	sdl::audio::close();
 }
