@@ -4,7 +4,6 @@
 #![feature(phase)]
 
 #[phase(plugin, link)] extern crate log;
-                       extern crate spinlock;
                        extern crate time;
 #[cfg(test)]           extern crate test;
 
