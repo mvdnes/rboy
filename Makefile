@@ -18,11 +18,12 @@ opt: $(TARGET)/rboy
 
 .PHONY: test
 test: $(ROMS)
-	cargo test
+	$(CARGO) test
 
 $(ROMS): %.gb : %.gb.gz
 	gunzip -c $< > $@
 
 .PHONY: clean
 clean:
-	$(RM) -r $(TARGET) $(OPT_TARGET) $(ROMS) Cargo.lock
+	$(CARGO) clean
+	$(RM) -r $(OPT_TARGET) $(ROMS)
