@@ -30,7 +30,7 @@ pub struct MMU {
 	hdma_dst: u16,
 	hdma_len: u8,
 	wrambank: uint,
-	mbc: Box<::mbc::MBC>,
+	mbc: Box<::mbc::MBC+'static>,
 	gbmode: ::gbmode::GbMode,
 	gbspeed: ::gbmode::GbSpeed,
 	speed_switch_req: bool,

@@ -12,7 +12,7 @@ pub trait MBC {
 	fn writeram(&mut self, a: u16, v: u8);
 }
 
-pub fn get_mbc(file: &Path) -> Option<Box<MBC>> {
+pub fn get_mbc(file: &Path) -> Option<Box<MBC+'static>> {
 	let data: Vec<u8> = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
 	{
 		Some(mbc) => { mbc },
