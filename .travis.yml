@@ -9,5 +9,5 @@ install:
   - sudo apt-get install libsdl1.2-dev
 script:
   - make
-  - make test
   - make opt
+  - make test
