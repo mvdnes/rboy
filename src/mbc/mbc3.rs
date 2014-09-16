@@ -1,3 +1,4 @@
+use std::io::fs::PathExtensions;
 use mbc::{MBC, ram_size};
 use util::handle_io;
 
