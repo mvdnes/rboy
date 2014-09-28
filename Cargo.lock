@@ -2,11 +2,11 @@
 name = "rboy"
 version = "0.1.0"
 dependencies = [
- "sdl 0.3.4 (git+https://github.com/brson/rust-sdl.git#5f0a01a31988310e017b1c4d177b78daf609d9cb)",
+ "sdl 0.3.4 (git+https://github.com/brson/rust-sdl.git#74a4cf35db80c9f4e42b506cb0d41b215195d15f)",
 ]
 
 [[package]]
 name = "sdl"
 version = "0.3.4"
-source = "git+https://github.com/brson/rust-sdl.git#5f0a01a31988310e017b1c4d177b78daf609d9cb"
+source = "git+https://github.com/brson/rust-sdl.git#74a4cf35db80c9f4e42b506cb0d41b215195d15f"
 
