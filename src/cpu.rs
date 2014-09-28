@@ -853,7 +853,7 @@ mod test
 			let mut ticks = 0;
 			while ticks < 63802933
 			{
-				ticks += c.cycle();
+				ticks += c.do_cycle();
 			}
 			let mut s = sum_classic1.write();
 			for i in range(0, c.mmu.gpu.data.len())
@@ -873,7 +873,7 @@ mod test
 			let mut ticks = 0;
 			while ticks < 63802933
 			{
-				ticks += c.cycle();
+				ticks += c.do_cycle();
 			}
 			let mut s = sum_color1.write();
 			for i in range(0, c.mmu.gpu.data.len())
