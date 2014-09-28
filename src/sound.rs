@@ -16,7 +16,7 @@ impl Sound {
 		self.data[a as uint - 0xFF10] = v;
 	}
 
-	pub fn cycle(&mut self, _cycles: uint)
+	pub fn do_cycle(&mut self, _cycles: uint)
 	{
         // To be implemented
 	}

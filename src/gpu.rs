@@ -107,7 +107,7 @@ impl GPU {
 		GPU::new()
 	}
 
-	pub fn cycle(&mut self, ticks: uint) {
+	pub fn do_cycle(&mut self, ticks: uint) {
 		if !self.lcd_on { return }
 		self.hblanking = false;
 

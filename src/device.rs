@@ -26,9 +26,9 @@ impl Device
 		}
 	}
 
-	pub fn cycle(&mut self) -> uint
+	pub fn do_cycle(&mut self) -> uint
 	{
-		self.cpu.cycle()
+		self.cpu.do_cycle()
 	}
 
 	pub fn set_stdout(&mut self, output: bool)

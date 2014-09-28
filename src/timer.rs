@@ -49,7 +49,7 @@ impl Timer {
 		};
 	}
 
-	pub fn cycle(&mut self, ticks: uint) {
+	pub fn do_cycle(&mut self, ticks: uint) {
 		self.internaldiv += ticks;
 		while self.internaldiv >= 128 {
 			self.divider += 1;

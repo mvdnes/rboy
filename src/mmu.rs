@@ -128,25 +128,25 @@ impl MMU {
 		self.gpu.gbmode = mode;
 	}
 
-	pub fn cycle(&mut self, cputicks: uint) -> uint {
+	pub fn do_cycle(&mut self, cputicks: uint) -> uint {
 		let ticks = cputicks + self.perform_vramdma();
 
 		let gputicks = ticks /
 			if self.gbspeed == ::gbmode::Single { 1 }
 			else { 2 };
 
-		self.timer.cycle(ticks);
+		self.timer.do_cycle(ticks);
 		self.intf |= self.timer.interrupt;
 		self.timer.interrupt = 0;
 
 		self.intf |= self.keypad.interrupt;
 		self.keypad.interrupt = 0;
 
-		self.gpu.cycle(gputicks);
+		self.gpu.do_cycle(gputicks);
 		self.intf |= self.gpu.interrupt;
 		self.gpu.interrupt = 0;
 
-		self.sound.cycle(gputicks);
+		self.sound.do_cycle(gputicks);
 
 		return gputicks;
 	}

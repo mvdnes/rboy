@@ -151,7 +151,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 	let mut ticks = 0;
 	'cpuloop: loop {
 		while ticks < waitticks {
-			ticks += c.cycle();
+			ticks += c.do_cycle();
 			if c.check_and_reset_gpu_updated() {
 				let mut data = arc.write();
 				let gpu_data = c.get_gpu_data();
