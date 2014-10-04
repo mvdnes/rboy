@@ -77,18 +77,18 @@ impl MBC for MBC1 {
 
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
-			0x0000 .. 0x1FFF => { self.ram_on = v == 0x0A; },
-			0x2000 .. 0x3FFF => {
+			0x0000 ... 0x1FFF => { self.ram_on = v == 0x0A; },
+			0x2000 ... 0x3FFF => {
 				self.rombank = (self.rombank & 0x60) | match (v as uint) & 0x1F { 0 => 1, n => n }
 			},
-			0x4000 .. 0x5FFF => {
+			0x4000 ... 0x5FFF => {
 				if !self.ram_mode {
 					self.rombank = self.rombank & 0x1F | (((v as uint) & 0x03) << 5)
 				} else {
 					self.rambank = (v as uint) & 0x03;
 				}
 			},
-			0x6000 .. 0x7FFF => { self.ram_mode = (v & 0x01) == 0x01; },
+			0x6000 ... 0x7FFF => { self.ram_mode = (v & 0x01) == 0x01; },
 			_ => fail!("Could not write to {:04X} (MBC1)", a),
 		}
 	}

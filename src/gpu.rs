@@ -172,8 +172,8 @@ impl GPU {
 
 	pub fn rb(&self, a: u16) -> u8 {
 		match a {
-			0x8000 .. 0x9FFF => self.vram[(self.vrambank * 0x2000) | (a as uint & 0x1FFF)],
-			0xFE00 .. 0xFE9F => self.voam[a as uint - 0xFE00],
+			0x8000 ... 0x9FFF => self.vram[(self.vrambank * 0x2000) | (a as uint & 0x1FFF)],
+			0xFE00 ... 0xFE9F => self.voam[a as uint - 0xFE00],
 			0xFF40 => {
 				(if self.lcd_on { 0x80 } else { 0 }) |
 				(if self.win_tilemap == 0x9C00 { 0x40 } else { 0 }) |
@@ -238,8 +238,8 @@ impl GPU {
 
 	pub fn wb(&mut self, a: u16, v: u8) {
 		match a {
-			0x8000 .. 0x9FFF => self.vram[(self.vrambank * 0x2000) | (a  as uint& 0x1FFF)] = v,
-			0xFE00 .. 0xFE9F => self.voam[a as uint - 0xFE00] = v,
+			0x8000 ... 0x9FFF => self.vram[(self.vrambank * 0x2000) | (a  as uint& 0x1FFF)] = v,
+			0xFE00 ... 0xFE9F => self.voam[a as uint - 0xFE00] = v,
 			0xFF40 => {
 				let orig_lcd_on = self.lcd_on;
 				self.lcd_on = v & 0x80 == 0x80;
