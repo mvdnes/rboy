@@ -4,8 +4,8 @@ use keypad::Keypad;
 use gpu::GPU;
 use sound::Sound;
 
-static WRAM_SIZE: uint = 0x8000;
-static ZRAM_SIZE: uint = 0x7F;
+const WRAM_SIZE: uint = 0x8000;
+const ZRAM_SIZE: uint = 0x7F;
 
 #[deriving(PartialEq)]
 enum DMAType {

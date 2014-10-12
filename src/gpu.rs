@@ -1,9 +1,9 @@
 use std::iter::range_step_inclusive;
 
-static VRAM_SIZE: uint = 0x4000;
-static VOAM_SIZE: uint = 0xA0;
-static SCREEN_W: uint = 160;
-static SCREEN_H: uint = 144;
+const VRAM_SIZE: uint = 0x4000;
+const VOAM_SIZE: uint = 0xA0;
+const SCREEN_W: uint = 160;
+const SCREEN_H: uint = 144;
 
 #[deriving(PartialEq)]
 enum PrioType {
