@@ -36,7 +36,9 @@ fn main() {
 	let filename = if !matches.free.is_empty() {
 		matches.free[0].clone()
 	} else {
-		println!("{}", getopts::usage(args[0].clone().append(" <filename>").as_slice(), opts));
+		let mut info_start = args[0].clone();
+		info_start.push_str(" <filename>");
+		println!("{}", getopts::usage(info_start.as_slice(), opts));
 		set_exit_status(EXITCODE_INCORRECTOPTIONS);
 		return;
 	};
