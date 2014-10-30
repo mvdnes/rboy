@@ -148,7 +148,7 @@ impl MBC for MBC3 {
 				},
 				_ => {},
 			},
-			_ => fail!("Could not write to {:04X} (MBC3)", a),
+			_ => panic!("Could not write to {:04X} (MBC3)", a),
 		}
 	}
 	fn writeram(&mut self, a: u16, v: u8) {

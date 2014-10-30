@@ -233,7 +233,7 @@ impl MMU {
 		match a {
 			0xFF51 ... 0xFF54 => { self.hdma[(a - 0xFF51) as uint] },
 			0xFF55 => self.hdma_len | if self.hdma_status == NoDMA { 0x80 } else { 0 },
-			_ => fail!("The address {:04X} should not be handled by hdma_read", a),
+			_ => panic!("The address {:04X} should not be handled by hdma_read", a),
 		}
 	}
 
@@ -250,7 +250,7 @@ impl MMU {
 				}
 				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
 				let dst = (self.hdma[2] as u16 << 8) | (self.hdma[3] as u16) | 0x8000;
-				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF0)) { fail!("HDMA transfer with illegal start address {:04X}", src); }
+				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF0)) { panic!("HDMA transfer with illegal start address {:04X}", src); }
 
 				self.hdma_src = src;
 				self.hdma_dst = dst;
@@ -260,7 +260,7 @@ impl MMU {
 					if v & 0x80 == 0x80 { HDMA }
 					else { GDMA };
 			},
-			_ => fail!("The address {:04X} should not be handled by hdma_write", a),
+			_ => panic!("The address {:04X} should not be handled by hdma_write", a),
 		};
 	}
 

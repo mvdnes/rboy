@@ -98,7 +98,7 @@ impl CPU {
 		self.ime = false;
 
 		let n = triggered.trailing_zeros() as uint;
-		if n >= 5 { fail!("Invalid interrupt triggered"); }
+		if n >= 5 { panic!("Invalid interrupt triggered"); }
 		self.mmu.intf &= !(1 << n);
 		let pc = self.reg.pc;
 		self.pushstack(pc);
@@ -367,7 +367,7 @@ impl CPU {
 			0xFB => { self.setei = 2; 1 },
 			0xFE => { let v = self.fetchbyte(); self.alu_cp(v); 2 },
 			0xFF => { self.pushstack(oldregs.pc); self.reg.pc = 0x38; 4 },
-			other=> fail!("Instruction {:2X} is not implemented", other),
+			other=> panic!("Instruction {:2X} is not implemented", other),
 		}
 	}
 	
@@ -631,7 +631,7 @@ impl CPU {
 			0xFD => { self.reg.l = self.reg.l | (1 << 7); 2 },
 			0xFE => { let a = self.reg.hl(); let v = self.mmu.rb(a) | (1 << 7); self.mmu.wb(a, v); 4 },
 			0xFF => { self.reg.a = self.reg.a | (1 << 7); 2 },
-			other => fail!(" Instruction CB{:2X} is not implemented", other),
+			other => panic!(" Instruction CB{:2X} is not implemented", other),
 		}
 	}
 
@@ -845,7 +845,7 @@ mod test
 		{
 			let mut c = match CPU::new(CPUINSTRS)
 			{
-				None => { barrier1.wait(); fail!("Could not instantiate Classic CPU"); },
+				None => { barrier1.wait(); panic!("Could not instantiate Classic CPU"); },
 				Some(cpu) => cpu,
 			};
 			::std::io::stdio::set_stdout(box w);
@@ -867,7 +867,7 @@ mod test
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS)
 			{
-				None => { barrier2.wait(); fail!("Could not instantiate Color CPU"); },
+				None => { barrier2.wait(); panic!("Could not instantiate Color CPU"); },
 				Some(cpu) => cpu,
 			};
 			let mut ticks = 0;

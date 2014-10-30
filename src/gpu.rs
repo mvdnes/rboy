@@ -223,16 +223,16 @@ impl GPU {
 					((self.csprit[palnum][colnum][1] & 0x18) >> 3) | (self.csprit[palnum][colnum][2] << 2)
 				}
 			},
-			_ => fail!("GPU does not handle read {:04X}", a),
+			_ => panic!("GPU does not handle read {:04X}", a),
 		}
 	}
 
 	fn rbvram0(&self, a: u16) -> u8 {
-		if a < 0x8000 || a >= 0xA000 { fail!("Shouldn't have used rbvram0"); }
+		if a < 0x8000 || a >= 0xA000 { panic!("Shouldn't have used rbvram0"); }
 		self.vram[a as uint & 0x1FFF]
 	}
 	fn rbvram1(&self, a: u16) -> u8 {
-		if a < 0x8000 || a >= 0xA000 { fail!("Shouldn't have used rbvram1"); }
+		if a < 0x8000 || a >= 0xA000 { panic!("Shouldn't have used rbvram1"); }
 		self.vram[0x2000 + (a as uint & 0x1FFF)]
 	}
 
@@ -262,7 +262,7 @@ impl GPU {
 			0xFF43 => self.scx = v,
 			0xFF44 => {}, // Read-only
 			0xFF45 => self.lyc = v,
-			0xFF46 => fail!("0xFF46 should be handled by MMU"),
+			0xFF46 => panic!("0xFF46 should be handled by MMU"),
 			0xFF47 => { self.palbr = v; self.update_pal(); },
 			0xFF48 => { self.pal0r = v; self.update_pal(); },
 			0xFF49 => { self.pal1r = v; self.update_pal(); },
@@ -295,7 +295,7 @@ impl GPU {
 				}
 				if self.csprit_inc { self.csprit_ind = (self.csprit_ind + 1) & 0x3F; };
 			},
-			_ => fail!("GPU does not handle write {:04X}", a),
+			_ => panic!("GPU does not handle write {:04X}", a),
 		}
 	}
 

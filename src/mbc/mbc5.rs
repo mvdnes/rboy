@@ -80,7 +80,7 @@ impl MBC for MBC5 {
 			0x3000 ... 0x3FFF => self.rombank = (self.rombank & 0x0FF) | ((v & 0x1) as uint << 8),
 			0x4000 ... 0x5FFF => self.rambank = (v & 0x0F) as uint,
 			0x6000 ... 0x7FFF => { /* ? */ },
-			_ => fail!("Could not write to {:04X} (MBC5)", a),
+			_ => panic!("Could not write to {:04X} (MBC5)", a),
 		}
 	}
 	fn writeram(&mut self, a: u16, v: u8) {

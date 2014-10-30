@@ -32,7 +32,7 @@ impl Timer {
 				(if self.enabled { 0x4 } else { 0 }) |
 				(match self.step { 8 => 1, 32 => 2, 128 => 3, _ => 0 })
 			}
-			_ => fail!("Timer does not handler read {:4X}", a),
+			_ => panic!("Timer does not handler read {:4X}", a),
 		}
 	}
 
@@ -45,7 +45,7 @@ impl Timer {
 				self.enabled = v & 0x4 != 0;
 				self.step = match v & 0x3 { 1 => 8, 2 => 32, 3 => 128, _ => 512 };
 			},
-			_ => fail!("Timer does not handler write {:4X}", a),
+			_ => panic!("Timer does not handler write {:4X}", a),
 		};
 	}
 

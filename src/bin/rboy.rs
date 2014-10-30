@@ -47,7 +47,7 @@ fn main() {
 	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
 	let screen = match sdl::video::set_video_mode(160*SCALE as int, 144*SCALE as int, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
 		Ok(screen) => screen,
-		Err(err) => fail!("failed to open screen: {}", err),
+		Err(err) => panic!("failed to open screen: {}", err),
 	};
 
 	let (sdl_tx, cpu_rx) = std::comm::channel();

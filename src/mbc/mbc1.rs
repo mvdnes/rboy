@@ -89,7 +89,7 @@ impl MBC for MBC1 {
 				}
 			},
 			0x6000 ... 0x7FFF => { self.ram_mode = (v & 0x01) == 0x01; },
-			_ => fail!("Could not write to {:04X} (MBC1)", a),
+			_ => panic!("Could not write to {:04X} (MBC1)", a),
 		}
 	}
 

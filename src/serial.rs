@@ -19,7 +19,7 @@ impl Serial {
 					::std::io::stdio::flush();
 				}
 			},
-			_ => fail!("Serial does not handle address {:4X} (write)", a),
+			_ => panic!("Serial does not handle address {:4X} (write)", a),
 		};
 	}
 
@@ -27,7 +27,7 @@ impl Serial {
 		match a {
 			0xFF01 => self.data,
 			0xFF02 => self.control,
-			_ => fail!("Serial does not handle address {:4X} (read)", a),
+			_ => panic!("Serial does not handle address {:4X} (read)", a),
 		}
 	}
 }
