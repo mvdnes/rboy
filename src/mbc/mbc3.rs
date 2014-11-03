@@ -154,7 +154,7 @@ impl MBC for MBC3 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
 		if self.rambank <= 3 {
-			*self.ram.get_mut(self.rambank * 0x2000 | ((a as uint) & 0x1FFF)) = v;
+			self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
 		} else {
 			self.rtc_ram[self.rambank - 0x8] = v;
 			self.calc_rtc_zero();

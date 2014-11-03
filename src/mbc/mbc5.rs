@@ -85,6 +85,6 @@ impl MBC for MBC5 {
 	}
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
-		*self.ram.get_mut(self.rambank * 0x2000 | ((a as uint) & 0x1FFF)) = v;
+		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
 	}
 }
