@@ -1,3 +1,4 @@
+use std::num::Int;
 use register::{C, N, H, Z};
 
 pub struct CPU {
