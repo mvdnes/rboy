@@ -9,6 +9,9 @@ name = "rboy"
 [dependencies.sdl]
 git = "https://github.com/brson/rust-sdl.git"
 
+[dependencies.time]
+git = "http://github.com/rust-lang/time"
+
 [profile.test]
 opt-level = 3
 debug = true
