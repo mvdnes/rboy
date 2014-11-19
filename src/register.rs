@@ -106,7 +106,7 @@ impl Registers {
 mod test
 {
 	use super::Registers;
-	use super::{C, H, N, Z};
+	use super::CpuFlag::{C, H, N, Z};
 
 	#[test]
 	fn wide_registers()

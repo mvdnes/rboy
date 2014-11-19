@@ -7,7 +7,7 @@
                        extern crate time;
 #[cfg(test)]           extern crate test;
 
-pub use keypad::{KeypadKey, Right, Left, Up, Down, A, B, Select, Start};
+pub use keypad::KeypadKey;
 
 pub mod device;
 

@@ -3,6 +3,7 @@ use timer::Timer;
 use keypad::Keypad;
 use gpu::GPU;
 use sound::Sound;
+use gbmode::{GbMode, GbSpeed};
 
 const WRAM_SIZE: uint = 0x8000;
 const ZRAM_SIZE: uint = 0x7F;
@@ -31,8 +32,8 @@ pub struct MMU {
 	hdma_len: u8,
 	wrambank: uint,
 	mbc: Box<::mbc::MBC+'static>,
-	gbmode: ::gbmode::GbMode,
-	gbspeed: ::gbmode::GbSpeed,
+	gbmode: GbMode,
+	gbspeed: GbSpeed,
 	speed_switch_req: bool,
 }
 
@@ -56,12 +57,12 @@ impl MMU {
 			gpu: GPU::new(),
 			sound: Sound::new(),
 			mbc: mmu_mbc,
-			gbmode: ::gbmode::Classic,
-			gbspeed: ::gbmode::Single,
+			gbmode: GbMode::Classic,
+			gbspeed: GbSpeed::Single,
 			speed_switch_req: false,
 			hdma_src: 0,
 			hdma_dst: 0,
-			hdma_status: NoDMA,
+			hdma_status: DMAType::NoDMA,
 			hdma_len: 0xFF,
 		};
 		if res.rb(0x0143) == 0xC0 {
@@ -91,12 +92,12 @@ impl MMU {
 			gpu: GPU::new_cgb(),
 			sound: Sound::new(),
 			mbc: mmu_mbc,
-			gbmode: ::gbmode::Color,
-			gbspeed: ::gbmode::Single,
+			gbmode: GbMode::Color,
+			gbspeed: GbSpeed::Single,
 			speed_switch_req: false,
 			hdma_src: 0,
 			hdma_dst: 0,
-			hdma_status: NoDMA,
+			hdma_status: DMAType::NoDMA,
 			hdma_len: 0xFF,
 		};
 		res.determine_mode();
@@ -121,8 +122,8 @@ impl MMU {
 
 	fn determine_mode(&mut self) {
 		let mode = match self.rb(0x0143) & 0x80 {
-			0x80 => ::gbmode::Color,
-			_ => ::gbmode::ColorAsClassic,
+			0x80 => GbMode::Color,
+			_ => GbMode::ColorAsClassic,
 		};
 		self.gbmode = mode;
 		self.gpu.gbmode = mode;
@@ -132,7 +133,7 @@ impl MMU {
 		let ticks = cputicks + self.perform_vramdma();
 
 		let gputicks = ticks /
-			if self.gbspeed == ::gbmode::Single { 1 }
+			if self.gbspeed == GbSpeed::Single { 1 }
 			else { 2 };
 
 		self.timer.do_cycle(ticks);
@@ -164,7 +165,7 @@ impl MMU {
 			0xFF04 ... 0xFF07 => self.timer.rb(address),
 			0xFF0F => self.intf,
 			0xFF10 ... 0xFF3F => self.sound.rb(address),
-			0xFF4D => (if self.gbspeed == ::gbmode::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
+			0xFF4D => (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
 			0xFF40 ... 0xFF4F => self.gpu.rb(address),
 			0xFF51 ... 0xFF55 => self.hdma_read(address),
 			0xFF68 ... 0xFF6B => self.gpu.rb(address),
@@ -212,10 +213,10 @@ impl MMU {
 	pub fn switch_speed(&mut self) {
 		if self.speed_switch_req {
 			info!("Switching speed");
-			if self.gbspeed == ::gbmode::Double {
-				self.gbspeed = ::gbmode::Single;
+			if self.gbspeed == GbSpeed::Double {
+				self.gbspeed = GbSpeed::Single;
 			} else {
-				self.gbspeed = ::gbmode::Double;
+				self.gbspeed = GbSpeed::Double;
 			}
 		}
 		self.speed_switch_req = false;
@@ -232,7 +233,7 @@ impl MMU {
 	fn hdma_read(&self, a: u16) -> u8 {
 		match a {
 			0xFF51 ... 0xFF54 => { self.hdma[(a - 0xFF51) as uint] },
-			0xFF55 => self.hdma_len | if self.hdma_status == NoDMA { 0x80 } else { 0 },
+			0xFF55 => self.hdma_len | if self.hdma_status == DMAType::NoDMA { 0x80 } else { 0 },
 			_ => panic!("The address {:04X} should not be handled by hdma_read", a),
 		}
 	}
@@ -244,8 +245,8 @@ impl MMU {
 			0xFF53 => self.hdma[2] = v & 0x1F,
 			0xFF54 => self.hdma[3] = v & 0xF0,
 			0xFF55 => {
-				if self.hdma_status == HDMA {
-					if v & 0x80 == 0 { self.hdma_status = NoDMA; };
+				if self.hdma_status == DMAType::HDMA {
+					if v & 0x80 == 0 { self.hdma_status = DMAType::NoDMA; };
 					return;
 				}
 				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
@@ -257,8 +258,8 @@ impl MMU {
 				self.hdma_len = v & 0x7F;
 
 				self.hdma_status =
-					if v & 0x80 == 0x80 { HDMA }
-					else { GDMA };
+					if v & 0x80 == 0x80 { DMAType::HDMA }
+					else { DMAType::GDMA };
 			},
 			_ => panic!("The address {:04X} should not be handled by hdma_write", a),
 		};
@@ -266,9 +267,9 @@ impl MMU {
 
 	fn perform_vramdma(&mut self) -> uint {
 		match self.hdma_status {
-			NoDMA => 0,
-			GDMA => self.perform_gdma(),
-			HDMA => self.perform_hdma(),
+			DMAType::NoDMA => 0,
+			DMAType::GDMA => self.perform_gdma(),
+			DMAType::HDMA => self.perform_hdma(),
 		}
 	}
 
@@ -278,9 +279,9 @@ impl MMU {
 		}
 
 		self.perform_vramdma_row();
-		if self.hdma_len == 0xFF { self.hdma_status = NoDMA; }
+		if self.hdma_len == 0xFF { self.hdma_status = DMAType::NoDMA; }
 
-		return 0x10 * (if self.gbspeed == ::gbmode::Single { 4 } else { 2 });
+		return 0x10 * (if self.gbspeed == GbSpeed::Single { 4 } else { 2 });
 	}
 
 	fn perform_gdma(&mut self) -> uint {
@@ -289,7 +290,7 @@ impl MMU {
 			self.perform_vramdma_row();
 		}
 
-		self.hdma_status = NoDMA;
+		self.hdma_status = DMAType::NoDMA;
 		return len * 0x10 * 2;
 	}
 

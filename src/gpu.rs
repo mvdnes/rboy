@@ -1,3 +1,4 @@
+use gbmode::GbMode;
 use std::iter::range_step_inclusive;
 
 const VRAM_SIZE: uint = 0x4000;
@@ -52,7 +53,7 @@ pub struct GPU {
 	bgprio: [PrioType,.. SCREEN_W],
 	pub updated: bool,
 	pub interrupt: u8,
-	pub gbmode: ::gbmode::GbMode,
+	pub gbmode: GbMode,
 	hblanking: bool,
 }
 
@@ -88,10 +89,10 @@ impl GPU {
 			vram: [0,.. VRAM_SIZE],
 			voam: [0,.. VOAM_SIZE],
 			data: [0,.. SCREEN_W * SCREEN_H * 3],
-			bgprio: [Normal,.. SCREEN_W],
+			bgprio: [PrioType::Normal,.. SCREEN_W],
 			updated: false,
 			interrupt: 0,
-			gbmode: ::gbmode::Classic,
+			gbmode: GbMode::Classic,
 			cbgpal_inc: false,
 			cbgpal_ind: 0,
 			cbgpal: [[[0u8,.. 3],.. 4],.. 8],
@@ -318,7 +319,7 @@ impl GPU {
 	fn renderscan(&mut self) {
 		for x in range(0, SCREEN_W) {
 			self.setcolor(x, 255);
-			self.bgprio[x] = Normal;
+			self.bgprio[x] = PrioType::Normal;
 		}
 		self.draw_bg();
 		self.draw_sprites();
@@ -331,10 +332,10 @@ impl GPU {
 	}
 
 	fn draw_bg(&mut self) {
-		let drawbg = self.gbmode == ::gbmode::Color || self.lcdc0;
+		let drawbg = self.gbmode == GbMode::Color || self.lcdc0;
 
 		let winy =
-			if !self.win_on || (self.gbmode != ::gbmode::Classic && !self.lcdc0) { -1 }
+			if !self.win_on || (self.gbmode != GbMode::Classic && !self.lcdc0) { -1 }
 			else { self.line as int - self.winy as int };
 
 		if winy < 0 && drawbg == false {
@@ -368,7 +369,7 @@ impl GPU {
 
 			let tilenr: u8 = self.rbvram0(tilemapbase + tiley * 32 + tilex);
 
-			let (palnr, vram1, xflip, yflip, prio) = if self.gbmode == ::gbmode::Color {
+			let (palnr, vram1, xflip, yflip, prio) = if self.gbmode == GbMode::Color {
 				let flags = self.rbvram1(tilemapbase + tiley * 32 + tilex) as uint;
 				(flags & 0x07,
 				flags & (1 << 3) != 0,
@@ -404,10 +405,10 @@ impl GPU {
 				| if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
 			self.bgprio[x] =
-				if prio { PrioFlag }
-				else if colnr == 0 { Color0 }
-				else { Normal };
-			if self.gbmode == ::gbmode::Color {
+				if prio { PrioType::PrioFlag }
+				else if colnr == 0 { PrioType::Color0 }
+				else { PrioType::Normal };
+			if self.gbmode == GbMode::Color {
 				let data_a = self.line as uint * SCREEN_W * 3 + x * 3;
 				self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
 				self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
@@ -450,7 +451,7 @@ impl GPU {
 			};
 
 			let tileaddress = 0x8000u16 + tilenum * 16 + tiley * 2;
-			let (b1, b2) = if c_vram1 && self.gbmode == ::gbmode::Color {
+			let (b1, b2) = if c_vram1 && self.gbmode == GbMode::Color {
 				(self.rbvram1(tileaddress), self.rbvram1(tileaddress + 1))
 			} else {
 				(self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
@@ -464,8 +465,8 @@ impl GPU {
 					(if b2 & xbit != 0 { 2 } else { 0 });
 				if colnr == 0 { continue }
 
-				if self.gbmode == ::gbmode::Color {
-					if self.lcdc0 && (self.bgprio[(spritex + x) as uint] == PrioFlag || (belowbg && self.bgprio[(spritex + x) as uint] != Color0)) {
+				if self.gbmode == GbMode::Color {
+					if self.lcdc0 && (self.bgprio[(spritex + x) as uint] == PrioType::PrioFlag || (belowbg && self.bgprio[(spritex + x) as uint] != PrioType::Color0)) {
 						continue 'xloop
 					}
 					let data_a = self.line as uint * SCREEN_W * 3 + ((spritex + x) as uint) * 3;
@@ -473,7 +474,7 @@ impl GPU {
 					self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
 					self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
 				} else {
-					if belowbg && self.bgprio[(spritex + x) as uint] != Color0 { continue 'xloop }
+					if belowbg && self.bgprio[(spritex + x) as uint] != PrioType::Color0 { continue 'xloop }
 					let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
 					self.setcolor((spritex + x) as uint, color);
 				}

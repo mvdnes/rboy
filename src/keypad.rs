@@ -45,14 +45,14 @@ impl Keypad {
 
 	pub fn keydown(&mut self, key: KeypadKey) {
 		match key {
-			Right => self.row1 &= !(1 << 0),
-			Left => self.row1 &= !(1 << 1),
-			Up => self.row1 &= !(1 << 2),
-			Down => self.row1 &= !(1 << 3),
-			A => self.row0 &= !(1 << 0),
-			B => self.row0 &= !(1 << 1),
-			Select => self.row0 &= !(1 << 2),
-			Start => self.row0 &= !(1 << 3),
+			KeypadKey::Right => self.row1 &= !(1 << 0),
+			KeypadKey::Left => self.row1 &= !(1 << 1),
+			KeypadKey::Up => self.row1 &= !(1 << 2),
+			KeypadKey::Down => self.row1 &= !(1 << 3),
+			KeypadKey::A => self.row0 &= !(1 << 0),
+			KeypadKey::B => self.row0 &= !(1 << 1),
+			KeypadKey::Select => self.row0 &= !(1 << 2),
+			KeypadKey::Start => self.row0 &= !(1 << 3),
 		}
 		self.interrupt |= 0x10;
 		self.update();
@@ -60,14 +60,14 @@ impl Keypad {
 
 	pub fn keyup(&mut self, key: KeypadKey) {
 		match key {
-			Right => self.row1 |= 1 << 0,
-			Left => self.row1 |= 1 << 1,
-			Up => self.row1 |= 1 << 2,
-			Down => self.row1 |= 1 << 3,
-			A => self.row0 |= 1 << 0,
-			B => self.row0 |= 1 << 1,
-			Select => self.row0 |= 1 << 2,
-			Start => self.row0 |= 1 << 3,
+			KeypadKey::Right => self.row1 |= 1 << 0,
+			KeypadKey::Left => self.row1 |= 1 << 1,
+			KeypadKey::Up => self.row1 |= 1 << 2,
+			KeypadKey::Down => self.row1 |= 1 << 3,
+			KeypadKey::A => self.row0 |= 1 << 0,
+			KeypadKey::B => self.row0 |= 1 << 1,
+			KeypadKey::Select => self.row0 |= 1 << 2,
+			KeypadKey::Start => self.row0 |= 1 << 3,
 		}
 		self.update();
 	}
@@ -76,13 +76,11 @@ impl Keypad {
 #[cfg(test)]
 mod test {
 	use super::KeypadKey;
-	use super::{Right, Left, Up, Down};
-	use super::{A, B, Select, Start};
 
 	#[test]
 	fn keys_row0() {
 		let mut keypad = super::Keypad::new();
-		let keys0 : [KeypadKey, ..4] = [A, B, Select, Start];
+		let keys0 : [KeypadKey, ..4] = [KeypadKey::A, KeypadKey::B, KeypadKey::Select, KeypadKey::Start];
 
 		for i in range(0u, keys0.len()) {
 			keypad.keydown(keys0[i]);
@@ -106,7 +104,7 @@ mod test {
 	#[test]
 	fn keys_row1() {
 		let mut keypad = super::Keypad::new();
-		let keys1 : [KeypadKey, ..4] = [Right, Left, Up, Down];
+		let keys1 : [KeypadKey, ..4] = [KeypadKey::Right, KeypadKey::Left, KeypadKey::Up, KeypadKey::Down];
 
 		for i in range(0u, keys1.len()) {
 			keypad.keydown(keys1[i]);

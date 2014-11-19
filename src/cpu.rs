@@ -1,5 +1,5 @@
 use std::num::Int;
-use register::{C, N, H, Z};
+use register::CpuFlag::{C, N, H, Z};
 
 pub struct CPU {
 	reg: ::register::Registers,

@@ -27,7 +27,7 @@ fn set_exit_status(exitcode: int)
 
 fn main() {
 	let args = std::os::args();
-	let opts = [ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
+	let opts = &[ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
 	let matches = match getopts::getopts(args.tail(), opts) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f); return }
@@ -43,9 +43,9 @@ fn main() {
 		return;
 	};
 
-	sdl::init([sdl::InitVideo]);
+	sdl::init(&[sdl::InitFlag::Video]);
 	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
-	let screen = match sdl::video::set_video_mode(160*SCALE as int, 144*SCALE as int, 32, [sdl::video::HWSurface], [sdl::video::DoubleBuf]) {
+	let screen = match sdl::video::set_video_mode(160*SCALE as int, 144*SCALE as int, 32, &[sdl::video::HWSurface], &[sdl::video::DoubleBuf]) {
 		Ok(screen) => screen,
 		Err(err) => panic!("failed to open screen: {}", err),
 	};
@@ -70,23 +70,23 @@ fn main() {
 		}
 		'event : loop {
 			match sdl::event::poll_event() {
-				sdl::event::QuitEvent => break 'main,
-				sdl::event::NoEvent => break 'event,
-				sdl::event::KeyEvent(sdl::event::EscapeKey, _, _, _)
+				sdl::event::Event::Quit => break 'main,
+				sdl::event::Event::None => break 'event,
+				sdl::event::Event::Key(sdl::event::Key::Escape, _, _, _)
 					=> break 'main,
-				sdl::event::KeyEvent(sdl::event::LShiftKey, true, _, _)
-					=> sdl_tx.send(SpeedUp),
-				sdl::event::KeyEvent(sdl::event::LShiftKey, false, _, _)
-					=> sdl_tx.send(SlowDown),
-				sdl::event::KeyEvent(sdlkey, true, _, _) => {
+				sdl::event::Event::Key(sdl::event::Key::LShift, true, _, _)
+					=> sdl_tx.send(GBEvent::SpeedUp),
+				sdl::event::Event::Key(sdl::event::Key::LShift, false, _, _)
+					=> sdl_tx.send(GBEvent::SlowDown),
+				sdl::event::Event::Key(sdlkey, true, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdl_tx.send(KeyDown(key)),
+						Some(key) => sdl_tx.send(GBEvent::KeyDown(key)),
 						None => {},
 					}
 				},
-				sdl::event::KeyEvent(sdlkey, false, _, _) => {
+				sdl::event::Event::Key(sdlkey, false, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdl_tx.send(KeyUp(key)),
+						Some(key) => sdl_tx.send(GBEvent::KeyUp(key)),
 						None => {},
 					}
 				},
@@ -98,14 +98,14 @@ fn main() {
 
 fn sdl_to_keypad(key: sdl::event::Key) -> Option<rboy::KeypadKey> {
 	match key {
-		sdl::event::ZKey => Some(rboy::A),
-		sdl::event::XKey => Some(rboy::B),
-		sdl::event::UpKey => Some(rboy::Up),
-		sdl::event::DownKey => Some(rboy::Down),
-		sdl::event::LeftKey => Some(rboy::Left),
-		sdl::event::RightKey => Some(rboy::Right),
-		sdl::event::SpaceKey => Some(rboy::Select),
-		sdl::event::ReturnKey => Some(rboy::Start),
+		sdl::event::Key::Z => Some(rboy::KeypadKey::A),
+		sdl::event::Key::X => Some(rboy::KeypadKey::B),
+		sdl::event::Key::Up => Some(rboy::KeypadKey::Up),
+		sdl::event::Key::Down => Some(rboy::KeypadKey::Down),
+		sdl::event::Key::Left => Some(rboy::KeypadKey::Left),
+		sdl::event::Key::Right => Some(rboy::KeypadKey::Right),
+		sdl::event::Key::Space => Some(rboy::KeypadKey::Select),
+		sdl::event::Key::Return => Some(rboy::KeypadKey::Start),
 		_ => None,
 	}
 }
@@ -166,10 +166,10 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u
 
 		match cpu_rx.try_recv() {
 			Ok(event) => match event {
-				KeyUp(key) => c.keyup(key),
-				KeyDown(key) => c.keydown(key),
-				SpeedUp => limit_speed = false,
-				SlowDown => limit_speed = true,
+				GBEvent::KeyUp(key) => c.keyup(key),
+				GBEvent::KeyDown(key) => c.keydown(key),
+				GBEvent::SpeedUp => limit_speed = false,
+				GBEvent::SlowDown => limit_speed = true,
 			},
 			Err(Empty) => {},
 			Err(Disconnected) => { break },
