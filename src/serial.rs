@@ -15,7 +15,7 @@ impl Serial {
 			0xFF02 => {
 				self.control = v;
 				if self.tostdout && v == 0x81 {
-					print!("{:c}", self.data as char);
+					print!("{}", self.data as char);
 					::std::io::stdio::flush();
 				}
 			},

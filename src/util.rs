@@ -7,7 +7,7 @@ pub fn handle_io<T>(result: IoResult<T>, message: &str) -> Option<T>
 		Ok(ok) => { Some(ok) },
 		Err(ref error) =>
 		{
-			error!("{:s}: {}", message, error);
+			error!("{}: {}", message, error);
 			None
 		},
 	}
