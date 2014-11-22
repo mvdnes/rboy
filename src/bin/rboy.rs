@@ -3,7 +3,6 @@
 #![feature(phase)]
 
 #[phase(plugin, link)] extern crate log;
-                       extern crate native;
                        extern crate getopts;
                        extern crate sdl;
                        extern crate rboy;
@@ -12,8 +11,6 @@ use rboy::device::Device;
 use std::time::Duration;
 use std::sync::{Arc,RWLock};
 use std::comm::{Sender,Receiver,Disconnected,Empty};
-use std::task::TaskBuilder;
-use native::NativeTaskBuilder;
 
 static SCALE: uint = 2;
 static EXITCODE_INCORRECTOPTIONS: int = 1;
@@ -56,7 +53,7 @@ fn main() {
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 
-	TaskBuilder::new().native().spawn(proc() cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
+	spawn(proc() cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
