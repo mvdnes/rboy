@@ -4,7 +4,7 @@
 
 #[phase(plugin, link)] extern crate log;
                        extern crate getopts;
-                       extern crate sdl;
+                       extern crate sdl2;
                        extern crate rboy;
 
 use rboy::device::Device;
@@ -40,9 +40,17 @@ fn main() {
 		return;
 	};
 
-	sdl::init(&[sdl::InitFlag::Video]);
-	sdl::wm::set_caption("RBoy - A gameboy in Rust", "rboy");
-	let screen = match sdl::video::set_video_mode(160*SCALE as int, 144*SCALE as int, 32, &[sdl::video::HWSurface], &[sdl::video::DoubleBuf]) {
+	sdl2::init(sdl2::INIT_VIDEO);
+	let window = match sdl2::video::Window::new("RBoy - A gameboy in Rust",
+												sdl2::video::WindowPos::PosUndefined,
+												sdl2::video::WindowPos::PosUndefined,
+												160*SCALE as int,
+												144*SCALE as int,
+												sdl2::video::WindowFlags::empty()) {
+		Ok(window) => window,
+		Err(err) => panic!("failed to open window: {}", err),
+	};
+	let renderer = match sdl2::render::Renderer::from_window(window, sdl2::render::RenderDriverIndex::Auto, sdl2::render::ACCELERATED) {
 		Ok(screen) => screen,
 		Err(err) => panic!("failed to open screen: {}", err),
 	};
@@ -62,26 +70,26 @@ fn main() {
 		periodic.recv();
 		match sdl_rx.try_recv() {
 			Err(Disconnected) => { break 'main },
-			Ok(_) => recalculate_screen(&screen, &arc),
+			Ok(_) => recalculate_screen(&renderer, &arc),
 			Err(Empty) => {},
 		}
 		'event : loop {
-			match sdl::event::poll_event() {
-				sdl::event::Event::Quit => break 'main,
-				sdl::event::Event::None => break 'event,
-				sdl::event::Event::Key(sdl::event::Key::Escape, _, _, _)
+			match sdl2::event::poll_event() {
+				sdl2::event::Event::Quit(_) => break 'main,
+				sdl2::event::Event::None => break 'event,
+				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::Escape, _, _, _)
 					=> break 'main,
-				sdl::event::Event::Key(sdl::event::Key::LShift, true, _, _)
+				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
 					=> sdl_tx.send(GBEvent::SpeedUp),
-				sdl::event::Event::Key(sdl::event::Key::LShift, false, _, _)
+				sdl2::event::Event::KeyUp(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
 					=> sdl_tx.send(GBEvent::SlowDown),
-				sdl::event::Event::Key(sdlkey, true, _, _) => {
+				sdl2::event::Event::KeyDown(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
 						Some(key) => sdl_tx.send(GBEvent::KeyDown(key)),
 						None => {},
 					}
 				},
-				sdl::event::Event::Key(sdlkey, false, _, _) => {
+				sdl2::event::Event::KeyUp(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
 						Some(key) => sdl_tx.send(GBEvent::KeyUp(key)),
 						None => {},
@@ -93,33 +101,34 @@ fn main() {
 	}
 }
 
-fn sdl_to_keypad(key: sdl::event::Key) -> Option<rboy::KeypadKey> {
+fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
 	match key {
-		sdl::event::Key::Z => Some(rboy::KeypadKey::A),
-		sdl::event::Key::X => Some(rboy::KeypadKey::B),
-		sdl::event::Key::Up => Some(rboy::KeypadKey::Up),
-		sdl::event::Key::Down => Some(rboy::KeypadKey::Down),
-		sdl::event::Key::Left => Some(rboy::KeypadKey::Left),
-		sdl::event::Key::Right => Some(rboy::KeypadKey::Right),
-		sdl::event::Key::Space => Some(rboy::KeypadKey::Select),
-		sdl::event::Key::Return => Some(rboy::KeypadKey::Start),
+		sdl2::keycode::KeyCode::Z => Some(rboy::KeypadKey::A),
+		sdl2::keycode::KeyCode::X => Some(rboy::KeypadKey::B),
+		sdl2::keycode::KeyCode::Up => Some(rboy::KeypadKey::Up),
+		sdl2::keycode::KeyCode::Down => Some(rboy::KeypadKey::Down),
+		sdl2::keycode::KeyCode::Left => Some(rboy::KeypadKey::Left),
+		sdl2::keycode::KeyCode::Right => Some(rboy::KeypadKey::Right),
+		sdl2::keycode::KeyCode::Space => Some(rboy::KeypadKey::Select),
+		sdl2::keycode::KeyCode::Return => Some(rboy::KeypadKey::Start),
 		_ => None,
 	}
 }
 
-fn recalculate_screen(screen: &sdl::video::Surface, arc: &Arc<RWLock<[u8,.. 160*144*3]>>) {
+fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<[u8,.. 160*144*3]>>) {
+	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
+	screen.clear().unwrap();
+
 	let data = arc.read();
 	for y in range(0u, 144) {
 		for x in range(0u, 160) {
-			screen.fill_rect(
-				Some(sdl::Rect { x: (x*SCALE) as i16, y: (y*SCALE) as i16, w: SCALE as u16, h: SCALE as u16 }),
-				sdl::video::RGB(data[y*160*3 + x*3 + 0],
-				                data[y*160*3 + x*3 + 1],
-				                data[y*160*3 + x*3 + 2])
-			);
+			screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
+															data[y*160*3 + x*3 + 1],
+															data[y*160*3 + x*3 + 2])).unwrap();
+			screen.draw_rect(&sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32)).unwrap();
 		}
 	}
-	screen.flip();
+	screen.present();
 }
 
 enum GBEvent {
