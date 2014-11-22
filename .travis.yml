@@ -6,9 +6,11 @@ notifications:
     on_failure: always
 
 install:
-  - yes | sudo add-apt-repository ppa:zoogie/sdl2-snapshots
-  - sudo apt-get update
-  - sudo apt-get install libsdl2
+  - wget http://www.libsdl.org/release/SDL2-2.0.3.tar.gz
+  - tar -zxvf SDL2-2.0.3.tar.gz
+  - cd SDL2-2.0.3
+  - ./configure && make && sudo make install
+  - cd -
 script:
   - make
   - make opt
