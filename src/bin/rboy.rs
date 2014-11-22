@@ -57,7 +57,7 @@ fn main() {
 
 	let (sdl_tx, cpu_rx) = std::comm::channel();
 	let (cpu_tx, sdl_rx) = std::comm::channel();
-	let rawscreen = [0x00u8,.. 160*144*3];
+	let rawscreen = Vec::from_elem(160*144*3, 0u8);
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 
@@ -115,7 +115,7 @@ fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
 	}
 }
 
-fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<[u8,.. 160*144*3]>>) {
+fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<Vec<u8>>>) {
 	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
 	screen.clear().unwrap();
 
@@ -138,7 +138,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<[u8,.. 160*144*3]>>, filename: &str, matches: &getopts::Matches) {
+fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => Device::new(filename),
 		false => Device::new_cgb(filename),
