@@ -119,7 +119,7 @@ fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<[u8,.. 1
 	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
 	screen.clear().unwrap();
 
-	let data = arc.read();
+	let data =  arc.read().clone();
 	for y in range(0u, 144) {
 		for x in range(0u, 160) {
 			screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
