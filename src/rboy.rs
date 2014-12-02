@@ -1,5 +1,4 @@
 #![crate_name = "rboy"]
-#![license    = "MIT" ]
 #![crate_type = "lib" ]
 #![feature(phase)]
 

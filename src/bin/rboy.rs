@@ -1,5 +1,4 @@
 #![crate_name = "rboy"]
-#![license    = "MIT" ]
 #![feature(phase)]
 
 #[phase(plugin, link)] extern crate log;
