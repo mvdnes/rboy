@@ -6,7 +6,7 @@ const VOAM_SIZE: uint = 0xA0;
 const SCREEN_W: uint = 160;
 const SCREEN_H: uint = 144;
 
-#[deriving(PartialEq)]
+#[deriving(PartialEq, Copy)]
 enum PrioType {
 	Color0,
 	PrioFlag,

@@ -1,3 +1,4 @@
+#[deriving(Copy)]
 pub struct Registers {
 	pub a: u8,
 	f: u8,
@@ -11,6 +12,7 @@ pub struct Registers {
 	pub sp: u16,
 }
 
+#[deriving(Copy)]
 pub enum CpuFlag
 {
 	C = 0b00010000,
