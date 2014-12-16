@@ -842,7 +842,7 @@ mod test
 
 		let (tx, rx) = channel();
 		let (mut r, w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
-		spawn(proc()
+		spawn(move||
 		{
 			let mut c = match CPU::new(CPUINSTRS)
 			{
@@ -864,7 +864,7 @@ mod test
 			barrier1.wait();
 		});
 
-		spawn(proc()
+		spawn(move||
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS)
 			{
