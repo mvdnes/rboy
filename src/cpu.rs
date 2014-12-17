@@ -1,18 +1,18 @@
 use std::num::Int;
 use register::CpuFlag::{C, N, H, Z};
 
-pub struct CPU {
+pub struct CPU<'a> {
 	reg: ::register::Registers,
-	pub mmu: ::mmu::MMU,
+	pub mmu: ::mmu::MMU<'a>,
 	halted: bool,
 	ime: bool,
 	setdi: uint,
 	setei: uint,
 }
 
-impl CPU {
-	pub fn new(romname: &str) -> Option<CPU> {
-		let cpu_mmu = match ::mmu::MMU::new(romname)
+impl<'a> CPU<'a> {
+	pub fn new(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<CPU<'a>> {
+		let cpu_mmu = match ::mmu::MMU::new(romname, serial_callback)
 		{
 			Some(mmu) => { mmu },
 			None => { return None; },
@@ -27,8 +27,8 @@ impl CPU {
 		})
 	}
 
-	pub fn new_cgb(romname: &str) -> Option<CPU> {
-		let cpu_mmu = match ::mmu::MMU::new_cgb(romname)
+	pub fn new_cgb(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<CPU<'a>> {
+		let cpu_mmu = match ::mmu::MMU::new_cgb(romname, serial_callback)
 		{
 			Some(mmu) => { mmu },
 			None => { return None; },
@@ -841,16 +841,15 @@ mod test
 		let sum_color1 = sum_color0.clone();
 
 		let (tx, rx) = channel();
-		let (mut r, w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
+		let (mut r, mut w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
 		spawn(move||
 		{
-			let mut c = match CPU::new(CPUINSTRS)
+			let serial = |v| { let _ = w.write(&[v]); 0 };
+			let mut c = match CPU::new(CPUINSTRS, Some(serial))
 			{
 				None => { barrier1.wait(); panic!("Could not instantiate Classic CPU"); },
 				Some(cpu) => cpu,
 			};
-			::std::io::stdio::set_stdout(box w);
-			c.mmu.serial.tostdout = true;
 			let mut ticks = 0;
 			while ticks < 63802933
 			{
@@ -866,7 +865,7 @@ mod test
 
 		spawn(move||
 		{
-			let mut c = match CPU::new_cgb(CPUINSTRS)
+			let mut c = match CPU::new_cgb(CPUINSTRS, None)
 			{
 				None => { barrier2.wait(); panic!("Could not instantiate Color CPU"); },
 				Some(cpu) => cpu,
@@ -886,7 +885,7 @@ mod test
 
 		barrier0.wait();
 
-		assert!(r.read_to_string().unwrap().as_slice() == "cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
+		assert!(r.read_to_end().unwrap().as_slice() == b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
 			"cpu_instrs did not output the expected result to serial");
 		assert!(*sum_classic0.read() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
 		assert!(*sum_color0.read() == 479666872, "cpu_instrs was not graphically correct in Color mode");

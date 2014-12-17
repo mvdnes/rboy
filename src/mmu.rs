@@ -15,13 +15,13 @@ enum DMAType {
 	HDMA,
 }
 
-pub struct MMU {
+pub struct MMU<'a> {
 	wram: [u8, ..WRAM_SIZE],
 	zram: [u8, ..ZRAM_SIZE],
 	hdma: [u8, ..4],
 	pub inte: u8,
 	pub intf: u8,
-	pub serial: Serial,
+	pub serial: Serial<'a>,
 	pub timer: Timer,
 	pub keypad: Keypad,
 	pub gpu: GPU,
@@ -37,12 +37,16 @@ pub struct MMU {
 	speed_switch_req: bool,
 }
 
-impl MMU {
-	pub fn new(romname: &str) -> Option<MMU> {
+impl<'a> MMU<'a> {
+	pub fn new(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<MMU<'a>> {
 		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
 		{
 			Some(mbc) => { mbc },
 			None => { return None; },
+		};
+		let serial = match serial_callback {
+			Some(cb) => Serial::new_with_callback(cb),
+			None => Serial::new(),
 		};
 		let mut res = MMU {
 			wram: [0, ..WRAM_SIZE],
@@ -51,7 +55,7 @@ impl MMU {
 			wrambank: 1,
 			inte: 0,
 			intf: 0,
-			serial: Serial::new(),
+			serial: serial,
 			timer: Timer::new(),
 			keypad: Keypad::new(),
 			gpu: GPU::new(),
@@ -73,11 +77,15 @@ impl MMU {
 		Some(res)
 	}
 
-	pub fn new_cgb(romname: &str) -> Option<MMU> {
+	pub fn new_cgb(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<MMU<'a>> {
 		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
 		{
 			Some(mbc) => { mbc },
 			None => { return None; },
+		};
+		let serial = match serial_callback {
+			Some(cb) => Serial::new_with_callback(cb),
+			None => Serial::new(),
 		};
 		let mut res = MMU {
 			wram: [0,.. WRAM_SIZE],
@@ -86,7 +94,7 @@ impl MMU {
 			hdma: [0,.. 4],
 			inte: 0,
 			intf: 0,
-			serial: Serial::new(),
+			serial: serial,
 			timer: Timer::new(),
 			keypad: Keypad::new(),
 			gpu: GPU::new_cgb(),

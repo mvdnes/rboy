@@ -3,14 +3,21 @@ use keypad::KeypadKey;
 
 pub struct Device
 {
-	cpu: CPU,
+	cpu: CPU<'static>,
+}
+
+fn stdoutprinter(v: u8) -> u8
+{
+	print!("{}", v as char);
+	::std::io::stdio::flush();
+	0
 }
 
 impl Device
 {
 	pub fn new(romname: &str) -> Option<Device>
 	{
-		match CPU::new(romname)
+		match CPU::new(romname, None)
 		{
 			Some(cpu) => Some(Device { cpu: cpu }),
 			None => None,
@@ -19,7 +26,7 @@ impl Device
 
 	pub fn new_cgb(romname: &str) -> Option<Device>
 	{
-		match CPU::new_cgb(romname)
+		match CPU::new_cgb(romname, None)
 		{
 			Some(cpu) => Some(Device { cpu: cpu }),
 			None => None,
@@ -33,7 +40,11 @@ impl Device
 
 	pub fn set_stdout(&mut self, output: bool)
 	{
-		self.cpu.mmu.serial.tostdout = output;
+		if output {
+			self.cpu.mmu.serial.set_callback(stdoutprinter);
+		} else {
+			self.cpu.mmu.serial.unset_callback();
+		}
 	}
 
 	pub fn check_and_reset_gpu_updated(&mut self) -> bool
