@@ -13,6 +13,9 @@ branch = "sys"
 [dependencies.time]
 git = "http://github.com/rust-lang/time"
 
+[dependencies.log]
+git = "https://github.com/rust-lang/log"
+
 [profile.test]
 opt-level = 3
 debug = true
