@@ -60,7 +60,7 @@ impl<'a> CPU<'a> {
 			1
 		} else {
 			self.call()
-		}	
+		}
 	}
 
 	fn fetchbyte(&mut self) -> u8 {
@@ -90,7 +90,7 @@ impl<'a> CPU<'a> {
 
 	fn handleinterrupt(&mut self) -> uint {
 		if self.ime == false && self.halted == false { return 0 }
-		
+
 		let triggered = self.mmu.inte & self.mmu.intf;
 		if triggered == 0 { return 0 }
 
@@ -104,7 +104,7 @@ impl<'a> CPU<'a> {
 		let pc = self.reg.pc;
 		self.pushstack(pc);
 		self.reg.pc = 0x0040 | ((n as u16) << 3);
-		
+
 		return 4
 	}
 
@@ -371,7 +371,7 @@ impl<'a> CPU<'a> {
 			other=> panic!("Instruction {:2X} is not implemented", other),
 		}
 	}
-	
+
 	fn call_cb(&mut self) -> uint {
 		let opcode = self.fetchbyte();
 		let oldregs = self.reg;
@@ -698,7 +698,7 @@ impl<'a> CPU<'a> {
 		self.reg.flag(N, false);
 		return r
 	}
-	
+
 	fn alu_dec(&mut self, a: u8) -> u8 {
 		let r = a - 1;
 		self.reg.flag(Z, r == 0);
@@ -824,17 +824,13 @@ impl<'a> CPU<'a> {
 mod test
 {
 	use super::CPU;
-	use std::sync::{RWLock, Arc, Barrier};
+	use std::sync::{RWLock, Arc};
 
 	static CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
 
 	#[test]
 	fn cpu_instrs()
 	{
-		let barrier0 = Arc::new(Barrier::new(3));
-		let barrier1 = barrier0.clone();
-		let barrier2 = barrier1.clone();
-
 		let sum_classic0 = Arc::new(RWLock::new(0));
 		let sum_classic1 = sum_classic0.clone();
 		let sum_color0 = Arc::new(RWLock::new(0));
@@ -842,12 +838,13 @@ mod test
 
 		let (tx, rx) = channel();
 		let (mut r, mut w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
-		spawn(move||
+
+		let classic_t = ::std::thread::Thread::spawn(move||
 		{
 			let serial = |v| { let _ = w.write(&[v]); 0 };
 			let mut c = match CPU::new(CPUINSTRS, Some(serial))
 			{
-				None => { barrier1.wait(); panic!("Could not instantiate Classic CPU"); },
+				None => { panic!("Could not instantiate Classic CPU"); },
 				Some(cpu) => cpu,
 			};
 			let mut ticks = 0;
@@ -860,14 +857,13 @@ mod test
 			{
 				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
 			}
-			barrier1.wait();
 		});
 
-		spawn(move||
+		let color_t = ::std::thread::Thread::spawn(move||
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS, None)
 			{
-				None => { barrier2.wait(); panic!("Could not instantiate Color CPU"); },
+				None => { panic!("Could not instantiate Color CPU"); },
 				Some(cpu) => cpu,
 			};
 			let mut ticks = 0;
@@ -880,10 +876,10 @@ mod test
 			{
 				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
 			}
-			barrier2.wait();
 		});
 
-		barrier0.wait();
+		classic_t.join().ok().unwrap();
+		color_t.join().ok().unwrap();
 
 		assert!(r.read_to_end().unwrap().as_slice() == b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
 			"cpu_instrs did not output the expected result to serial");

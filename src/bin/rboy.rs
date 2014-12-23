@@ -60,7 +60,7 @@ fn main() {
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 
-	spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
+	let cpuloop_thread = std::thread::Thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
@@ -98,6 +98,9 @@ fn main() {
 			}
 		}
 	}
+
+    drop(sdl_tx); // Disconnect such that the cpuloop will exit
+    let _ = cpuloop_thread.join();
 }
 
 fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
