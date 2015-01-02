@@ -5,6 +5,12 @@ notifications:
     on_success: never
     on_failure: always
 
+install:
+  - curl http://www.libsdl.org/release/SDL2-2.0.3.tar.gz | tar -xzv
+  - pushd SDL2-2.0.3
+  - ./configure && make && sudo make install
+  - popd
+
 script:
   - make
   - make test

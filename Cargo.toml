@@ -7,8 +7,7 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 name = "rboy"
 
 [dependencies.sdl2]
-git = "https://github.com/mvdnes/rust-sdl2.git"
-branch = "sys"
+git = "https://github.com/AngryLawyer/rust-sdl2.git"
 
 [dependencies.time]
 git = "http://github.com/rust-lang/time"
