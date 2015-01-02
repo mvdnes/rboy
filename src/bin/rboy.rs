@@ -56,7 +56,7 @@ fn main() {
 
 	let (sdl_tx, cpu_rx) = std::comm::channel();
 	let (cpu_tx, sdl_rx) = std::comm::channel();
-	let rawscreen = Vec::from_elem(160*144*3, 0u8);
+	let rawscreen = ::std::iter::repeat(0u8).take(160*144*3).collect();
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
 

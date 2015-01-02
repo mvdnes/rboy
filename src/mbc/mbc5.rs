@@ -25,7 +25,7 @@ impl MBC5 {
 
 		let mut res = MBC5 {
 			rom: data,
-			ram: ::std::vec::Vec::from_elem(ramsize, 0u8),
+			ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
 			rombank: 1,
 			rambank: 0,
 			ram_on: false,
