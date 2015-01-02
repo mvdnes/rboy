@@ -121,7 +121,7 @@ fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<Vec<u8>>
 	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
 	screen.clear().unwrap();
 
-	let data =  arc.read().clone();
+	let data =  arc.read().unwrap().clone();
 	for y in range(0u, 144) {
 		for x in range(0u, 160) {
 			screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
@@ -163,7 +163,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<Ve
 		while ticks < waitticks {
 			ticks += c.do_cycle();
 			if c.check_and_reset_gpu_updated() {
-				let mut data = arc.write();
+				let mut data = arc.write().unwrap();
 				let gpu_data = c.get_gpu_data();
 				for i in range(0, data.len()) { data[i] = gpu_data[i]; }
 				if cpu_tx.send_opt(0).is_err() { break 'cpuloop };
