@@ -852,7 +852,7 @@ mod test
 			{
 				ticks += c.do_cycle();
 			}
-			let mut s = sum_classic1.write();
+			let mut s = sum_classic1.write().unwrap();
 			for i in range(0, c.mmu.gpu.data.len())
 			{
 				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
@@ -871,7 +871,7 @@ mod test
 			{
 				ticks += c.do_cycle();
 			}
-			let mut s = sum_color1.write();
+			let mut s = sum_color1.write().unwrap();
 			for i in range(0, c.mmu.gpu.data.len())
 			{
 				*s += (c.mmu.gpu.data[i] as u32) * (i as u32);
@@ -883,7 +883,7 @@ mod test
 
 		assert!(r.read_to_end().unwrap().as_slice() == b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
 			"cpu_instrs did not output the expected result to serial");
-		assert!(*sum_classic0.read() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
-		assert!(*sum_color0.read() == 479666872, "cpu_instrs was not graphically correct in Color mode");
+		assert!(*sum_classic0.read().unwrap() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
+		assert!(*sum_color0.read().unwrap() == 479666872, "cpu_instrs was not graphically correct in Color mode");
 	}
 }
