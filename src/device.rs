@@ -54,7 +54,7 @@ impl Device
 		result
 	}
 
-	pub fn get_gpu_data<'a>(&'a self) -> &'a [u8, ..160 * 144 * 3]
+	pub fn get_gpu_data<'a>(&'a self) -> &'a [u8; 160 * 144 * 3]
 	{
 		&self.cpu.mmu.gpu.data
 	}

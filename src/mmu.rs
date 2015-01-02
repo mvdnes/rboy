@@ -16,9 +16,9 @@ enum DMAType {
 }
 
 pub struct MMU<'a> {
-	wram: [u8, ..WRAM_SIZE],
-	zram: [u8, ..ZRAM_SIZE],
-	hdma: [u8, ..4],
+	wram: [u8; WRAM_SIZE],
+	zram: [u8; ZRAM_SIZE],
+	hdma: [u8; 4],
 	pub inte: u8,
 	pub intf: u8,
 	pub serial: Serial<'a>,
@@ -49,9 +49,9 @@ impl<'a> MMU<'a> {
 			None => Serial::new(),
 		};
 		let mut res = MMU {
-			wram: [0, ..WRAM_SIZE],
-			zram: [0, ..ZRAM_SIZE],
-			hdma: [0, ..4],
+			wram: [0; WRAM_SIZE],
+			zram: [0; ZRAM_SIZE],
+			hdma: [0; 4],
 			wrambank: 1,
 			inte: 0,
 			intf: 0,
@@ -88,10 +88,10 @@ impl<'a> MMU<'a> {
 			None => Serial::new(),
 		};
 		let mut res = MMU {
-			wram: [0,.. WRAM_SIZE],
-			zram: [0,.. ZRAM_SIZE],
+			wram: [0; WRAM_SIZE],
+			zram: [0; ZRAM_SIZE],
 			wrambank: 1,
-			hdma: [0,.. 4],
+			hdma: [0; 4],
 			inte: 0,
 			intf: 0,
 			serial: serial,

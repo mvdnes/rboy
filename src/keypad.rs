@@ -81,7 +81,7 @@ mod test {
 	#[test]
 	fn keys_row0() {
 		let mut keypad = super::Keypad::new();
-		let keys0 : [KeypadKey, ..4] = [KeypadKey::A, KeypadKey::B, KeypadKey::Select, KeypadKey::Start];
+		let keys0 : [KeypadKey; 4] = [KeypadKey::A, KeypadKey::B, KeypadKey::Select, KeypadKey::Start];
 
 		for i in range(0u, keys0.len()) {
 			keypad.keydown(keys0[i]);
@@ -105,7 +105,7 @@ mod test {
 	#[test]
 	fn keys_row1() {
 		let mut keypad = super::Keypad::new();
-		let keys1 : [KeypadKey, ..4] = [KeypadKey::Right, KeypadKey::Left, KeypadKey::Up, KeypadKey::Down];
+		let keys1 : [KeypadKey; 4] = [KeypadKey::Right, KeypadKey::Left, KeypadKey::Up, KeypadKey::Down];
 
 		for i in range(0u, keys1.len()) {
 			keypad.keydown(keys1[i]);

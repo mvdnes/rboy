@@ -1,11 +1,11 @@
 
 pub struct Sound {
-	data: [u8,.. 0x30],
+	data: [u8; 0x30],
 }
 
 impl Sound {
 	pub fn new() -> Sound {
-		Sound { data: [0,.. 0x30] }
+		Sound { data: [0; 0x30] }
 	}
 
 	pub fn rb(&self, a: u16) -> u8 {

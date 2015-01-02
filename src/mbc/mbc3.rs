@@ -9,7 +9,7 @@ pub struct MBC3 {
 	rambank: uint,
 	ram_on: bool,
 	savepath: Option<Path>,
-	rtc_ram: [u8,.. 5],
+	rtc_ram: [u8; 5],
 	rtc_lock: bool,
 	rtc_zero: Option<i64>,
 }
@@ -37,7 +37,7 @@ impl MBC3 {
 			rambank: 0,
 			ram_on: false,
 			savepath: svpath,
-			rtc_ram: [0u8,.. 5],
+			rtc_ram: [0u8; 5],
 			rtc_lock: false,
 			rtc_zero: rtc,
 		};
