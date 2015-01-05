@@ -185,7 +185,7 @@ impl<'a> MMU<'a> {
 	}
 
 	pub fn rw(&self, address: u16) -> u16 {
-		(self.rb(address) as u16) | (self.rb(address + 1) as u16 << 8)
+		(self.rb(address) as u16) | ((self.rb(address + 1) as u16) << 8)
 	}
 
 	pub fn wb(&mut self, address: u16, value: u8) {
@@ -257,8 +257,8 @@ impl<'a> MMU<'a> {
 					if v & 0x80 == 0 { self.hdma_status = DMAType::NoDMA; };
 					return;
 				}
-				let src = (self.hdma[0] as u16 << 8) | (self.hdma[1] as u16);
-				let dst = (self.hdma[2] as u16 << 8) | (self.hdma[3] as u16) | 0x8000;
+				let src = ((self.hdma[0] as u16) << 8) | (self.hdma[1] as u16);
+				let dst = ((self.hdma[2] as u16) << 8) | (self.hdma[3] as u16) | 0x8000;
 				if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF0)) { panic!("HDMA transfer with illegal start address {:04X}", src); }
 
 				self.hdma_src = src;
