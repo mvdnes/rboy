@@ -67,7 +67,7 @@ fn main() {
 	let periodic = timer.periodic(Duration::milliseconds(8));
 
 	'main : loop {
-		periodic.recv();
+		let _ = periodic.recv();
 		match sdl_rx.try_recv() {
 			Err(Disconnected) => { break 'main },
 			Ok(_) => recalculate_screen(&renderer, &arc),
@@ -80,18 +80,18 @@ fn main() {
 				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::Escape, _, _, _)
 					=> break 'main,
 				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
-					=> { sdl_tx.send(GBEvent::SpeedUp); },
+					=> { let _ = sdl_tx.send(GBEvent::SpeedUp); },
 				sdl2::event::Event::KeyUp(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
-					=> { sdl_tx.send(GBEvent::SlowDown); },
+					=> { let _ = sdl_tx.send(GBEvent::SlowDown); },
 				sdl2::event::Event::KeyDown(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) =>  { sdl_tx.send(GBEvent::KeyDown(key)); },
+						Some(key) =>  { let _ = sdl_tx.send(GBEvent::KeyDown(key)); },
 						None => {},
 					}
 				},
 				sdl2::event::Event::KeyUp(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => { sdl_tx.send(GBEvent::KeyUp(key)); },
+						Some(key) => { let _ = sdl_tx.send(GBEvent::KeyUp(key)); },
 						None => {},
 					}
 				},
@@ -171,7 +171,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<Ve
 			}
 		}
 		ticks -= waitticks;
-		if limit_speed { periodic.recv(); }
+		if limit_speed { let _ = periodic.recv(); }
 
 		match cpu_rx.try_recv() {
 			Ok(event) => match event {
