@@ -9,7 +9,8 @@
 use rboy::device::Device;
 use std::time::Duration;
 use std::sync::{Arc,RWLock};
-use std::comm::{Sender,Receiver,Disconnected,Empty};
+use std::sync::mpsc::{Sender,Receiver};
+use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 
 static SCALE: uint = 2;
 static EXITCODE_INCORRECTOPTIONS: int = 1;
@@ -54,8 +55,8 @@ fn main() {
 		Err(err) => panic!("failed to open screen: {}", err),
 	};
 
-	let (sdl_tx, cpu_rx) = std::comm::channel();
-	let (cpu_tx, sdl_rx) = std::comm::channel();
+	let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
+	let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
 	let rawscreen = ::std::iter::repeat(0u8).take(160*144*3).collect();
 	let arc = Arc::new(RWLock::new(rawscreen));
 	let arc2 = arc.clone();
@@ -79,18 +80,18 @@ fn main() {
 				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::Escape, _, _, _)
 					=> break 'main,
 				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
-					=> sdl_tx.send(GBEvent::SpeedUp),
+					=> { sdl_tx.send(GBEvent::SpeedUp); },
 				sdl2::event::Event::KeyUp(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
-					=> sdl_tx.send(GBEvent::SlowDown),
+					=> { sdl_tx.send(GBEvent::SlowDown); },
 				sdl2::event::Event::KeyDown(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdl_tx.send(GBEvent::KeyDown(key)),
+						Some(key) =>  { sdl_tx.send(GBEvent::KeyDown(key)); },
 						None => {},
 					}
 				},
 				sdl2::event::Event::KeyUp(_, _, sdlkey, _, _, _) => {
 					match sdl_to_keypad(sdlkey) {
-						Some(key) => sdl_tx.send(GBEvent::KeyUp(key)),
+						Some(key) => { sdl_tx.send(GBEvent::KeyUp(key)); },
 						None => {},
 					}
 				},
@@ -166,7 +167,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<Ve
 				let mut data = arc.write().unwrap();
 				let gpu_data = c.get_gpu_data();
 				for i in range(0, data.len()) { data[i] = gpu_data[i]; }
-				if cpu_tx.send_opt(0).is_err() { break 'cpuloop };
+				if cpu_tx.send(0).is_err() { break 'cpuloop };
 			}
 		}
 		ticks -= waitticks;
