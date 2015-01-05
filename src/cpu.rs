@@ -836,7 +836,7 @@ mod test
 		let sum_color0 = Arc::new(RWLock::new(0));
 		let sum_color1 = sum_color0.clone();
 
-		let (tx, rx) = channel();
+		let (tx, rx) = ::std::sync::mpsc::channel();
 		let (mut r, mut w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
 
 		let classic_t = ::std::thread::Thread::spawn(move||
