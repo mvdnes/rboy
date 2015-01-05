@@ -5,7 +5,7 @@ pub struct Keypad {
 	pub interrupt: u8,
 }
 
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum KeypadKey {
 	Right,
 	Left,

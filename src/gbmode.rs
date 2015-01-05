@@ -1,11 +1,11 @@
-#[deriving(PartialEq, Copy)]
+#[derive(PartialEq, Copy)]
 pub enum GbMode {
 	Classic,
 	Color,
 	ColorAsClassic,
 }
 
-#[deriving(PartialEq, Copy)]
+#[derive(PartialEq, Copy)]
 pub enum GbSpeed {
 	Single,
 	Double,

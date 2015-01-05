@@ -8,7 +8,7 @@ use gbmode::{GbMode, GbSpeed};
 const WRAM_SIZE: uint = 0x8000;
 const ZRAM_SIZE: uint = 0x7F;
 
-#[deriving(PartialEq)]
+#[derive(PartialEq)]
 enum DMAType {
 	NoDMA,
 	GDMA,
