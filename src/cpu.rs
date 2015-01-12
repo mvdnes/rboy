@@ -7,8 +7,8 @@ pub struct CPU<'a> {
 	pub mmu: ::mmu::MMU<'a>,
 	halted: bool,
 	ime: bool,
-	setdi: uint,
-	setei: uint,
+	setdi: u32,
+	setei: u32,
 }
 
 impl<'a> CPU<'a> {
@@ -44,12 +44,12 @@ impl<'a> CPU<'a> {
 		})
 	}
 
-	pub fn do_cycle(&mut self) -> uint {
+	pub fn do_cycle(&mut self) -> u32 {
 		let ticks = self.docycle() * 2;
 		return self.mmu.do_cycle(ticks);
 	}
 
-	fn docycle(&mut self) -> uint {
+	fn docycle(&mut self) -> u32 {
 		self.updateime();
 		match self.handleinterrupt() {
 			0 => {},
@@ -89,7 +89,7 @@ impl<'a> CPU<'a> {
 		};
 	}
 
-	fn handleinterrupt(&mut self) -> uint {
+	fn handleinterrupt(&mut self) -> u32 {
 		if self.ime == false && self.halted == false { return 0 }
 
 		let triggered = self.mmu.inte & self.mmu.intf;
@@ -99,7 +99,7 @@ impl<'a> CPU<'a> {
 		if self.ime == false { return 0 }
 		self.ime = false;
 
-		let n = triggered.trailing_zeros() as uint;
+		let n = triggered.trailing_zeros() as u32;
 		if n >= 5 { panic!("Invalid interrupt triggered"); }
 		self.mmu.intf &= !(1 << n);
 		let pc = self.reg.pc;
@@ -120,7 +120,7 @@ impl<'a> CPU<'a> {
 		res
 	}
 
-	fn call(&mut self) -> uint {
+	fn call(&mut self) -> u32 {
 		let opcode = self.fetchbyte();
 		let oldregs = self.reg;
 		match opcode {
@@ -373,7 +373,7 @@ impl<'a> CPU<'a> {
 		}
 	}
 
-	fn call_cb(&mut self) -> uint {
+	fn call_cb(&mut self) -> u32 {
 		let opcode = self.fetchbyte();
 		let oldregs = self.reg;
 		match opcode {
@@ -791,7 +791,7 @@ impl<'a> CPU<'a> {
 	}
 
 	fn alu_bit(&mut self, a: u8, b: u8) {
-		let r = a & (1 << (b as uint)) == 0;
+		let r = a & (1 << (b as u32)) == 0;
 		self.reg.flag(N, false);
 		self.reg.flag(H, true);
 		self.reg.flag(Z, r);

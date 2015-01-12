@@ -5,8 +5,8 @@ use util::handle_io;
 pub struct MBC5 {
 	rom: Vec<u8>,
 	ram: Vec<u8>,
-	rombank: uint,
-	rambank: uint,
+	rombank: usize,
+	rambank: usize,
 	ram_on: bool,
 	savepath: Option<Path>,
 }
@@ -66,25 +66,25 @@ impl Drop for MBC5 {
 
 impl MBC for MBC5 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
+		if a < 0x4000 { self.rom[a as usize] }
+		else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
-		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)]
+		self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
 	}
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
 			0x0000 ... 0x1FFF => self.ram_on = v == 0x0A,
-			0x2000 ... 0x2FFF => self.rombank = (self.rombank & 0x100) | (v as uint),
-			0x3000 ... 0x3FFF => self.rombank = (self.rombank & 0x0FF) | (((v & 0x1) as uint) << 8),
-			0x4000 ... 0x5FFF => self.rambank = (v & 0x0F) as uint,
+			0x2000 ... 0x2FFF => self.rombank = (self.rombank & 0x100) | (v as usize),
+			0x3000 ... 0x3FFF => self.rombank = (self.rombank & 0x0FF) | (((v & 0x1) as usize) << 8),
+			0x4000 ... 0x5FFF => self.rambank = (v & 0x0F) as usize,
 			0x6000 ... 0x7FFF => { /* ? */ },
 			_ => panic!("Could not write to {:04X} (MBC5)", a),
 		}
 	}
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
-		self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
+		self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
 	}
 }

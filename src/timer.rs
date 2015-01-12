@@ -3,9 +3,9 @@ pub struct Timer {
 	counter: u8,
 	modulo: u8,
 	enabled: bool,
-	step: uint,
-	internalcnt: uint,
-	internaldiv: uint,
+	step: u32,
+	internalcnt: u32,
+	internaldiv: u32,
 	pub interrupt: u8,
 }
 
@@ -49,7 +49,7 @@ impl Timer {
 		};
 	}
 
-	pub fn do_cycle(&mut self, ticks: uint) {
+	pub fn do_cycle(&mut self, ticks: u32) {
 		self.internaldiv += ticks;
 		while self.internaldiv >= 128 {
 			self.divider += 1;

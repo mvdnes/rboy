@@ -5,8 +5,8 @@ use util::handle_io;
 pub struct MBC3 {
 	rom: Vec<u8>,
 	ram: Vec<u8>,
-	rombank: uint,
-	rambank: uint,
+	rombank: usize,
+	rambank: usize,
 	ram_on: bool,
 	savepath: Option<Path>,
 	rtc_ram: [u8; 5],
@@ -122,13 +122,13 @@ impl Drop for MBC3 {
 
 impl MBC for MBC3 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
+		if a < 0x4000 { self.rom[a as usize] }
+		else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		if self.rambank <= 3 {
-			self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)]
+			self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
 		} else {
 			self.rtc_ram[self.rambank - 0x08]
 		}
@@ -137,9 +137,9 @@ impl MBC for MBC3 {
 		match a {
 			0x0000 ... 0x1FFF => self.ram_on = v == 0x0A,
 			0x2000 ... 0x3FFF => {
-				self.rombank = match v & 0x7F { 0 => 1, n => n as uint }
+				self.rombank = match v & 0x7F { 0 => 1, n => n as usize }
 			},
-			0x4000 ... 0x5FFF => self.rambank = v as uint,
+			0x4000 ... 0x5FFF => self.rambank = v as usize,
 			0x6000 ... 0x7FFF => match v {
 				0 => self.rtc_lock = false,
 				1 => {
@@ -154,7 +154,7 @@ impl MBC for MBC3 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if self.ram_on == false { return }
 		if self.rambank <= 3 {
-			self.ram[self.rambank * 0x2000 | ((a as uint) & 0x1FFF)] = v;
+			self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
 		} else {
 			self.rtc_ram[self.rambank - 0x8] = v;
 			self.calc_rtc_zero();

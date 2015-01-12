@@ -7,8 +7,8 @@ pub struct MBC1 {
 	ram: Vec<u8>,
 	ram_on: bool,
 	ram_mode: bool,
-	rombank: uint,
-	rambank: uint,
+	rombank: usize,
+	rambank: usize,
 	savepath: Option<Path>,
 }
 
@@ -66,26 +66,26 @@ impl Drop for MBC1 {
 
 impl MBC for MBC1 {
 	fn readrom(&self, a: u16) -> u8 {
-		if a < 0x4000 { self.rom[a as uint] }
-		else { self.rom[self.rombank * 0x4000 | ((a as uint) & 0x3FFF)] }
+		if a < 0x4000 { self.rom[a as usize] }
+		else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
 	}
 	fn readram(&self, a: u16) -> u8 {
 		if !self.ram_on { return 0 }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as uint)]
+		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as usize)]
 	}
 
 	fn writerom(&mut self, a: u16, v: u8) {
 		match a {
 			0x0000 ... 0x1FFF => { self.ram_on = v == 0x0A; },
 			0x2000 ... 0x3FFF => {
-				self.rombank = (self.rombank & 0x60) | match (v as uint) & 0x1F { 0 => 1, n => n }
+				self.rombank = (self.rombank & 0x60) | match (v as usize) & 0x1F { 0 => 1, n => n }
 			},
 			0x4000 ... 0x5FFF => {
 				if !self.ram_mode {
-					self.rombank = self.rombank & 0x1F | (((v as uint) & 0x03) << 5)
+					self.rombank = self.rombank & 0x1F | (((v as usize) & 0x03) << 5)
 				} else {
-					self.rambank = (v as uint) & 0x03;
+					self.rambank = (v as usize) & 0x03;
 				}
 			},
 			0x6000 ... 0x7FFF => { self.ram_mode = (v & 0x01) == 0x01; },
@@ -96,6 +96,6 @@ impl MBC for MBC1 {
 	fn writeram(&mut self, a: u16, v: u8) {
 		if !self.ram_on { return }
 		let rambank = if self.ram_mode { self.rambank } else { 0 };
-		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as uint)] = v;
+		self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as usize)] = v;
 	}
 }

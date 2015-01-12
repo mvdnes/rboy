@@ -1,6 +1,8 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
+#![allow(unstable)]
+
 #[macro_use]
 extern crate log;
 

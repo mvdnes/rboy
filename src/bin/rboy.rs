@@ -1,5 +1,7 @@
 #![crate_name = "rboy"]
 
+#![allow(unstable)]
+
 #[macro_use]
 extern crate log;
 
@@ -15,12 +17,12 @@ use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 
-static SCALE: uint = 2;
-static EXITCODE_INCORRECTOPTIONS: int = 1;
-static EXITCODE_CPULOADFAILS: int = 2;
+static SCALE: usize = 2;
+static EXITCODE_INCORRECTOPTIONS: isize = 1;
+static EXITCODE_CPULOADFAILS: isize = 2;
 
 #[cfg(not(test))]
-fn set_exit_status(exitcode: int)
+fn set_exit_status(exitcode: isize)
 {
     std::os::set_exit_status(exitcode);
 }
@@ -47,8 +49,8 @@ fn main() {
 	let window = match sdl2::video::Window::new("RBoy - A gameboy in Rust",
 												sdl2::video::WindowPos::PosUndefined,
 												sdl2::video::WindowPos::PosUndefined,
-												160*SCALE as int,
-												144*SCALE as int,
+												160*SCALE as isize,
+												144*SCALE as isize,
 												sdl2::video::WindowFlags::empty()) {
 		Ok(window) => window,
 		Err(err) => panic!("failed to open window: {}", err),
@@ -126,8 +128,8 @@ fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>
 	screen.clear().unwrap();
 
 	let data =  arc.read().unwrap().clone();
-	for y in range(0u, 144) {
-		for x in range(0u, 160) {
+	for y in range(0, 144) {
+		for x in range(0, 160) {
 			screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
 															data[y*160*3 + x*3 + 1],
 															data[y*160*3 + x*3 + 2])).unwrap();
@@ -144,7 +146,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
+fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => Device::new(filename),
 		false => Device::new_cgb(filename),
@@ -160,7 +162,7 @@ fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Ve
 	let periodic = timer.periodic(Duration::milliseconds(8));
 	let mut limit_speed = true;
 
-	let waitticks = (4194.304f32 * 4.0) as uint;
+	let waitticks = (4194.304f32 * 4.0) as u32;
 
 	let mut ticks = 0;
 	'cpuloop: loop {

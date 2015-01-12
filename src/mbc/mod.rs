@@ -32,7 +32,7 @@ pub fn get_mbc(file: &Path) -> Option<Box<MBC+'static>> {
 	}
 }
 
-fn ram_size(v: u8) -> uint {
+fn ram_size(v: u8) -> usize {
 	match v {
 		1 => 0x800,
 		2 => 0x2000,
@@ -44,7 +44,7 @@ fn ram_size(v: u8) -> uint {
 
 fn check_checksum(data: &Vec<u8>) -> bool {
 	let mut value: u8 = 0;
-	for i in range(0x134u, 0x14D) {
+	for i in range(0x134, 0x14D) {
 		value = value - data[i] - 1;
 	}
 	match data[0x14D] == value

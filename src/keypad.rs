@@ -83,7 +83,7 @@ mod test {
 		let mut keypad = super::Keypad::new();
 		let keys0 : [KeypadKey; 4] = [KeypadKey::A, KeypadKey::B, KeypadKey::Select, KeypadKey::Start];
 
-		for i in range(0u, keys0.len()) {
+		for i in range(0, keys0.len()) {
 			keypad.keydown(keys0[i]);
 
 			keypad.wb(0x00);
@@ -107,7 +107,7 @@ mod test {
 		let mut keypad = super::Keypad::new();
 		let keys1 : [KeypadKey; 4] = [KeypadKey::Right, KeypadKey::Left, KeypadKey::Up, KeypadKey::Down];
 
-		for i in range(0u, keys1.len()) {
+		for i in range(0, keys1.len()) {
 			keypad.keydown(keys1[i]);
 
 			keypad.wb(0x00);

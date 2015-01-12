@@ -34,7 +34,7 @@ impl Device
 		}
 	}
 
-	pub fn do_cycle(&mut self) -> uint
+	pub fn do_cycle(&mut self) -> u32
 	{
 		self.cpu.do_cycle()
 	}
