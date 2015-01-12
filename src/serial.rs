@@ -1,12 +1,16 @@
+pub type SerialCallback<'a> = Box<FnMut(u8) -> u8 + 'a>;
+
+fn noop(_: u8) -> u8 { 0 }
+
 pub struct Serial<'a> {
 	data: u8,
 	control: u8,
-	callback: |u8|:'a -> u8,
+	callback: SerialCallback<'a>,
 }
 
 impl<'a> Serial<'a>
 {
-	pub fn new_with_callback(cb: |u8|:'a -> u8) -> Serial<'a>
+	pub fn new_with_callback(cb: SerialCallback<'a>) -> Serial<'a>
 	{
 		Serial { data: 0, control: 0, callback: cb, }
 	}
@@ -32,17 +36,17 @@ impl<'a> Serial<'a>
 		}
 	}
 
-	pub fn set_callback(&mut self, cb: |u8|:'static -> u8) {
+	pub fn set_callback(&mut self, cb: SerialCallback<'static>) {
 		self.callback = cb;
 	}
 
 	pub fn unset_callback(&mut self) {
-		self.callback = |_| { 0 };
+		self.callback = Box::new(noop) as SerialCallback;
 	}
 }
 
 impl Serial<'static> {
 	pub fn new() -> Serial<'static> {
-		Serial { data: 0, control: 0, callback: |_| { 0 } }
+		Serial { data: 0, control: 0, callback: Box::new(noop) as SerialCallback }
 	}
 }

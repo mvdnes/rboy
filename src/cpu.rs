@@ -1,5 +1,6 @@
 use std::num::Int;
 use register::CpuFlag::{C, N, H, Z};
+use serial::SerialCallback;
 
 pub struct CPU<'a> {
 	reg: ::register::Registers,
@@ -11,7 +12,7 @@ pub struct CPU<'a> {
 }
 
 impl<'a> CPU<'a> {
-	pub fn new(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<CPU<'a>> {
+	pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<CPU<'a>> {
 		let cpu_mmu = match ::mmu::MMU::new(romname, serial_callback)
 		{
 			Some(mmu) => { mmu },
@@ -27,7 +28,7 @@ impl<'a> CPU<'a> {
 		})
 	}
 
-	pub fn new_cgb(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<CPU<'a>> {
+	pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<CPU<'a>> {
 		let cpu_mmu = match ::mmu::MMU::new_cgb(romname, serial_callback)
 		{
 			Some(mmu) => { mmu },
@@ -824,25 +825,25 @@ impl<'a> CPU<'a> {
 mod test
 {
 	use super::CPU;
-	use std::sync::{RWLock, Arc};
+	use std::sync::{RwLock, Arc};
 
 	static CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
 
 	#[test]
 	fn cpu_instrs()
 	{
-		let sum_classic0 = Arc::new(RWLock::new(0));
+		let sum_classic0 = Arc::new(RwLock::new(0));
 		let sum_classic1 = sum_classic0.clone();
-		let sum_color0 = Arc::new(RWLock::new(0));
+		let sum_color0 = Arc::new(RwLock::new(0));
 		let sum_color1 = sum_color0.clone();
 
 		let (tx, rx) = ::std::sync::mpsc::channel();
 		let (mut r, mut w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
 
-		let classic_t = ::std::thread::Thread::spawn(move||
+		let classic_t = ::std::thread::Thread::scoped(move||
 		{
-			let serial = |v| { let _ = w.write(&[v]); 0 };
-			let mut c = match CPU::new(CPUINSTRS, Some(serial))
+			let serial = |&mut: v| { let _ = w.write(&[v]); 0 };
+			let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
 			{
 				None => { panic!("Could not instantiate Classic CPU"); },
 				Some(cpu) => cpu,
@@ -859,7 +860,7 @@ mod test
 			}
 		});
 
-		let color_t = ::std::thread::Thread::spawn(move||
+		let color_t = ::std::thread::Thread::scoped(move||
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS, None)
 			{

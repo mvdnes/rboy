@@ -1,10 +1,13 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
-#![feature(phase)]
 
-#[phase(plugin, link)] extern crate log;
-                       extern crate time;
-#[cfg(test)]           extern crate test;
+#[macro_use]
+extern crate log;
+
+extern crate time;
+
+#[cfg(test)]
+extern crate test;
 
 pub use keypad::KeypadKey;
 

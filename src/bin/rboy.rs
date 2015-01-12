@@ -1,14 +1,17 @@
 #![crate_name = "rboy"]
-#![feature(phase)]
 
-#[phase(plugin, link)] extern crate log;
-                       extern crate getopts;
-                       extern crate sdl2;
-                       extern crate rboy;
+#[macro_use]
+extern crate log;
+
+extern crate getopts;
+
+extern crate sdl2;
+
+extern crate rboy;
 
 use rboy::device::Device;
 use std::time::Duration;
-use std::sync::{Arc,RWLock};
+use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 
@@ -58,10 +61,10 @@ fn main() {
 	let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
 	let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
 	let rawscreen = ::std::iter::repeat(0u8).take(160*144*3).collect();
-	let arc = Arc::new(RWLock::new(rawscreen));
+	let arc = Arc::new(RwLock::new(rawscreen));
 	let arc2 = arc.clone();
 
-	let cpuloop_thread = std::thread::Thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
+	let cpuloop_thread = std::thread::Thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = std::io::timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
@@ -118,7 +121,7 @@ fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
 	}
 }
 
-fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RWLock<Vec<u8>>>) {
+fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
 	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
 	screen.clear().unwrap();
 
@@ -141,7 +144,7 @@ enum GBEvent {
 	SlowDown,
 }
 
-fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RWLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
+fn cpuloop(cpu_tx: &Sender<uint>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
 	let opt_c = match matches.opt_present("classic") {
 		true => Device::new(filename),
 		false => Device::new_cgb(filename),

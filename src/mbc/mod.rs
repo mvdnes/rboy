@@ -24,10 +24,10 @@ pub fn get_mbc(file: &Path) -> Option<Box<MBC+'static>> {
 		return None;
 	}
 	match data[0x147] {
-		0x00 => mbc0::MBC0::new(data).map(|v| box v as Box<MBC>),
-		0x01 ... 0x03 => mbc1::MBC1::new(data, file).map(|v| box v as Box<MBC>),
-		0x0F ... 0x13 => mbc3::MBC3::new(data, file).map(|v| box v as Box<MBC>),
-		0x19 ... 0x1E => mbc5::MBC5::new(data, file).map(|v| box v as Box<MBC>),
+		0x00 => mbc0::MBC0::new(data).map(|v| Box::new(v) as Box<MBC>),
+		0x01 ... 0x03 => mbc1::MBC1::new(data, file).map(|v| Box::new(v) as Box<MBC>),
+		0x0F ... 0x13 => mbc3::MBC3::new(data, file).map(|v| Box::new(v) as Box<MBC>),
+		0x19 ... 0x1E => mbc5::MBC5::new(data, file).map(|v| Box::new(v) as Box<MBC>),
 		m => { error!("Unsupported MBC type: {:02X}", m); None },
 	}
 }

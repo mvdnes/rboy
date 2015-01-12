@@ -1,5 +1,6 @@
 use cpu::CPU;
 use keypad::KeypadKey;
+use serial::SerialCallback;
 
 pub struct Device
 {
@@ -41,7 +42,7 @@ impl Device
 	pub fn set_stdout(&mut self, output: bool)
 	{
 		if output {
-			self.cpu.mmu.serial.set_callback(stdoutprinter);
+			self.cpu.mmu.serial.set_callback(Box::new(stdoutprinter) as SerialCallback);
 		} else {
 			self.cpu.mmu.serial.unset_callback();
 		}

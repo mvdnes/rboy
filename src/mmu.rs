@@ -1,4 +1,4 @@
-use serial::Serial;
+use serial::{Serial, SerialCallback};
 use timer::Timer;
 use keypad::Keypad;
 use gpu::GPU;
@@ -38,7 +38,7 @@ pub struct MMU<'a> {
 }
 
 impl<'a> MMU<'a> {
-	pub fn new(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<MMU<'a>> {
+	pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
 		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
 		{
 			Some(mbc) => { mbc },
@@ -77,7 +77,7 @@ impl<'a> MMU<'a> {
 		Some(res)
 	}
 
-	pub fn new_cgb(romname: &str, serial_callback: Option<|u8|:'a -> u8>) -> Option<MMU<'a>> {
+	pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
 		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
 		{
 			Some(mbc) => { mbc },
