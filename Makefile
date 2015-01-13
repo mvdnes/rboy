@@ -1,22 +1,15 @@
-RUSTC?=rustc
 CARGO?=cargo
 
-SOURCES=$(wildcard src/*.rs) $(wildcard src/*/*.rs)
 PACKEDROMS=$(wildcard roms/*.gb.gz)
 ROMS=$(PACKEDROMS:.gb.gz=.gb)
-TARGET=target
 
-.PHONY: all
-all: $(TARGET)/rboy
-
-$(TARGET)/rboy: $(SOURCES)
-	$(CARGO) build
-
-.PHONY: opt
-opt: $(TARGET)/release/rboy
-
-$(TARGET)/release/rboy:
+.PHONY: release
+release:
 	$(CARGO) build --release
+
+.PHONY: debug
+debug:
+	$(CARGO) build
 
 .PHONY: test
 test: $(ROMS)

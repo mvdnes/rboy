@@ -12,5 +12,5 @@ install:
   - popd
 
 script:
-  - make
+  - make debug
   - make test
