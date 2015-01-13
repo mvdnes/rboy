@@ -6,15 +6,13 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 [lib]
 name = "rboy"
 
-[dependencies.sdl2]
-git = "https://github.com/AngryLawyer/rust-sdl2.git"
-features = [ "use-pkgconfig" ]
+[dependencies]
+sdl2 = "*"
+time = "*"
+log = "*"
 
-[dependencies.time]
-git = "http://github.com/rust-lang/time"
-
-[dependencies.log]
-git = "https://github.com/rust-lang/log"
+[features]
+default = [ "sdl2/use-pkgconfig" ]
 
 [profile.test]
 opt-level = 3
