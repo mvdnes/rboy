@@ -12,7 +12,7 @@ time = "*"
 log = "*"
 
 [features]
-default = [ "sdl2/use-pkgconfig" ]
+use-pkgconfig = [ "sdl2/use-pkgconfig" ]
 
 [profile.test]
 opt-level = 3
