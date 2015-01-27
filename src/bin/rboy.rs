@@ -49,8 +49,8 @@ fn main() {
 	let window = match sdl2::video::Window::new("RBoy - A gameboy in Rust",
 												sdl2::video::WindowPos::PosUndefined,
 												sdl2::video::WindowPos::PosUndefined,
-												160*SCALE as isize,
-												144*SCALE as isize,
+												160*SCALE as i32,
+												144*SCALE as i32,
 												sdl2::video::WindowFlags::empty()) {
 		Ok(window) => window,
 		Err(err) => panic!("failed to open window: {}", err),
