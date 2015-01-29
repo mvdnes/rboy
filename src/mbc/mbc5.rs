@@ -59,7 +59,7 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(File::create(path).write(self.ram.as_slice()), "Could not write savefile");
+				handle_io(File::create(path).write_all(self.ram.as_slice()), "Could not write savefile");
 			},
 		};
 	}

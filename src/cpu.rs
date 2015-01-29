@@ -838,11 +838,11 @@ mod test
 		let sum_color1 = sum_color0.clone();
 
 		let (tx, rx) = ::std::sync::mpsc::channel();
-		let (mut r, mut w) = (::std::io::ChanReader::new(rx), ::std::io::ChanWriter::new(tx));
+		let (mut r, mut w) = (::std::old_io::ChanReader::new(rx), ::std::old_io::ChanWriter::new(tx));
 
 		let classic_t = ::std::thread::Thread::scoped(move||
 		{
-			let serial = |&mut: v| { let _ = w.write(&[v]); 0 };
+			let serial = |&mut: v| { let _ = w.write_all(&[v]); 0 };
 			let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
 			{
 				None => { panic!("Could not instantiate Classic CPU"); },

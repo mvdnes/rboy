@@ -115,7 +115,7 @@ impl Drop for MBC3 {
 				};
 				let mut ok = true;
 				if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile").is_some(); };
-				if ok { handle_io(file.write(self.ram.as_slice()), "Could not write savefile"); };
+				if ok { handle_io(file.write_all(self.ram.as_slice()), "Could not write savefile"); };
 			},
 		};
 	}
