@@ -1,4 +1,5 @@
 use util::handle_io;
+use std::old_io::File;
 
 mod mbc0;
 mod mbc1;
@@ -13,7 +14,7 @@ pub trait MBC {
 }
 
 pub fn get_mbc(file: &Path) -> Option<Box<MBC+'static>> {
-	let data: Vec<u8> = match handle_io(::std::io::File::open(file).read_to_end(), "Could not read ROM")
+	let data: Vec<u8> = match handle_io(File::open(file).read_to_end(), "Could not read ROM")
 	{
 		Some(mbc) => { mbc },
 		None => { return None; },

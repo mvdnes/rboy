@@ -16,6 +16,7 @@ use std::time::Duration;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
+use std::old_io::timer;
 
 static SCALE: usize = 2;
 static EXITCODE_INCORRECTOPTIONS: isize = 1;
@@ -68,7 +69,7 @@ fn main() {
 
 	let cpuloop_thread = std::thread::Thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
-	let mut timer = std::io::timer::Timer::new().unwrap();
+	let mut timer = timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
 
 	'main : loop {
@@ -158,7 +159,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
 	};
 	c.set_stdout(matches.opt_present("serial"));
 
-	let mut timer = std::io::timer::Timer::new().unwrap();
+	let mut timer = timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
 	let mut limit_speed = true;
 

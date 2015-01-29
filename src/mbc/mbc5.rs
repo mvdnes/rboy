@@ -1,4 +1,5 @@
-use std::io::fs::PathExtensions;
+use std::old_io::fs::PathExtensions;
+use std::old_io::File;
 use mbc::{MBC, ram_size};
 use util::handle_io;
 
@@ -42,7 +43,7 @@ impl MBC5 {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
-				self.ram = match ::std::io::File::open(savepath).read_to_end() {
+				self.ram = match File::open(savepath).read_to_end() {
 					Err(_) => { error!("Could not read RAM"); return false; },
 					Ok(data) => data,
 				};
@@ -58,7 +59,7 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(::std::io::File::create(path).write(self.ram.as_slice()), "Could not write savefile");
+				handle_io(File::create(path).write(self.ram.as_slice()), "Could not write savefile");
 			},
 		};
 	}

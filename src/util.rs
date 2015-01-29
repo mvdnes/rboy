@@ -1,4 +1,4 @@
-use std::io::IoResult;
+use std::old_io::IoResult;
 
 pub fn handle_io<T>(result: IoResult<T>, message: &str) -> Option<T>
 {

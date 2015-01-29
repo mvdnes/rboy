@@ -10,7 +10,7 @@ pub struct Device
 fn stdoutprinter(v: u8) -> u8
 {
 	print!("{}", v as char);
-	::std::io::stdio::flush();
+	::std::old_io::stdio::flush();
 	0
 }
 

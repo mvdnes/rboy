@@ -1,4 +1,5 @@
-use std::io::fs::PathExtensions;
+use std::old_io::fs::PathExtensions;
+use std::old_io::File;
 use mbc::{MBC, ram_size};
 use util::handle_io;
 
@@ -52,7 +53,7 @@ impl MBC3 {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
-				let mut file = ::std::io::File::open(savepath);
+				let mut file = File::open(savepath);
 				let rtc = match handle_io(file.read_be_i64(), "Could not read RTC") {
 					None => { return false; },
 					Some(value) => value,
@@ -107,7 +108,7 @@ impl Drop for MBC3 {
 		match self.savepath {
 			None => {},
 			Some(ref path) => {
-				let mut file = ::std::io::File::create(path);
+				let mut file = File::create(path);
 				let rtc = match self.rtc_zero {
 					Some(t) => t,
 					None => 0,
