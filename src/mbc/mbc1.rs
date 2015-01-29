@@ -59,7 +59,7 @@ impl Drop for MBC1 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(File::create(path).write_all(self.ram.as_slice()), "Could not write savefile");
+				handle_io(File::create(path).write_all(&*self.ram), "Could not write savefile");
 			},
 		};
 	}

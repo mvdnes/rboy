@@ -147,7 +147,7 @@ mod test
 		assert_eq!(reg.f & 0x0F, 0);
 
 		reg.setf(0x00);
-		for i in range(0, 4)
+		for i in (0us .. 4)
 		{
 			let mask = flags[i];
 			assert_eq!(reg.getflag(mask), false);

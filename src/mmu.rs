@@ -232,7 +232,7 @@ impl<'a> MMU<'a> {
 
 	fn oamdma(&mut self, value: u8) {
 		let base = (value as u16) << 8;
-		for i in range(0u16, 0xA0) {
+		for i in (0u16 .. 0xA0) {
 			let b = self.rb(base + i);
 			self.wb(0xFE00 + i, b);
 		}
@@ -294,7 +294,7 @@ impl<'a> MMU<'a> {
 
 	fn perform_gdma(&mut self) -> u32 {
 		let len = self.hdma_len as u32 + 1;
-		for _i in range(0, len) {
+		for _i in (0 .. len) {
 			self.perform_vramdma_row();
 		}
 
@@ -303,7 +303,7 @@ impl<'a> MMU<'a> {
 	}
 
 	fn perform_vramdma_row(&mut self) {
-		for j in range(0u16, 0x10) {
+		for j in (0u16 .. 0x10) {
 			let b: u8 = self.rb(self.hdma_src + j);
 			self.gpu.wb(self.hdma_dst + j, b);
 		}
