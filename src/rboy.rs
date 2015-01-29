@@ -2,6 +2,7 @@
 #![crate_type = "lib" ]
 
 #![feature(io, core, path)]
+#![cfg_attr(test, feature(test, std_misc))]
 
 #[macro_use]
 extern crate log;
