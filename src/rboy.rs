@@ -1,7 +1,7 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-#![allow(unstable)]
+#![feature(io, core, path)]
 
 #[macro_use]
 extern crate log;

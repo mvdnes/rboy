@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![allow(unstable)]
+#![feature(io, rustc_private, std_misc, core, collections, os)]
 
 #[macro_use]
 extern crate log;
