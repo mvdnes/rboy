@@ -10,6 +10,7 @@ name = "rboy"
 sdl2 = "*"
 time = "*"
 log = "*"
+getopts = "*"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]

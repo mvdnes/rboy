@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(io, rustc_private, std_misc, core, collections, os)]
+#![feature(io, std_misc, core, collections, os)]
 
 #[macro_use]
 extern crate log;
@@ -30,8 +30,12 @@ fn set_exit_status(exitcode: isize)
 
 fn main() {
 	let args = std::os::args();
-	let opts = &[ getopts::optflag("s", "serial", "Output serial to stdout"), getopts::optflag("c", "classic", "Force Classic mode") ];
-	let matches = match getopts::getopts(args.tail(), opts) {
+
+	let mut opts = getopts::Options::new();
+	opts.optflag("s", "serial", "Output serial to stdout");
+	opts.optflag("c", "classic", "Force Classic mode");
+
+	let matches = match opts.parse(args.tail()) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f); return }
 	};
@@ -41,7 +45,7 @@ fn main() {
 	} else {
 		let mut info_start = args[0].clone();
 		info_start.push_str(" <filename>");
-		println!("{}", getopts::usage(info_start.as_slice(), opts));
+		println!("{}", opts.usage(info_start.as_slice()));
 		set_exit_status(EXITCODE_INCORRECTOPTIONS);
 		return;
 	};
