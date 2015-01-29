@@ -25,7 +25,7 @@ static EXITCODE_CPULOADFAILS: isize = 2;
 #[cfg(not(test))]
 fn set_exit_status(exitcode: isize)
 {
-    std::os::set_exit_status(exitcode);
+	std::os::set_exit_status(exitcode);
 }
 
 fn main() {
@@ -106,8 +106,8 @@ fn main() {
 		}
 	}
 
-    drop(sdl_tx); // Disconnect such that the cpuloop will exit
-    let _ = cpuloop_thread.join();
+	drop(sdl_tx); // Disconnect such that the cpuloop will exit
+	let _ = cpuloop_thread.join();
 }
 
 fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
@@ -125,19 +125,20 @@ fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
 }
 
 fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
-	screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF)).unwrap();
-	screen.clear().unwrap();
+	let mut drawer = screen.drawer();
+	drawer.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
+	drawer.clear();
 
 	let data =  arc.read().unwrap().clone();
 	for y in range(0, 144) {
 		for x in range(0, 160) {
-			screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
+			drawer.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
 															data[y*160*3 + x*3 + 1],
-															data[y*160*3 + x*3 + 2])).unwrap();
-			screen.draw_rect(&sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32)).unwrap();
+															data[y*160*3 + x*3 + 2]));
+			drawer.draw_rect(&sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32));
 		}
 	}
-	screen.present();
+	drawer.present();
 }
 
 enum GBEvent {
