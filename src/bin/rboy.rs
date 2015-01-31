@@ -85,21 +85,21 @@ fn main() {
 		}
 		'event : loop {
 			match sdl2::event::poll_event() {
-				sdl2::event::Event::Quit(_) => break 'main,
+				sdl2::event::Event::Quit { .. } => break 'main,
 				sdl2::event::Event::None => break 'event,
-				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::Escape, _, _, _)
+				sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::Escape, .. }
 					=> break 'main,
-				sdl2::event::Event::KeyDown(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
+				sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::LShift, .. }
 					=> { let _ = sdl_tx.send(GBEvent::SpeedUp); },
-				sdl2::event::Event::KeyUp(_, _, sdl2::keycode::KeyCode::LShift, _, _, _)
+				sdl2::event::Event::KeyUp { keycode: sdl2::keycode::KeyCode::LShift, .. }
 					=> { let _ = sdl_tx.send(GBEvent::SlowDown); },
-				sdl2::event::Event::KeyDown(_, _, sdlkey, _, _, _) => {
+				sdl2::event::Event::KeyDown { keycode: sdlkey, .. } => {
 					match sdl_to_keypad(sdlkey) {
 						Some(key) =>  { let _ = sdl_tx.send(GBEvent::KeyDown(key)); },
 						None => {},
 					}
 				},
-				sdl2::event::Event::KeyUp(_, _, sdlkey, _, _, _) => {
+				sdl2::event::Event::KeyUp { keycode: sdlkey, .. } => {
 					match sdl_to_keypad(sdlkey) {
 						Some(key) => { let _ = sdl_tx.send(GBEvent::KeyUp(key)); },
 						None => {},
