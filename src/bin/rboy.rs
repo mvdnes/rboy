@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(io, std_misc, core, collections, os)]
+#![feature(io, std_misc, core, os, env)]
 
 #[macro_use]
 extern crate log;
@@ -19,23 +19,23 @@ use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 use std::old_io::timer;
 
 static SCALE: usize = 2;
-static EXITCODE_INCORRECTOPTIONS: isize = 1;
-static EXITCODE_CPULOADFAILS: isize = 2;
+static EXITCODE_INCORRECTOPTIONS: i32 = 1;
+static EXITCODE_CPULOADFAILS: i32 = 2;
 
 #[cfg(not(test))]
-fn set_exit_status(exitcode: isize)
+fn set_exit_status(exitcode: i32)
 {
-	std::os::set_exit_status(exitcode);
+	std::env::set_exit_status(exitcode);
 }
 
 fn main() {
-	let args = std::os::args();
-
 	let mut opts = getopts::Options::new();
 	opts.optflag("s", "serial", "Output serial to stdout");
 	opts.optflag("c", "classic", "Force Classic mode");
 
-	let matches = match opts.parse(args.tail()) {
+	let string_args = std::env::args().map(|v| v.into_string().unwrap()).collect::<Vec<_>>();
+
+	let matches = match opts.parse(&string_args[1..]) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f); return }
 	};
@@ -43,7 +43,7 @@ fn main() {
 	let filename = if !matches.free.is_empty() {
 		matches.free[0].clone()
 	} else {
-		let mut info_start = args[0].clone();
+		let mut info_start = string_args[0].clone();
 		info_start.push_str(" <filename>");
 		println!("{}", opts.usage(info_start.as_slice()));
 		set_exit_status(EXITCODE_INCORRECTOPTIONS);
@@ -139,7 +139,7 @@ fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>
 			drawer.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
 															data[y*160*3 + x*3 + 1],
 															data[y*160*3 + x*3 + 2]));
-			drawer.draw_rect(&sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32));
+			drawer.draw_rect(sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32));
 		}
 	}
 	drawer.present();
