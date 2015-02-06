@@ -842,7 +842,7 @@ mod test
 
 		let classic_t = ::std::thread::Thread::scoped(move||
 		{
-			let serial = |&mut: v| { let _ = w.write_all(&[v]); 0 };
+			let serial = |v| { let _ = w.write_all(&[v]); 0 };
 			let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
 			{
 				None => { panic!("Could not instantiate Classic CPU"); },
