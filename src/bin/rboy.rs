@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(io, std_misc, core, os, env)]
+#![feature(io, std_misc, core, env)]
 
 #[macro_use]
 extern crate log;
@@ -33,9 +33,9 @@ fn main() {
 	opts.optflag("s", "serial", "Output serial to stdout");
 	opts.optflag("c", "classic", "Force Classic mode");
 
-	let string_args = std::env::args().map(|v| v.into_string().unwrap()).collect::<Vec<_>>();
+	let args: Vec<_> = std::env::args().collect();
 
-	let matches = match opts.parse(&string_args[1..]) {
+	let matches = match opts.parse(&args[1..]) {
 		Ok(m) => { m }
 		Err(f) => { println!("{}", f); return }
 	};
@@ -43,7 +43,7 @@ fn main() {
 	let filename = if !matches.free.is_empty() {
 		matches.free[0].clone()
 	} else {
-		let mut info_start = string_args[0].clone();
+		let mut info_start = args[0].clone();
 		info_start.push_str(" <filename>");
 		println!("{}", opts.usage(info_start.as_slice()));
 		set_exit_status(EXITCODE_INCORRECTOPTIONS);
