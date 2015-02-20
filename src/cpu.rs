@@ -840,7 +840,7 @@ mod test
 		let (tx, rx) = ::std::sync::mpsc::channel();
 		let (mut r, mut w) = (::std::old_io::ChanReader::new(rx), ::std::old_io::ChanWriter::new(tx));
 
-		let classic_t = ::std::thread::Thread::scoped(move||
+		let classic_t = ::std::thread::scoped(move||
 		{
 			let serial = |v| { let _ = w.write_all(&[v]); 0 };
 			let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
@@ -860,7 +860,7 @@ mod test
 			}
 		});
 
-		let color_t = ::std::thread::Thread::scoped(move||
+		let color_t = ::std::thread::scoped(move||
 		{
 			let mut c = match CPU::new_cgb(CPUINSTRS, None)
 			{
@@ -879,8 +879,8 @@ mod test
 			}
 		});
 
-		classic_t.join().ok().unwrap();
-		color_t.join().ok().unwrap();
+		classic_t.join();
+		color_t.join();
 
 		assert!(&*r.read_to_end().unwrap() == b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
 			"cpu_instrs did not output the expected result to serial");

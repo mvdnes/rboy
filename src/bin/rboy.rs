@@ -71,7 +71,7 @@ fn main() {
 	let arc = Arc::new(RwLock::new(rawscreen));
 	let arc2 = arc.clone();
 
-	let cpuloop_thread = std::thread::Thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
+	let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
 	let mut timer = timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
