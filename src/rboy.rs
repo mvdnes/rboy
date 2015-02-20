@@ -1,7 +1,7 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-#![feature(io, core, path)]
+#![feature(old_io, core, old_path)]
 #![cfg_attr(test, feature(test, std_misc))]
 
 #[macro_use]
