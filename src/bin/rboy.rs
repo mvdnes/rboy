@@ -50,7 +50,7 @@ fn main() {
 		return;
 	};
 
-	sdl2::init(sdl2::INIT_VIDEO);
+	let sdl_context = sdl2::init(sdl2::INIT_VIDEO).unwrap();
 	let window = match sdl2::video::Window::new("RBoy - A gameboy in Rust",
 												sdl2::video::WindowPos::PosUndefined,
 												sdl2::video::WindowPos::PosUndefined,
@@ -76,6 +76,7 @@ fn main() {
 	let mut timer = timer::Timer::new().unwrap();
 	let periodic = timer.periodic(Duration::milliseconds(8));
 
+    let mut event_queue = sdl_context.event_pump();
 	'main : loop {
 		let _ = periodic.recv();
 		match sdl_rx.try_recv() {
@@ -83,10 +84,9 @@ fn main() {
 			Ok(_) => recalculate_screen(&renderer, &arc),
 			Err(Empty) => {},
 		}
-		'event : loop {
-			match sdl2::event::poll_event() {
+		for event in event_queue.poll_iter() {
+			match event {
 				sdl2::event::Event::Quit { .. } => break 'main,
-				sdl2::event::Event::None => break 'event,
 				sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::Escape, .. }
 					=> break 'main,
 				sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::LShift, .. }
