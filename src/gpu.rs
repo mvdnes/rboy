@@ -300,7 +300,7 @@ impl GPU {
 	}
 
 	fn update_pal(&mut self) {
-		for i in (0us .. 4) {
+		for i in (0usize .. 4) {
 			self.palb[i] = GPU::get_monochrome_pal_val(self.palbr, i);
 			self.pal0[i] = GPU::get_monochrome_pal_val(self.pal0r, i);
 			self.pal1[i] = GPU::get_monochrome_pal_val(self.pal1r, i);
