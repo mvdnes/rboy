@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(old_io, std_misc, core, env)]
+#![feature(old_io, std_misc, core, exit_status)]
 
 #[macro_use]
 extern crate log;
