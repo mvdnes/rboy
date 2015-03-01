@@ -4,6 +4,7 @@ use keypad::Keypad;
 use gpu::GPU;
 use sound::Sound;
 use gbmode::{GbMode, GbSpeed};
+use std::path;
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
@@ -39,7 +40,7 @@ pub struct MMU<'a> {
 
 impl<'a> MMU<'a> {
 	pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
-		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
+		let mmu_mbc = match ::mbc::get_mbc(path::PathBuf::new(romname))
 		{
 			Some(mbc) => { mbc },
 			None => { return None; },
@@ -78,7 +79,7 @@ impl<'a> MMU<'a> {
 	}
 
 	pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
-		let mmu_mbc = match ::mbc::get_mbc(&Path::new(romname))
+		let mmu_mbc = match ::mbc::get_mbc(path::PathBuf::new(romname))
 		{
 			Some(mbc) => { mbc },
 			None => { return None; },

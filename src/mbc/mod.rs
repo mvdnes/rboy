@@ -1,5 +1,7 @@
 use util::handle_io;
-use std::old_io::File;
+use std::io::prelude::*;
+use std::fs::File;
+use std::path;
 
 mod mbc0;
 mod mbc1;
@@ -13,10 +15,11 @@ pub trait MBC {
 	fn writeram(&mut self, a: u16, v: u8);
 }
 
-pub fn get_mbc(file: &Path) -> Option<Box<MBC+'static>> {
-	let data: Vec<u8> = match handle_io(File::open(file).read_to_end(), "Could not read ROM")
+pub fn get_mbc(file: path::PathBuf) -> Option<Box<MBC+'static>> {
+	let mut data = vec![];
+    match handle_io(File::open(&file).and_then(|mut f| f.read_to_end(&mut data)), "Could not read ROM")
 	{
-		Some(mbc) => { mbc },
+		Some(..) => {},
 		None => { return None; },
 	};
 	if data.len() < 0x150 { error!("Rom size to small"); return None; }

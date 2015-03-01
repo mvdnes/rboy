@@ -1,7 +1,8 @@
-use std::old_io::fs::PathExtensions;
-use std::old_io::File;
 use mbc::{MBC, ram_size};
-use util::handle_io;
+use util::{handle_io, WriteIntExt, ReadIntExt};
+use std::path;
+use std::io::prelude::*;
+use std::fs;
 
 pub struct MBC3 {
 	rom: Vec<u8>,
@@ -9,14 +10,14 @@ pub struct MBC3 {
 	rombank: usize,
 	rambank: usize,
 	ram_on: bool,
-	savepath: Option<Path>,
+	savepath: Option<path::PathBuf>,
 	rtc_ram: [u8; 5],
 	rtc_lock: bool,
 	rtc_zero: Option<i64>,
 }
 
 impl MBC3 {
-	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC3> {
+	pub fn new(data: Vec<u8>, file: path::PathBuf) -> Option<MBC3> {
 		let subtype = data[0x147];
 		let svpath = match subtype {
 			0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
@@ -53,15 +54,19 @@ impl MBC3 {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
-				let mut file = File::open(savepath);
+				let mut file = match fs::File::open(savepath) {
+                    Ok(f) => f,
+                    Err(..) => return false,
+                };
 				let rtc = match handle_io(file.read_be_i64(), "Could not read RTC") {
 					None => { return false; },
 					Some(value) => value,
 				};
 				if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
-				self.ram = match handle_io(file.read_to_end(), "Could not read ROM") {
+                let mut data = vec![];
+				self.ram = match handle_io(file.read_to_end(&mut data), "Could not read ROM") {
 					None => { return false; },
-					Some(data) => data,
+					Some(..) => data,
 				};
 			},
 		};
@@ -108,7 +113,10 @@ impl Drop for MBC3 {
 		match self.savepath {
 			None => {},
 			Some(ref path) => {
-				let mut file = File::create(path);
+				let mut file = match fs::File::create(path) {
+                    Ok(f) => f,
+                    Err(..) => return,
+                };
 				let rtc = match self.rtc_zero {
 					Some(t) => t,
 					None => 0,

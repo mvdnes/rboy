@@ -1,7 +1,8 @@
-use std::old_io::fs::PathExtensions;
-use std::old_io::File;
+use std::fs::File;
 use mbc::{MBC, ram_size};
 use util::handle_io;
+use std::path;
+use std::io::prelude::*;
 
 pub struct MBC5 {
 	rom: Vec<u8>,
@@ -9,11 +10,11 @@ pub struct MBC5 {
 	rombank: usize,
 	rambank: usize,
 	ram_on: bool,
-	savepath: Option<Path>,
+	savepath: Option<path::PathBuf>,
 }
 
 impl MBC5 {
-	pub fn new(data: Vec<u8>, file: &Path) -> Option<MBC5> {
+	pub fn new(data: Vec<u8>, file: path::PathBuf) -> Option<MBC5> {
 		let subtype = data[0x147];
 		let svpath = match subtype {
 			0x1B | 0x1E => Some(file.with_extension("gbsave")),
@@ -43,9 +44,10 @@ impl MBC5 {
 		match self.savepath {
 			None => {},
 			Some(ref savepath) => if savepath.is_file() {
-				self.ram = match File::open(savepath).read_to_end() {
+                let mut data = vec![];
+				self.ram = match File::open(&savepath).and_then(|mut f| f.read_to_end(&mut data)) {
 					Err(_) => { error!("Could not read RAM"); return false; },
-					Ok(data) => data,
+					Ok(..) => data,
 				};
 			},
 		};
@@ -59,7 +61,7 @@ impl Drop for MBC5 {
 			None => {},
 			Some(ref path) =>
 			{
-				handle_io(File::create(path).write_all(&*self.ram), "Could not write savefile");
+				handle_io(File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
 			},
 		};
 	}
