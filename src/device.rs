@@ -1,6 +1,7 @@
 use cpu::CPU;
 use keypad::KeypadKey;
 use serial::SerialCallback;
+use std::io::prelude::*;
 
 pub struct Device
 {
@@ -10,7 +11,7 @@ pub struct Device
 fn stdoutprinter(v: u8) -> u8
 {
     print!("{}", v as char);
-    ::std::old_io::stdio::flush();
+    let _ = ::std::io::stdout().flush();
     0
 }
 

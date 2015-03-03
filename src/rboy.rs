@@ -1,16 +1,13 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-#![feature(old_io, io, core, path, fs)]
-#![cfg_attr(test, feature(test))]
+#![feature(io, core, path, fs)]
+#![cfg_attr(test, feature(old_io))]
 
 #[macro_use]
 extern crate log;
 
 extern crate time;
-
-#[cfg(test)]
-extern crate test;
 
 pub use keypad::KeypadKey;
 
