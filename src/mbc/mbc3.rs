@@ -1,8 +1,9 @@
 use mbc::{MBC, ram_size};
-use util::{handle_io, WriteIntExt, ReadIntExt};
+use util::handle_io;
 use std::path;
 use std::io::prelude::*;
 use std::fs;
+use podio::{BigEndian, ReadPodExt, WritePodExt};
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -58,7 +59,7 @@ impl MBC3 {
                     Ok(f) => f,
                     Err(..) => return false,
                 };
-                let rtc = match handle_io(file.read_be_i64(), "Could not read RTC") {
+                let rtc = match handle_io(file.read_i64::<BigEndian>(), "Could not read RTC") {
                     None => { return false; },
                     Some(value) => value,
                 };
@@ -122,7 +123,7 @@ impl Drop for MBC3 {
                     None => 0,
                 };
                 let mut ok = true;
-                if ok { ok = handle_io(file.write_be_i64(rtc), "Could not write savefile").is_some(); };
+                if ok { ok = handle_io(file.write_i64::<BigEndian>(rtc), "Could not write savefile").is_some(); };
                 if ok { handle_io(file.write_all(&*self.ram), "Could not write savefile"); };
             },
         };

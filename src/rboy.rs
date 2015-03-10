@@ -4,10 +4,9 @@
 #![feature(io, core, path, path_ext)]
 #![cfg_attr(test, feature(old_io))]
 
-#[macro_use]
-extern crate log;
-
+#[macro_use] extern crate log;
 extern crate time;
+extern crate podio;
 
 pub use keypad::KeypadKey;
 

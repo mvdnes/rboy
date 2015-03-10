@@ -11,6 +11,7 @@ sdl2 = "*"
 time = "*"
 log = "*"
 getopts = "*"
+podio = "^0.0"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]
