@@ -16,10 +16,6 @@ podio = "^0.0"
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]
 
-[profile.test]
-opt-level = 3
-debug = true
-
 [[bin]]
 name = "rboy"
 test = false

@@ -127,7 +127,7 @@ impl<'a> CPU<'a> {
             0x00 => { 1 },
             0x01 => { let v = self.fetchword(); self.reg.setbc(v); 3 },
             0x02 => { self.mmu.wb(self.reg.bc(), self.reg.a); 2 },
-            0x03 => { let v = self.reg.bc() + 1; self.reg.setbc(v); 2 },
+            0x03 => { let v = self.reg.bc().wrapping_add(1); self.reg.setbc(v); 2 },
             0x04 => { self.reg.b = self.alu_inc(oldregs.b); 1 },
             0x05 => { self.reg.b = self.alu_dec(oldregs.b); 1 },
             0x06 => { self.reg.b = self.fetchbyte(); 2 },
@@ -135,7 +135,7 @@ impl<'a> CPU<'a> {
             0x08 => { let a = self.fetchword(); self.mmu.ww(a, self.reg.sp); 5 },
             0x09 => { let v = self.reg.bc(); self.alu_add16(v); 2 },
             0x0A => { self.reg.a = self.mmu.rb(self.reg.bc()); 2 },
-            0x0B => { let v = self.reg.bc() - 1; self.reg.setbc(v); 2 },
+            0x0B => { let v = self.reg.bc().wrapping_sub(1); self.reg.setbc(v); 2 },
             0x0C => { self.reg.c = self.alu_inc(oldregs.c); 1 },
             0x0D => { self.reg.c = self.alu_dec(oldregs.c); 1 },
             0x0E => { self.reg.c = self.fetchbyte(); 2 },
@@ -143,7 +143,7 @@ impl<'a> CPU<'a> {
             0x10 => { self.mmu.switch_speed(); 1 }, // STOP
             0x11 => { let v = self.fetchword(); self.reg.setde(v); 3 },
             0x12 => { self.mmu.wb(self.reg.de(), self.reg.a); 2 },
-            0x13 => { let v = self.reg.de() + 1; self.reg.setde(v); 2 },
+            0x13 => { let v = self.reg.de().wrapping_add(1); self.reg.setde(v); 2 },
             0x14 => { self.reg.d = self.alu_inc(oldregs.d); 1 },
             0x15 => { self.reg.d = self.alu_dec(oldregs.d); 1 },
             0x16 => { self.reg.d = self.fetchbyte(); 2 },
@@ -151,7 +151,7 @@ impl<'a> CPU<'a> {
             0x18 => { self.cpu_jr(); 3 },
             0x19 => { let v = self.reg.de(); self.alu_add16(v); 2 },
             0x1A => { self.reg.a = self.mmu.rb(self.reg.de()); 2 },
-            0x1B => { let v = self.reg.de() - 1; self.reg.setde(v); 2 },
+            0x1B => { let v = self.reg.de().wrapping_sub(1); self.reg.setde(v); 2 },
             0x1C => { self.reg.e = self.alu_inc(oldregs.e); 1 },
             0x1D => { self.reg.e = self.alu_dec(oldregs.e); 1 },
             0x1E => { self.reg.e = self.fetchbyte(); 2 },
@@ -159,7 +159,7 @@ impl<'a> CPU<'a> {
             0x20 => { if !self.reg.getflag(Z) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2 } },
             0x21 => { let v = self.fetchword(); self.reg.sethl(v); 3 },
             0x22 => { self.mmu.wb(self.reg.hli(), self.reg.a); 2 },
-            0x23 => { let v = self.reg.hl() + 1; self.reg.sethl(v); 2 },
+            0x23 => { let v = self.reg.hl().wrapping_add(1); self.reg.sethl(v); 2 },
             0x24 => { self.reg.h = self.alu_inc(oldregs.h); 1 },
             0x25 => { self.reg.h = self.alu_dec(oldregs.h); 1 },
             0x26 => { self.reg.h = self.fetchbyte(); 2 },
@@ -167,7 +167,7 @@ impl<'a> CPU<'a> {
             0x28 => { if self.reg.getflag(Z) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2  } },
             0x29 => { let v = self.reg.hl(); self.alu_add16(v); 2 },
             0x2A => { self.reg.a = self.mmu.rb(self.reg.hli()); 2 },
-            0x2B => { let v = self.reg.hl() - 1; self.reg.sethl(v); 2 },
+            0x2B => { let v = self.reg.hl().wrapping_sub(1); self.reg.sethl(v); 2 },
             0x2C => { self.reg.l = self.alu_inc(oldregs.l); 1 },
             0x2D => { self.reg.l = self.alu_dec(oldregs.l); 1 },
             0x2E => { self.reg.l = self.fetchbyte(); 2 },
@@ -175,7 +175,7 @@ impl<'a> CPU<'a> {
             0x30 => { if !self.reg.getflag(C) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2 } },
             0x31 => { self.reg.sp = self.fetchword(); 3 },
             0x32 => { self.mmu.wb(self.reg.hld(), self.reg.a); 2 },
-            0x33 => { self.reg.sp += 1; 2 },
+            0x33 => { self.reg.sp = self.reg.sp.wrapping_add(1); 2 },
             0x34 => { let a = self.reg.hl(); let v = self.mmu.rb(a); let v2 = self.alu_inc(v); self.mmu.wb(a, v2); 3 },
             0x35 => { let a = self.reg.hl(); let v = self.mmu.rb(a); let v2 = self.alu_dec(v); self.mmu.wb(a, v2); 3 },
             0x36 => { let v = self.fetchbyte(); self.mmu.wb(self.reg.hl(), v); 3 },
@@ -183,7 +183,7 @@ impl<'a> CPU<'a> {
             0x38 => { if self.reg.getflag(C) { self.cpu_jr(); 3 } else { self.reg.pc += 1; 2  } },
             0x39 => { let v = self.reg.sp; self.alu_add16(v); 2 },
             0x3A => { self.reg.a = self.mmu.rb(self.reg.hld()); 2 },
-            0x3B => { self.reg.sp -= 1; 2 },
+            0x3B => { self.reg.sp = self.reg.sp.wrapping_sub(1); 2 },
             0x3C => { self.reg.a = self.alu_inc(oldregs.a); 1 },
             0x3D => { self.reg.a = self.alu_dec(oldregs.a); 1 },
             0x3E => { self.reg.a = self.fetchbyte(); 2 },
@@ -345,9 +345,9 @@ impl<'a> CPU<'a> {
             0xDC => { if self.reg.getflag(C) { self.pushstack(oldregs.pc + 2); self.reg.pc = self.fetchword(); 6 } else { self.reg.pc += 2; 3 } },
             0xDE => { let v = self.fetchbyte(); self.alu_sub(v, true); 2 },
             0xDF => { self.pushstack(oldregs.pc); self.reg.pc = 0x18; 4 },
-            0xE0 => { let a = 0xFF00 + self.fetchbyte() as u16; self.mmu.wb(a, self.reg.a); 3 },
+            0xE0 => { let a = 0xFF00 | self.fetchbyte() as u16; self.mmu.wb(a, self.reg.a); 3 },
             0xE1 => { let v = self.popstack(); self.reg.sethl(v); 3 },
-            0xE2 => { self.mmu.wb(0xFF00 + self.reg.c as u16, self.reg.a); 2 },
+            0xE2 => { self.mmu.wb(0xFF00 | self.reg.c as u16, self.reg.a); 2 },
             0xE5 => { let v = self.reg.hl(); self.pushstack(v); 4 },
             0xE6 => { let v = self.fetchbyte(); self.alu_and(v); 2 },
             0xE7 => { self.pushstack(oldregs.pc); self.reg.pc = 0x20; 4 },
@@ -356,9 +356,9 @@ impl<'a> CPU<'a> {
             0xEA => { let a = self.fetchword(); self.mmu.wb(a, self.reg.a); 4 },
             0xEE => { let v = self.fetchbyte(); self.alu_xor(v); 2 },
             0xEF => { self.pushstack(oldregs.pc); self.reg.pc = 0x28; 4 },
-            0xF0 => { let a = 0xFF00 + self.fetchbyte() as u16; self.reg.a = self.mmu.rb(a); 3 },
+            0xF0 => { let a = 0xFF00 | self.fetchbyte() as u16; self.reg.a = self.mmu.rb(a); 3 },
             0xF1 => { let v = self.popstack() & 0xFFF0; self.reg.setaf(v); 3 },
-            0xF2 => { self.reg.a = self.mmu.rb(0xFF00 + self.reg.c as u16); 2 },
+            0xF2 => { self.reg.a = self.mmu.rb(0xFF00 | self.reg.c as u16); 2 },
             0xF3 => { self.setdi = 2; 1 },
             0xF5 => { let v = self.reg.af(); self.pushstack(v); 4 },
             0xF6 => { let v = self.fetchbyte(); self.alu_or(v); 2 },
@@ -640,7 +640,7 @@ impl<'a> CPU<'a> {
     fn alu_add(&mut self, b: u8, usec: bool) {
         let c = if usec && self.reg.getflag(C) { 1 } else { 0 };
         let a = self.reg.a;
-        let r = a + b + c;
+        let r = a.wrapping_add(b).wrapping_add(c);
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0xF) + (b & 0xF) + c > 0xF);
         self.reg.flag(N, false);
@@ -651,7 +651,7 @@ impl<'a> CPU<'a> {
     fn alu_sub(&mut self, b: u8, usec: bool) {
         let c = if usec && self.reg.getflag(C) { 1 } else { 0 };
         let a = self.reg.a;
-        let r = a - b - c;
+        let r = a.wrapping_sub(b).wrapping_sub(c);
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0x0F) < (b & 0x0F) + c);
         self.reg.flag(N, true);
@@ -693,7 +693,7 @@ impl<'a> CPU<'a> {
     }
 
     fn alu_inc(&mut self, a: u8) -> u8 {
-        let r = a + 1;
+        let r = a.wrapping_add(1);
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0x0F) + 1 > 0x0F);
         self.reg.flag(N, false);
@@ -701,7 +701,7 @@ impl<'a> CPU<'a> {
     }
 
     fn alu_dec(&mut self, a: u8) -> u8 {
-        let r = a - 1;
+        let r = a.wrapping_sub(1);
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0x0F) == 0);
         self.reg.flag(N, true);
@@ -710,7 +710,7 @@ impl<'a> CPU<'a> {
 
     fn alu_add16(&mut self, b: u16) {
         let a = self.reg.hl();
-        let r = a + b;
+        let r = a.wrapping_add(b);
         self.reg.flag(H, (a & 0x07FF) + (b & 0x07FF) > 0x07FF);
         self.reg.flag(N, false);
         self.reg.flag(C, a > 0xFFFF - b);
@@ -723,7 +723,7 @@ impl<'a> CPU<'a> {
         self.reg.flag(Z, false);
         self.reg.flag(H, (a & 0x000F) + (b & 0x000F) > 0x000F);
         self.reg.flag(C, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
-        return a + b
+        return a.wrapping_add(b)
     }
 
     fn alu_swap(&mut self, a: u8) -> u8 {
@@ -804,9 +804,9 @@ impl<'a> CPU<'a> {
         if !self.reg.getflag(N) {
             if a & 0x0F > 0x09 { adjust |= 0x06; };
             if a > 0x99 { adjust |= 0x60; };
-            a += adjust;
+            a = a.wrapping_add(adjust);
         } else {
-            a -= adjust;
+            a = a.wrapping_sub(adjust);
         }
 
         self.reg.flag(C, adjust >= 0x60);
@@ -856,7 +856,7 @@ mod test
             let mut s = sum_classic1.write().unwrap();
             for i in (0 .. c.mmu.gpu.data.len())
             {
-                *s += (c.mmu.gpu.data[i] as u32) * (i as u32);
+                *s = s.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }
         });
 
@@ -875,7 +875,7 @@ mod test
             let mut s = sum_color1.write().unwrap();
             for i in (0 .. c.mmu.gpu.data.len())
             {
-                *s += (c.mmu.gpu.data[i] as u32) * (i as u32);
+                *s = s.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }
         });
 

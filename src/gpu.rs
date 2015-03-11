@@ -344,7 +344,7 @@ impl GPU {
 
         let wintiley = (winy as u16 >> 3) & 31;
 
-        let bgy = self.scy + self.line;
+        let bgy = self.scy.wrapping_add(self.line);
         let bgtiley = (bgy as u16 >> 3) & 31;
 
         for x in (0 .. SCREEN_W) {

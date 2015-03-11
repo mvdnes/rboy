@@ -49,7 +49,7 @@ fn ram_size(v: u8) -> usize {
 fn check_checksum(data: &Vec<u8>) -> bool {
     let mut value: u8 = 0;
     for i in (0x134usize .. 0x14D) {
-        value = value - data[i] - 1;
+        value = value.wrapping_sub(data[i]).wrapping_sub(1);
     }
     match data[0x14D] == value
     {
