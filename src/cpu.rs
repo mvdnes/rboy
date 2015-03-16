@@ -825,23 +825,20 @@ impl<'a> CPU<'a> {
 mod test
 {
     use super::CPU;
-    use std::sync::{RwLock, Arc};
 
-    static CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
+    const CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
+    const CPU_SERIAL: &'static [u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
+    const GPU_CLASSIC_CHECKSUM: u32 = 3112234583;
+    const GPU_COLOR_CHECKSUM: u32 = 479666872;
 
     #[test]
-    fn cpu_instrs()
+    fn cpu_instrs_classic()
     {
-        let sum_classic0 = Arc::new(RwLock::new(0));
-        let sum_classic1 = sum_classic0.clone();
-        let sum_color0 = Arc::new(RwLock::new(0));
-        let sum_color1 = sum_color0.clone();
+        let mut sum_classic = 0;
+        let mut output = Vec::new();
 
-        let (tx, rx) = ::std::sync::mpsc::channel();
-
-        let classic_t = ::std::thread::scoped(move||
         {
-            let serial = |v| { tx.send(v).unwrap(); 0 };
+            let serial = |v| { output.push(v); 0 };
             let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
             {
                 None => { panic!("Could not instantiate Classic CPU"); },
@@ -852,16 +849,24 @@ mod test
             {
                 ticks += c.do_cycle();
             }
-            let mut s = sum_classic1.write().unwrap();
             for i in (0 .. c.mmu.gpu.data.len())
             {
-                *s = s.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
+                sum_classic = sum_classic.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }
-        });
+        }
 
-        let color_t = ::std::thread::scoped(move||
+        assert!(&*output == CPU_SERIAL, "Serial did not output the expected result");
+        assert!(sum_classic == GPU_CLASSIC_CHECKSUM, "GPU did not produce expected graphics");
+    }
+
+    #[test]
+    fn cpu_instrs_color() {
+        let mut sum_color = 0;
+        let mut output = Vec::new();
+
         {
-            let mut c = match CPU::new_cgb(CPUINSTRS, None)
+            let serial = |v| { output.push(v); 0 };
+            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
             {
                 None => { panic!("Could not instantiate Color CPU"); },
                 Some(cpu) => cpu,
@@ -871,19 +876,13 @@ mod test
             {
                 ticks += c.do_cycle();
             }
-            let mut s = sum_color1.write().unwrap();
             for i in (0 .. c.mmu.gpu.data.len())
             {
-                *s = s.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
+                sum_color = sum_color.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }
-        });
+        }
 
-        classic_t.join();
-        color_t.join();
-
-        assert!(&*rx.iter().collect::<Vec<_>>() == b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n",
-            "cpu_instrs did not output the expected result to serial");
-        assert!(*sum_classic0.read().unwrap() == 3112234583, "cpu_instrs was not graphically correct on Classic mode");
-        assert!(*sum_color0.read().unwrap() == 479666872, "cpu_instrs was not graphically correct in Color mode");
+        assert!(&*output == CPU_SERIAL, "Serial did not output the expected result");
+        assert!(sum_color == GPU_COLOR_CHECKSUM, "GPU did not produce expected graphics");
     }
 }
