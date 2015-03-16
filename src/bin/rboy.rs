@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(old_io, std_misc, core, exit_status)]
+#![feature(std_misc, core, exit_status)]
 
 #[macro_use]
 extern crate log;
@@ -16,7 +16,6 @@ use std::time::Duration;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
-use std::old_io::timer;
 
 static SCALE: usize = 2;
 static EXITCODE_INCORRECTOPTIONS: i32 = 1;
@@ -73,8 +72,7 @@ fn main() {
 
     let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
 
-    let mut timer = timer::Timer::new().unwrap();
-    let periodic = timer.periodic(Duration::milliseconds(8));
+    let periodic = timer_periodic(Duration::milliseconds(8));
 
     let mut event_queue = sdl_context.event_pump();
     'main : loop {
@@ -164,8 +162,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
     };
     c.set_stdout(matches.opt_present("serial"));
 
-    let mut timer = timer::Timer::new().unwrap();
-    let periodic = timer.periodic(Duration::milliseconds(8));
+    let periodic = timer_periodic(Duration::milliseconds(8));
     let mut limit_speed = true;
 
     let waitticks = (4194.304f32 * 4.0) as u32;
@@ -195,4 +192,17 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
             Err(Disconnected) => { break },
         };
     }
+}
+
+fn timer_periodic(duration: Duration) -> Receiver<()> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        loop {
+            std::old_io::timer::sleep(duration);
+            if tx.send(()).is_err() {
+                break;
+            }
+        }
+    });
+    rx
 }
