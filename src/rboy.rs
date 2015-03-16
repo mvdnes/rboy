@@ -1,8 +1,7 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-#![feature(io, core, path, path_ext)]
-#![cfg_attr(test, feature(old_io))]
+#![feature(io, core, path_ext)]
 
 #[macro_use] extern crate log;
 extern crate time;
