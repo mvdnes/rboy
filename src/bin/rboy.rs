@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(std_misc, core, exit_status)]
+#![feature(std_misc, exit_status)]
 
 #[macro_use]
 extern crate log;
@@ -44,7 +44,7 @@ fn main() {
     } else {
         let mut info_start = args[0].clone();
         info_start.push_str(" <filename>");
-        println!("{}", opts.usage(info_start.as_slice()));
+        println!("{}", opts.usage(&info_start));
         set_exit_status(EXITCODE_INCORRECTOPTIONS);
         return;
     };
@@ -70,7 +70,7 @@ fn main() {
     let arc = Arc::new(RwLock::new(rawscreen));
     let arc2 = arc.clone();
 
-    let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, filename.as_slice(), &matches));
+    let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, &matches));
 
     let periodic = timer_periodic(Duration::milliseconds(8));
 
@@ -132,8 +132,8 @@ fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>
     drawer.clear();
 
     let data =  arc.read().unwrap().clone();
-    for y in range(0, 144) {
-        for x in range(0, 160) {
+    for y in 0..144 {
+        for x in 0..160 {
             drawer.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
                                                             data[y*160*3 + x*3 + 1],
                                                             data[y*160*3 + x*3 + 2]));
@@ -174,7 +174,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
             if c.check_and_reset_gpu_updated() {
                 let mut data = arc.write().unwrap();
                 let gpu_data = c.get_gpu_data();
-                for i in range(0, data.len()) { data[i] = gpu_data[i]; }
+                for i in 0..data.len() { data[i] = gpu_data[i]; }
                 if cpu_tx.send(0).is_err() { break 'cpuloop };
             }
         }
