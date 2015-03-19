@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-#![feature(std_misc, exit_status)]
+#![feature(std_misc, exit_status, thread_sleep)]
 
 #[macro_use]
 extern crate log;
@@ -198,7 +198,7 @@ fn timer_periodic(duration: Duration) -> Receiver<()> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         loop {
-            std::old_io::timer::sleep(duration);
+            std::thread::sleep(duration);
             if tx.send(()).is_err() {
                 break;
             }
