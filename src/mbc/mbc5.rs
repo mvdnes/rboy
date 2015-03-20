@@ -1,6 +1,5 @@
 use std::fs::File;
 use mbc::{MBC, ram_size};
-use util::handle_io;
 use std::path;
 use std::io::prelude::*;
 
@@ -57,7 +56,7 @@ impl Drop for MBC5 {
             None => {},
             Some(ref path) =>
             {
-                let _ = handle_io(File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
+                let _ = File::create(path).and_then(|mut f| f.write_all(&*self.ram));
             },
         };
     }

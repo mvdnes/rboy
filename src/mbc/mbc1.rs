@@ -1,6 +1,5 @@
 use std::io::prelude::*;
 use mbc::{MBC, ram_size};
-use util::handle_io;
 use std::{path, fs};
 
 pub struct MBC1 {
@@ -56,7 +55,7 @@ impl Drop for MBC1 {
             None => {},
             Some(ref path) =>
             {
-                let _ = handle_io(fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
+                let _ = fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram));
             },
         };
     }

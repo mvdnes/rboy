@@ -1,4 +1,3 @@
-use util::handle_io;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path;
@@ -17,7 +16,7 @@ pub trait MBC {
 
 pub fn get_mbc(file: path::PathBuf) -> ::StrResult<Box<MBC+'static>> {
     let mut data = vec![];
-    try!(handle_io(File::open(&file).and_then(|mut f| f.read_to_end(&mut data)), "Could not read ROM"));
+    try!(File::open(&file).and_then(|mut f| f.read_to_end(&mut data)).map_err(|_| "Could not read ROM"));
     if data.len() < 0x150 { return Err("Rom size to small"); }
     try!(check_checksum(&data));
     match data[0x147] {

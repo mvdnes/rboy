@@ -1,5 +1,4 @@
 use mbc::{MBC, ram_size};
-use util::handle_io;
 use std::path;
 use std::io::prelude::*;
 use std::fs;
@@ -56,10 +55,13 @@ impl MBC3 {
                     Ok(f) => f,
                     Err(..) => return Err("Could not open file"),
                 };
-                let rtc = try!(handle_io(file.read_i64::<BigEndian>(), "Could not read RTC"));
+                let rtc = try!(file.read_i64::<BigEndian>().map_err(|_| "Could not read RTC"));
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
                 let mut data = vec![];
-                handle_io(file.read_to_end(&mut data), "Could not read ROM").map(|_| ())
+                match file.read_to_end(&mut data) {
+                    Err(..) => Err("Could not read ROM"),
+                    Ok(..) => Ok(()),
+                }
             },
         }
     }
@@ -113,8 +115,8 @@ impl Drop for MBC3 {
                     None => 0,
                 };
                 let mut ok = true;
-                if ok { ok = handle_io(file.write_i64::<BigEndian>(rtc), "Could not write savefile").is_ok(); };
-                if ok { let _ = handle_io(file.write_all(&*self.ram), "Could not write savefile"); };
+                if ok { ok = file.write_i64::<BigEndian>(rtc).is_ok(); };
+                if ok { let _ = file.write_all(&*self.ram); };
             },
         };
     }

@@ -20,6 +20,5 @@ mod register;
 mod serial;
 mod sound;
 mod timer;
-mod util;
 
 pub type StrResult<T> = Result<T, &'static str>;
