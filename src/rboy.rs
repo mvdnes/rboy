@@ -4,7 +4,7 @@
 #![feature(core, path_ext)]
 
 #[macro_use] extern crate log;
-extern crate time;
+extern crate chrono;
 extern crate podio;
 
 pub use keypad::KeypadKey;
