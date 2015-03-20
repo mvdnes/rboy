@@ -14,7 +14,7 @@ pub struct MBC5 {
 }
 
 impl MBC5 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> Option<MBC5> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC5> {
         let subtype = data[0x147];
         let svpath = match subtype {
             0x1B | 0x1E => Some(file.with_extension("gbsave")),
@@ -33,25 +33,21 @@ impl MBC5 {
             ram_on: false,
             savepath: svpath,
         };
-        match res.loadram()
-        {
-            false => None,
-            true => Some(res),
-        }
+        res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> bool {
+    fn loadram(&mut self) -> ::StrResult<()> {
         match self.savepath {
             None => {},
             Some(ref savepath) => if savepath.is_file() {
                 let mut data = vec![];
                 self.ram = match File::open(&savepath).and_then(|mut f| f.read_to_end(&mut data)) {
-                    Err(_) => { error!("Could not read RAM"); return false; },
+                    Err(_) => { return Err("Could not read RAM"); },
                     Ok(..) => data,
                 };
             },
         };
-        true
+        Ok(())
     }
 }
 
@@ -61,7 +57,7 @@ impl Drop for MBC5 {
             None => {},
             Some(ref path) =>
             {
-                handle_io(File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
+                let _ = handle_io(File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
             },
         };
     }

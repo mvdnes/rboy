@@ -17,22 +17,14 @@ fn stdoutprinter(v: u8) -> u8
 
 impl Device
 {
-    pub fn new(romname: &str) -> Option<Device>
+    pub fn new(romname: &str) -> ::StrResult<Device>
     {
-        match CPU::new(romname, None)
-        {
-            Some(cpu) => Some(Device { cpu: cpu }),
-            None => None,
-        }
+        CPU::new(romname, None).map(|cpu| Device { cpu: cpu })
     }
 
-    pub fn new_cgb(romname: &str) -> Option<Device>
+    pub fn new_cgb(romname: &str) -> ::StrResult<Device>
     {
-        match CPU::new_cgb(romname, None)
-        {
-            Some(cpu) => Some(Device { cpu: cpu }),
-            None => None,
-        }
+        CPU::new_cgb(romname, None).map(|cpu| Device { cpu: cpu })
     }
 
     pub fn do_cycle(&mut self) -> u32

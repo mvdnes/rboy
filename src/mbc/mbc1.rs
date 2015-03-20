@@ -14,7 +14,7 @@ pub struct MBC1 {
 }
 
 impl MBC1 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> Option<MBC1> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC1> {
         let (svpath, ramsize) = match data[0x147] {
             0x02 => (None, ram_size(data[0x149])),
             0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
@@ -30,14 +30,10 @@ impl MBC1 {
             rambank: 0,
             savepath: svpath,
         };
-        match res.loadram()
-        {
-            false => None,
-            true => Some(res),
-        }
+        res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> bool {
+    fn loadram(&mut self) -> ::StrResult<()> {
         match self.savepath {
             None => {},
             Some(ref savepath) => if savepath.is_file()
@@ -45,12 +41,12 @@ impl MBC1 {
                 let mut data = vec![];
                 self.ram = match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
                 {
-                    Err(_) => { error!("Could not open save file"); return false },
+                    Err(_) => { return Err("Could not open save file"); },
                     Ok(..) => data,
                 }
             },
         };
-        true
+        Ok(())
     }
 }
 
@@ -60,7 +56,7 @@ impl Drop for MBC1 {
             None => {},
             Some(ref path) =>
             {
-                handle_io(fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
+                let _ = handle_io(fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram)), "Could not write savefile");
             },
         };
     }

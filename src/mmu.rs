@@ -39,12 +39,8 @@ pub struct MMU<'a> {
 }
 
 impl<'a> MMU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
-        let mmu_mbc = match ::mbc::get_mbc(path::PathBuf::new(romname))
-        {
-            Some(mbc) => { mbc },
-            None => { return None; },
-        };
+    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<MMU<'a>> {
+        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::new(romname)));
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -71,19 +67,14 @@ impl<'a> MMU<'a> {
             hdma_len: 0xFF,
         };
         if res.rb(0x0143) == 0xC0 {
-            error!("This game does not work in Classic mode");
-            return None;
+            return Err("This game does not work in Classic mode");
         }
         res.set_initial();
-        Some(res)
+        Ok(res)
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> Option<MMU<'a>> {
-        let mmu_mbc = match ::mbc::get_mbc(path::PathBuf::new(romname))
-        {
-            Some(mbc) => { mbc },
-            None => { return None; },
-        };
+    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<MMU<'a>> {
+        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::new(romname)));
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -111,7 +102,7 @@ impl<'a> MMU<'a> {
         };
         res.determine_mode();
         res.set_initial();
-        Some(res)
+        Ok(res)
     }
 
     fn set_initial(&mut self) {
@@ -181,7 +172,7 @@ impl<'a> MMU<'a> {
             0xFF70 => self.wrambank as u8,
             0xFF80 ... 0xFFFE => self.zram[address as usize & 0x007F],
             0xFFFF => self.inte,
-            _ => { warn!("rb not implemented for {:X}", address); 0 },
+            _ => 0,
         }
     }
 
@@ -210,7 +201,7 @@ impl<'a> MMU<'a> {
             0xFF70 => { self.wrambank = match value & 0x7 { 0 => 1, n => n as usize }; },
             0xFF80 ... 0xFFFE => self.zram[address as usize & 0x007F] = value,
             0xFFFF => self.inte = value,
-            _ => warn!("wb not implemented for {:X}", address),
+            _ => {},
         };
     }
 
@@ -221,7 +212,6 @@ impl<'a> MMU<'a> {
 
     pub fn switch_speed(&mut self) {
         if self.speed_switch_req {
-            info!("Switching speed");
             if self.gbspeed == GbSpeed::Double {
                 self.gbspeed = GbSpeed::Single;
             } else {

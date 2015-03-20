@@ -5,8 +5,8 @@ pub struct MBC0 {
 }
 
 impl MBC0 {
-    pub fn new(data: Vec<u8>) -> Option<MBC0> {
-        Some(MBC0 { rom: data })
+    pub fn new(data: Vec<u8>) -> ::StrResult<MBC0> {
+        Ok(MBC0 { rom: data })
     }
 }
 

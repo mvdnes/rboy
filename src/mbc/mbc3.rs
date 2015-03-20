@@ -19,7 +19,7 @@ pub struct MBC3 {
 }
 
 impl MBC3 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> Option<MBC3> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC3> {
         let subtype = data[0x147];
         let svpath = match subtype {
             0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
@@ -45,34 +45,23 @@ impl MBC3 {
             rtc_lock: false,
             rtc_zero: rtc,
         };
-        match res.loadram()
-        {
-            false => None,
-            true => Some(res),
-        }
+        res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> bool {
+    fn loadram(&mut self) -> ::StrResult<()> {
         match self.savepath {
-            None => {},
-            Some(ref savepath) => if savepath.is_file() {
+            None => Ok(()),
+            Some(ref savepath) => {
                 let mut file = match fs::File::open(savepath) {
                     Ok(f) => f,
-                    Err(..) => return false,
+                    Err(..) => return Err("Could not open file"),
                 };
-                let rtc = match handle_io(file.read_i64::<BigEndian>(), "Could not read RTC") {
-                    None => { return false; },
-                    Some(value) => value,
-                };
+                let rtc = try!(handle_io(file.read_i64::<BigEndian>(), "Could not read RTC"));
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
                 let mut data = vec![];
-                self.ram = match handle_io(file.read_to_end(&mut data), "Could not read ROM") {
-                    None => { return false; },
-                    Some(..) => data,
-                };
+                handle_io(file.read_to_end(&mut data), "Could not read ROM").map(|_| ())
             },
-        };
-        true
+        }
     }
 
     fn calc_rtc_reg(&mut self) {
@@ -124,8 +113,8 @@ impl Drop for MBC3 {
                     None => 0,
                 };
                 let mut ok = true;
-                if ok { ok = handle_io(file.write_i64::<BigEndian>(rtc), "Could not write savefile").is_some(); };
-                if ok { handle_io(file.write_all(&*self.ram), "Could not write savefile"); };
+                if ok { ok = handle_io(file.write_i64::<BigEndian>(rtc), "Could not write savefile").is_ok(); };
+                if ok { let _ = handle_io(file.write_all(&*self.ram), "Could not write savefile"); };
             },
         };
     }

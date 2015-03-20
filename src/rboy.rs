@@ -3,7 +3,6 @@
 
 #![feature(core, path_ext)]
 
-#[macro_use] extern crate log;
 extern crate chrono;
 extern crate podio;
 
@@ -22,3 +21,5 @@ mod serial;
 mod sound;
 mod timer;
 mod util;
+
+pub type StrResult<T> = Result<T, &'static str>;

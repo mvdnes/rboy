@@ -9,9 +9,8 @@ name = "rboy"
 [dependencies]
 sdl2 = "*"
 chrono = "0.2"
-log = "*"
 getopts = "*"
-podio = "^0.0"
+podio = "0.0"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]

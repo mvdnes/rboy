@@ -2,13 +2,8 @@
 
 #![feature(std_misc, exit_status, thread_sleep)]
 
-#[macro_use]
-extern crate log;
-
 extern crate getopts;
-
 extern crate sdl2;
-
 extern crate rboy;
 
 use rboy::device::Device;
@@ -150,6 +145,11 @@ enum GBEvent {
     SlowDown,
 }
 
+fn warn(message: &'static str) {
+    use std::io::Write;
+    let _ = write!(&mut std::io::stderr(), "{}", message);
+}
+
 fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
     let opt_c = match matches.opt_present("classic") {
         true => Device::new(filename),
@@ -157,8 +157,8 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
     };
     let mut c = match opt_c
     {
-        Some(cpu) => { cpu },
-        None => { error!("Could not get a valid gameboy"); set_exit_status(EXITCODE_CPULOADFAILS); return; },
+        Ok(cpu) => { cpu },
+        Err(message) => { warn(message); set_exit_status(EXITCODE_CPULOADFAILS); return; },
     };
     c.set_stdout(matches.opt_present("serial"));
 

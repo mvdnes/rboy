@@ -1,14 +1,6 @@
 use std::io;
 
-pub fn handle_io<T>(result: io::Result<T>, message: &str) -> Option<T>
+pub fn handle_io<T>(result: io::Result<T>, message: &'static str) -> ::StrResult<T>
 {
-    match result
-    {
-        Ok(ok) => { Some(ok) },
-        Err(ref error) =>
-        {
-            error!("{}: {}", message, error);
-            None
-        },
-    }
+    result.map_err(|_| message)
 }
