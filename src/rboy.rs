@@ -1,7 +1,7 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-#![feature(core, path_ext)]
+#![feature(core, path_ext, convert)]
 
 extern crate chrono;
 extern crate podio;

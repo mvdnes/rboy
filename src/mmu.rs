@@ -40,7 +40,7 @@ pub struct MMU<'a> {
 
 impl<'a> MMU<'a> {
     pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<MMU<'a>> {
-        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::new(romname)));
+        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::from(romname)));
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -74,7 +74,7 @@ impl<'a> MMU<'a> {
     }
 
     pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<MMU<'a>> {
-        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::new(romname)));
+        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::from(romname)));
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),

@@ -91,7 +91,7 @@ impl<'a> CPU<'a> {
         if self.ime == false { return 0 }
         self.ime = false;
 
-        let n = triggered.trailing_zeros() as u32;
+        let n = triggered.trailing_zeros();
         if n >= 5 { panic!("Invalid interrupt triggered"); }
         self.mmu.intf &= !(1 << n);
         let pc = self.reg.pc;
@@ -830,8 +830,8 @@ mod test
         let mut output = Vec::new();
 
         {
-            let serial = |v| { output.push(v); 0 };
-            let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
+            let serial = |v: u8| { output.push(v); 0 };
+            let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)))
             {
                 Err(message) => { panic!(message); },
                 Ok(cpu) => cpu,
@@ -857,8 +857,8 @@ mod test
         let mut output = Vec::new();
 
         {
-            let serial = |v| { output.push(v); 0 };
-            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial) as ::serial::SerialCallback))
+            let serial = |v: u8| { output.push(v); 0 };
+            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)))
             {
                 Err(message) => { panic!(message); },
                 Ok(cpu) => cpu,
