@@ -147,7 +147,7 @@ enum GBEvent {
 
 fn warn(message: &'static str) {
     use std::io::Write;
-    let _ = write!(&mut std::io::stderr(), "{}", message);
+    let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
 fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {

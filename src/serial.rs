@@ -41,12 +41,12 @@ impl<'a> Serial<'a>
     }
 
     pub fn unset_callback(&mut self) {
-        self.callback = Box::new(noop) as SerialCallback;
+        self.callback = Box::new(noop);
     }
 }
 
 impl Serial<'static> {
     pub fn new() -> Serial<'static> {
-        Serial { data: 0, control: 0, callback: Box::new(noop) as SerialCallback }
+        Serial { data: 0, control: 0, callback: Box::new(noop) }
     }
 }
