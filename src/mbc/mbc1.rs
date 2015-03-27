@@ -34,18 +34,16 @@ impl MBC1 {
 
     fn loadram(&mut self) -> ::StrResult<()> {
         match self.savepath {
-            None => {},
-            Some(ref savepath) => if savepath.is_file()
-            {
+            None => Ok(()),
+            Some(ref savepath) => {
                 let mut data = vec![];
-                self.ram = match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
+                match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
                 {
-                    Err(_) => { return Err("Could not open save file"); },
-                    Ok(..) => data,
+                    Err(_) => Err("Could not open save file"),
+                    Ok(..) => { self.ram = data; Ok(()) },
                 }
             },
-        };
-        Ok(())
+        }
     }
 }
 

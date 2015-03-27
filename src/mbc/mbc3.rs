@@ -60,7 +60,7 @@ impl MBC3 {
                 let mut data = vec![];
                 match file.read_to_end(&mut data) {
                     Err(..) => Err("Could not read ROM"),
-                    Ok(..) => Ok(()),
+                    Ok(..) => { self.ram = data; Ok(()) },
                 }
             },
         }
