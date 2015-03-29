@@ -3,7 +3,7 @@ use std::path;
 use std::io::prelude::*;
 use std::fs;
 use podio::{BigEndian, ReadPodExt, WritePodExt};
-use chrono;
+use time;
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -73,7 +73,7 @@ impl MBC3 {
         };
         if self.rtc_ram[4] & 0x40 == 0x40 { return }
 
-        let difftime: i64 = match chrono::UTC::now().timestamp() - tzero {
+        let difftime: i64 = match time::now().to_timespec().sec - tzero {
             n if n >= 0 => { n },
             _ => { 0 },
         };
@@ -91,7 +91,7 @@ impl MBC3 {
 
     fn calc_rtc_zero(&mut self) {
         if self.rtc_zero.is_none() { return }
-        let mut difftime: i64 = chrono::UTC::now().timestamp();
+        let mut difftime: i64 = time::now().to_timespec().sec;
         difftime -= self.rtc_ram[0] as i64;
         difftime -= (self.rtc_ram[1] as i64) * 60;
         difftime -= (self.rtc_ram[2] as i64) * 3600;

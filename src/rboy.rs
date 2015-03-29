@@ -3,7 +3,7 @@
 
 #![feature(core, convert)]
 
-extern crate chrono;
+extern crate time;
 extern crate podio;
 
 pub use keypad::KeypadKey;

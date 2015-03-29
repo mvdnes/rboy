@@ -8,7 +8,7 @@ name = "rboy"
 
 [dependencies]
 sdl2 = "*"
-chrono = "0.2"
+time = "0.1"
 getopts = "*"
 podio = "0.0"
 
