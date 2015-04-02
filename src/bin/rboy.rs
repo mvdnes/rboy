@@ -1,13 +1,12 @@
 #![crate_name = "rboy"]
 
-#![feature(std_misc, exit_status, thread_sleep)]
+#![feature(exit_status)]
 
 extern crate getopts;
 extern crate sdl2;
 extern crate rboy;
 
 use rboy::device::Device;
-use std::time::Duration;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
@@ -67,7 +66,7 @@ fn main() {
 
     let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, &matches));
 
-    let periodic = timer_periodic(Duration::milliseconds(8));
+    let periodic = timer_periodic(8);
 
     let mut event_queue = sdl_context.event_pump();
     'main : loop {
@@ -162,7 +161,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
     };
     c.set_stdout(matches.opt_present("serial"));
 
-    let periodic = timer_periodic(Duration::milliseconds(8));
+    let periodic = timer_periodic(8);
     let mut limit_speed = true;
 
     let waitticks = (4194.304f32 * 4.0) as u32;
@@ -194,11 +193,11 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
     }
 }
 
-fn timer_periodic(duration: Duration) -> Receiver<()> {
+fn timer_periodic(ms: u32) -> Receiver<()> {
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep(duration);
+            std::thread::sleep_ms(ms);
             if tx.send(()).is_err() {
                 break;
             }
