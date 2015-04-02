@@ -1,4 +1,3 @@
-use std::num::Int;
 use register::CpuFlag::{C, N, H, Z};
 use serial::SerialCallback;
 
@@ -826,7 +825,7 @@ mod test
     #[test]
     fn cpu_instrs_classic()
     {
-        let mut sum_classic = 0;
+        let mut sum_classic = 0_u32;
         let mut output = Vec::new();
 
         {
@@ -853,7 +852,7 @@ mod test
 
     #[test]
     fn cpu_instrs_color() {
-        let mut sum_color = 0;
+        let mut sum_color = 0_u32;
         let mut output = Vec::new();
 
         {
