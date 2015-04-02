@@ -7,10 +7,12 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 name = "rboy"
 
 [dependencies]
-sdl2 = "*"
 time = "0.1"
 getopts = "*"
 podio = "0.0"
+
+[dependencies.sdl2]
+git = "https://github.com/AngryLawyer/rust-sdl2.git"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]
