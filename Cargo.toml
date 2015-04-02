@@ -10,9 +10,7 @@ name = "rboy"
 time = "0.1"
 getopts = "*"
 podio = "0.0"
-
-[dependencies.sdl2]
-git = "https://github.com/AngryLawyer/rust-sdl2.git"
+sdl2 = "*"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]
