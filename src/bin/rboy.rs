@@ -1,7 +1,5 @@
 #![crate_name = "rboy"]
 
-#![feature(exit_status)]
-
 extern crate getopts;
 extern crate sdl2;
 extern crate rboy;
@@ -10,18 +8,27 @@ use rboy::device::Device;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
+use std::sync::atomic;
+use std::sync::atomic::Ordering::Relaxed;
 
-static SCALE: usize = 2;
-static EXITCODE_INCORRECTOPTIONS: i32 = 1;
-static EXITCODE_CPULOADFAILS: i32 = 2;
+const SCALE : usize = 2;
+const EXITCODE_SUCCESS : isize = 0;
+const EXITCODE_INCORRECTOPTIONS : isize = 1;
+const EXITCODE_CPULOADFAILS : isize = 2;
 
-#[cfg(not(test))]
-fn set_exit_status(exitcode: i32)
-{
-    std::env::set_exit_status(exitcode);
-}
+static EXITCODE : atomic::AtomicIsize = atomic::ATOMIC_ISIZE_INIT;
 
 fn main() {
+    set_exit_status(EXITCODE_SUCCESS);
+    real_main();
+    std::process::exit(EXITCODE.load(Relaxed) as i32);
+}
+
+fn set_exit_status(status: isize) {
+    EXITCODE.store(status, Relaxed);
+}
+
+fn real_main() {
     let mut opts = getopts::Options::new();
     opts.optflag("s", "serial", "Output serial to stdout");
     opts.optflag("c", "classic", "Force Classic mode");
@@ -30,7 +37,7 @@ fn main() {
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => { m }
-        Err(f) => { println!("{}", f); return }
+        Err(f) => { println!("{}", f); set_exit_status(EXITCODE_INCORRECTOPTIONS); return }
     };
 
     let filename = if !matches.free.is_empty() {
