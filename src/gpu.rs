@@ -5,7 +5,7 @@ const VOAM_SIZE: usize = 0xA0;
 const SCREEN_W: usize = 160;
 const SCREEN_H: usize = 144;
 
-#[derive(PartialEq, Copy)]
+#[derive(PartialEq, Copy, Clone)]
 enum PrioType {
     Color0,
     PrioFlag,
