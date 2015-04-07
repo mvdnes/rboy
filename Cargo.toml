@@ -8,8 +8,7 @@ name = "rboy"
 
 [dependencies]
 time = "0.1"
-getopts = "*"
-podio = "0.0"
+podio = "0.1"
 
 [dependencies.sdl2]
 git = "https://github.com/AngryLawyer/rust-sdl2.git"

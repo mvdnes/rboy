@@ -1,6 +1,5 @@
 #![crate_name = "rboy"]
 
-extern crate getopts;
 extern crate sdl2;
 extern crate rboy;
 
@@ -28,25 +27,32 @@ fn set_exit_status(status: isize) {
     EXITCODE.store(status, Relaxed);
 }
 
-fn real_main() {
-    let mut opts = getopts::Options::new();
-    opts.optflag("s", "serial", "Output serial to stdout");
-    opts.optflag("c", "classic", "Force Classic mode");
+fn print_usage() {
+    println!("usage: rboy <filename> [-s|--serial] [-c|--classic]");
+    set_exit_status(EXITCODE_INCORRECTOPTIONS);
+}
 
+fn real_main() {
     let args: Vec<_> = std::env::args().collect();
 
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => { m }
-        Err(f) => { println!("{}", f); set_exit_status(EXITCODE_INCORRECTOPTIONS); return }
+    match args.len() {
+        0 ... 1 => { print_usage(); return }
+        _ => {}
     };
 
-    let filename = if !matches.free.is_empty() {
-        matches.free[0].clone()
+    let mut opt_serial = false;
+    let mut opt_classic = false;
+    let mut file = None;
+    for arg in &args[1..] {
+        if arg == "-s" || arg == "--serial" { opt_serial = true; }
+        else if arg == "-c" || arg == "--classic" { opt_classic = true; }
+        else { file = Some(arg); }
+    }
+
+    let filename = if let Some(ref f) = file {
+        f.clone()
     } else {
-        let mut info_start = args[0].clone();
-        info_start.push_str(" <filename>");
-        println!("{}", opts.usage(&info_start));
-        set_exit_status(EXITCODE_INCORRECTOPTIONS);
+        print_usage();
         return;
     };
 
@@ -71,7 +77,7 @@ fn real_main() {
     let arc = Arc::new(RwLock::new(rawscreen));
     let arc2 = arc.clone();
 
-    let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, &matches));
+    let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
 
     let periodic = timer_periodic(8);
 
@@ -156,8 +162,8 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, matches: &getopts::Matches) {
-    let opt_c = match matches.opt_present("classic") {
+fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, need_c: bool, need_s: bool) {
+    let opt_c = match need_c {
         true => Device::new(filename),
         false => Device::new_cgb(filename),
     };
@@ -166,7 +172,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
         Ok(cpu) => { cpu },
         Err(message) => { warn(message); set_exit_status(EXITCODE_CPULOADFAILS); return; },
     };
-    c.set_stdout(matches.opt_present("serial"));
+    c.set_stdout(need_s);
 
     let periodic = timer_periodic(8);
     let mut limit_speed = true;
