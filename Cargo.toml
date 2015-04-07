@@ -3,9 +3,6 @@ name = "rboy"
 version = "0.1.0"
 authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 
-[lib]
-name = "rboy"
-
 [dependencies]
 time = "0.1"
 podio = "0.1"
