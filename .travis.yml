@@ -1,5 +1,9 @@
 language: rust
 
+rust:
+  - 1.0.0-beta
+  - nightly
+
 notifications:
   email:
     on_success: never

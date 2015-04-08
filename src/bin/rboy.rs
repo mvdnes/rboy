@@ -44,6 +44,7 @@ fn real_main() {
     let mut opt_classic = false;
     let mut file = None;
     for arg in &args[1..] {
+        let arg = &arg[..];
         if arg == "-s" || arg == "--serial" { opt_serial = true; }
         else if arg == "-c" || arg == "--classic" { opt_classic = true; }
         else { file = Some(arg); }
