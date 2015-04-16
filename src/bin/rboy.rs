@@ -43,11 +43,11 @@ fn real_main() {
     let mut opt_serial = false;
     let mut opt_classic = false;
     let mut file = None;
-    for arg in &args[1..] {
-        let arg = &arg[..];
+    for argument in &args[1..] {
+        let arg = &argument[..];
         if arg == "-s" || arg == "--serial" { opt_serial = true; }
         else if arg == "-c" || arg == "--classic" { opt_classic = true; }
-        else { file = Some(arg); }
+        else { file = Some(argument.clone()); }
     }
 
     let filename = if let Some(ref f) = file {
@@ -78,7 +78,7 @@ fn real_main() {
     let arc = Arc::new(RwLock::new(rawscreen));
     let arc2 = arc.clone();
 
-    let cpuloop_thread = std::thread::scoped(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
+    std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
 
     let periodic = timer_periodic(8);
 
@@ -117,7 +117,7 @@ fn real_main() {
     }
 
     drop(sdl_tx); // Disconnect such that the cpuloop will exit
-    let _ = cpuloop_thread.join();
+    while let Ok(..) = sdl_rx.recv() {} // Wait for the cpuloop to disconnect
 }
 
 fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
