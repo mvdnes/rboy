@@ -78,7 +78,7 @@ fn real_main() {
     let arc = Arc::new(RwLock::new(rawscreen));
     let arc2 = arc.clone();
 
-    std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
+    let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
 
     let periodic = timer_periodic(8);
 
@@ -117,7 +117,7 @@ fn real_main() {
     }
 
     drop(sdl_tx); // Disconnect such that the cpuloop will exit
-    while let Ok(..) = sdl_rx.recv() {} // Wait for the cpuloop to disconnect
+    let _ = cpuloop_thread.join();
 }
 
 fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
