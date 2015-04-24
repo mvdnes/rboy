@@ -58,7 +58,8 @@ fn real_main() {
     };
 
     let sdl_context = sdl2::init(sdl2::INIT_VIDEO).unwrap();
-    let window = match sdl2::video::Window::new("RBoy - A gameboy in Rust",
+    let window = match sdl2::video::Window::new(&sdl_context,
+                                                "RBoy - A gameboy in Rust",
                                                 sdl2::video::WindowPos::PosUndefined,
                                                 sdl2::video::WindowPos::PosUndefined,
                                                 160*SCALE as i32,
@@ -67,7 +68,7 @@ fn real_main() {
         Ok(window) => window,
         Err(err) => panic!("failed to open window: {}", err),
     };
-    let renderer = match sdl2::render::Renderer::from_window(window, sdl2::render::RenderDriverIndex::Auto, sdl2::render::ACCELERATED) {
+    let mut renderer = match sdl2::render::Renderer::from_window(window, sdl2::render::RenderDriverIndex::Auto, sdl2::render::ACCELERATED) {
         Ok(screen) => screen,
         Err(err) => panic!("failed to open screen: {}", err),
     };
@@ -87,7 +88,7 @@ fn real_main() {
         let _ = periodic.recv();
         match sdl_rx.try_recv() {
             Err(Disconnected) => { break 'main },
-            Ok(_) => recalculate_screen(&renderer, &arc),
+            Ok(_) => recalculate_screen(&mut renderer, &arc),
             Err(Empty) => {},
         }
         for event in event_queue.poll_iter() {
@@ -134,7 +135,7 @@ fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
     }
 }
 
-fn recalculate_screen(screen: &sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
+fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
     let mut drawer = screen.drawer();
     drawer.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
     drawer.clear();
