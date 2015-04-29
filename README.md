@@ -6,6 +6,7 @@ A Gameboy Color Emulator written in Rust using SDL
 Build status
 ------------
 [![Build Status](https://travis-ci.org/mvdnes/rboy.png?branch=master)](https://travis-ci.org/mvdnes/rboy)
+[![Build Status](https://api.shippable.com/projects/553fdfb4edd7f2c052d66b4e/badge?branchName=master)](https://app.shippable.com/projects/553fdfb4edd7f2c052d66b4e/builds/latest)
 
 Dependencies
 ------------
