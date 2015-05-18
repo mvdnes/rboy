@@ -18,7 +18,7 @@ before_install:
     - shippable_retry sudo apt-get update -q
 
 install:
-    - sudo sh ~/rustup.sh --spec=$RUST_VERSION 2> /dev/null
+    - sudo sh ~/rustup.sh --spec=$RUST_VERSION --disable-sudo -y 2> /dev/null
     - sudo apt-get install libsdl2-dev
 
 before_script:
