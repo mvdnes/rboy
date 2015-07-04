@@ -10,7 +10,7 @@ use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 use std::sync::atomic;
 use std::sync::atomic::Ordering::Relaxed;
 
-const SCALE : usize = 2;
+const SCALE : u32 = 2;
 const EXITCODE_SUCCESS : isize = 0;
 const EXITCODE_INCORRECTOPTIONS : isize = 1;
 const EXITCODE_CPULOADFAILS : isize = 2;
@@ -57,18 +57,15 @@ fn real_main() {
         return;
     };
 
-    let sdl_context = sdl2::init(sdl2::INIT_VIDEO).unwrap();
-    let window = match sdl2::video::Window::new(&sdl_context,
+    let mut sdl_context = sdl2::init().video().unwrap();
+    let window = match sdl2::video::WindowBuilder::new(&sdl_context,
                                                 "RBoy - A gameboy in Rust",
-                                                sdl2::video::WindowPos::PosUndefined,
-                                                sdl2::video::WindowPos::PosUndefined,
-                                                160*SCALE as i32,
-                                                144*SCALE as i32,
-                                                sdl2::video::WindowFlags::empty()) {
+                                                160*SCALE,
+                                                144*SCALE).build() {
         Ok(window) => window,
         Err(err) => panic!("failed to open window: {}", err),
     };
-    let mut renderer = match sdl2::render::Renderer::from_window(window, sdl2::render::RenderDriverIndex::Auto, sdl2::render::ACCELERATED) {
+    let mut renderer = match sdl2::render::RendererBuilder::new(window).accelerated().build() {
         Ok(screen) => screen,
         Err(err) => panic!("failed to open screen: {}", err),
     };
@@ -94,19 +91,19 @@ fn real_main() {
         for event in event_queue.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
-                sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::Escape, .. }
+                sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. }
                     => break 'main,
-                sdl2::event::Event::KeyDown { keycode: sdl2::keycode::KeyCode::LShift, .. }
+                sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
                     => { let _ = sdl_tx.send(GBEvent::SpeedUp); },
-                sdl2::event::Event::KeyUp { keycode: sdl2::keycode::KeyCode::LShift, .. }
+                sdl2::event::Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
                     => { let _ = sdl_tx.send(GBEvent::SlowDown); },
-                sdl2::event::Event::KeyDown { keycode: sdlkey, .. } => {
+                sdl2::event::Event::KeyDown { keycode: Some(sdlkey), .. } => {
                     match sdl_to_keypad(sdlkey) {
                         Some(key) =>  { let _ = sdl_tx.send(GBEvent::KeyDown(key)); },
                         None => {},
                     }
                 },
-                sdl2::event::Event::KeyUp { keycode: sdlkey, .. } => {
+                sdl2::event::Event::KeyUp { keycode: Some(sdlkey), .. } => {
                     match sdl_to_keypad(sdlkey) {
                         Some(key) => { let _ = sdl_tx.send(GBEvent::KeyUp(key)); },
                         None => {},
@@ -121,35 +118,34 @@ fn real_main() {
     let _ = cpuloop_thread.join();
 }
 
-fn sdl_to_keypad(key: sdl2::keycode::KeyCode) -> Option<rboy::KeypadKey> {
+fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
     match key {
-        sdl2::keycode::KeyCode::Z => Some(rboy::KeypadKey::A),
-        sdl2::keycode::KeyCode::X => Some(rboy::KeypadKey::B),
-        sdl2::keycode::KeyCode::Up => Some(rboy::KeypadKey::Up),
-        sdl2::keycode::KeyCode::Down => Some(rboy::KeypadKey::Down),
-        sdl2::keycode::KeyCode::Left => Some(rboy::KeypadKey::Left),
-        sdl2::keycode::KeyCode::Right => Some(rboy::KeypadKey::Right),
-        sdl2::keycode::KeyCode::Space => Some(rboy::KeypadKey::Select),
-        sdl2::keycode::KeyCode::Return => Some(rboy::KeypadKey::Start),
+        sdl2::keyboard::Keycode::Z => Some(rboy::KeypadKey::A),
+        sdl2::keyboard::Keycode::X => Some(rboy::KeypadKey::B),
+        sdl2::keyboard::Keycode::Up => Some(rboy::KeypadKey::Up),
+        sdl2::keyboard::Keycode::Down => Some(rboy::KeypadKey::Down),
+        sdl2::keyboard::Keycode::Left => Some(rboy::KeypadKey::Left),
+        sdl2::keyboard::Keycode::Right => Some(rboy::KeypadKey::Right),
+        sdl2::keyboard::Keycode::Space => Some(rboy::KeypadKey::Select),
+        sdl2::keyboard::Keycode::Return => Some(rboy::KeypadKey::Start),
         _ => None,
     }
 }
 
 fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
-    let mut drawer = screen.drawer();
-    drawer.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
-    drawer.clear();
+    screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
+    screen.clear();
 
     let data =  arc.read().unwrap().clone();
     for y in 0..144 {
         for x in 0..160 {
-            drawer.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
+            screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
                                                             data[y*160*3 + x*3 + 1],
                                                             data[y*160*3 + x*3 + 2]));
-            drawer.draw_rect(sdl2::rect::Rect::new((x*SCALE) as i32, (y*SCALE) as i32, SCALE as i32, SCALE as i32));
+            screen.draw_rect(sdl2::rect::Rect::new(x as i32 * SCALE as i32, y as i32 * SCALE as i32, SCALE, SCALE).unwrap().unwrap());
         }
     }
-    drawer.present();
+    screen.present();
 }
 
 enum GBEvent {
