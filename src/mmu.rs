@@ -300,6 +300,6 @@ impl<'a> MMU<'a> {
         }
         self.hdma_src += 0x10;
         self.hdma_dst += 0x10;
-        self.hdma_len -= 1;
+        self.hdma_len.wrapping_sub(1);
     }
 }
