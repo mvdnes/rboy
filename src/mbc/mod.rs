@@ -38,14 +38,31 @@ fn ram_size(v: u8) -> usize {
     }
 }
 
-fn check_checksum(data: &Vec<u8>) -> ::StrResult<()> {
+fn check_checksum(data: &[u8]) -> ::StrResult<()> {
     let mut value: u8 = 0;
-    for i in (0x134usize .. 0x14D) {
+    for i in (0x134 .. 0x14D) {
         value = value.wrapping_sub(data[i]).wrapping_sub(1);
     }
     match data[0x14D] == value
     {
         true => Ok(()),
         false => Err("Cartridge checksum is invalid"),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn checksum_zero() {
+        let mut data = vec![0; 0x150];
+        data[0x14D] = -(0x14D_i32 - 0x134_i32) as u8;
+        super::check_checksum(&data).unwrap();
+    }
+
+    #[test]
+    fn checksum_ones() {
+        let mut data = vec![1; 0x150];
+        data[0x14D] = (-(0x14D_i32 - 0x134_i32) * 2) as u8;
+        super::check_checksum(&data).unwrap();
     }
 }
