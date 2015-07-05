@@ -38,9 +38,10 @@ impl Registers {
     }
 
     pub fn new_cgb() -> Registers {
-        let mut res = Registers::new();
-        res.a = 0x11;
-        return res
+        Registers {
+            a: 0x11,
+            ..Registers::new()
+        }
     }
 
     pub fn af(&self) -> u16 {
@@ -147,7 +148,7 @@ mod test
         assert_eq!(reg.f & 0x0F, 0);
 
         reg.setf(0x00);
-        for i in (0usize .. 4)
+        for i in (0 .. 4)
         {
             let mask = flags[i];
             assert_eq!(reg.getflag(mask), false);
