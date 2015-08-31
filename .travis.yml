@@ -12,6 +12,8 @@ notifications:
 
 addons:
     apt:
+        sources:
+            - debian-sid
         packages:
             - libsdl2-dev
 
