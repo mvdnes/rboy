@@ -3,17 +3,17 @@ language: rust
 rust:
   - stable
 
+sudo: false
+
 notifications:
   email:
     on_success: never
     on_failure: always
 
-sudo: required
-
-install:
-  - sudo add-apt-repository ppa:team-xbmc/ppa -y
-  - sudo apt-get update -q
-  - sudo apt-get install libsdl2-dev
+addons:
+    apt:
+        packages:
+            - libsdl2-dev
 
 script:
   - make debug
