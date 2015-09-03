@@ -6,7 +6,7 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 [dependencies]
 time = "0.1"
 podio = "0.1"
-sdl2 = "0.5"
+sdl2 = "0.8"
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]

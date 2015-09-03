@@ -57,8 +57,9 @@ fn real_main() {
         return;
     };
 
-    let mut sdl_context = sdl2::init().video().unwrap();
-    let window = match sdl2::video::WindowBuilder::new(&sdl_context,
+    let sdl_context = sdl2::init().unwrap();
+    let sdl_video = sdl_context.video().unwrap();
+    let window = match sdl2::video::WindowBuilder::new(&sdl_video,
                                                 "RBoy - A gameboy in Rust",
                                                 160*SCALE,
                                                 144*SCALE).build() {
@@ -80,7 +81,7 @@ fn real_main() {
 
     let periodic = timer_periodic(8);
 
-    let mut event_queue = sdl_context.event_pump();
+    let mut event_queue = sdl_context.event_pump().unwrap();
     'main : loop {
         let _ = periodic.recv();
         match sdl_rx.try_recv() {
