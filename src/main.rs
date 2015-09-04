@@ -89,7 +89,7 @@ fn real_main() {
             Ok(_) => recalculate_screen(&mut renderer, &arc),
             Err(Empty) => {},
         }
-        for event in event_queue.poll_iter() {
+        for event in event_queue.wait_timeout_iter(8) {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. }
