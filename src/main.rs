@@ -161,7 +161,7 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, need_c: bool, need_s: bool) {
+fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, need_c: bool, need_s: bool) {
     let opt_c = match need_c {
         true => Device::new(filename),
         false => Device::new_cgb(filename),
@@ -186,7 +186,7 @@ fn cpuloop(cpu_tx: &Sender<u32>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec
                 let mut data = arc.write().unwrap();
                 let gpu_data = c.get_gpu_data();
                 for i in 0..data.len() { data[i] = gpu_data[i]; }
-                if cpu_tx.send(0).is_err() { break 'cpuloop };
+                if cpu_tx.send(()).is_err() { break 'cpuloop };
             }
         }
         ticks -= waitticks;
