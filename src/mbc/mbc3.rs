@@ -53,7 +53,7 @@ impl MBC3 {
             Some(ref savepath) => {
                 let mut file = match fs::File::open(savepath) {
                     Ok(f) => f,
-                    Err(..) => return Err("Could not open file"),
+                    Err(..) => return Ok(()),
                 };
                 let rtc = try!(file.read_i64::<BigEndian>().map_err(|_| "Could not read RTC"));
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
