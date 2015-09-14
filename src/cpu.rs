@@ -36,7 +36,7 @@ impl<'a> CPU<'a> {
     }
 
     pub fn do_cycle(&mut self) -> u32 {
-        let ticks = self.docycle() * 2;
+        let ticks = self.docycle() * 4;
         return self.mmu.do_cycle(ticks);
     }
 
@@ -836,7 +836,7 @@ mod test
                 Ok(cpu) => cpu,
             };
             let mut ticks = 0;
-            while ticks < 63802933
+            while ticks < 63802933 * 2
             {
                 ticks += c.do_cycle();
             }
@@ -863,7 +863,7 @@ mod test
                 Ok(cpu) => cpu,
             };
             let mut ticks = 0;
-            while ticks < 63802933
+            while ticks < 63802933 * 2
             {
                 ticks += c.do_cycle();
             }

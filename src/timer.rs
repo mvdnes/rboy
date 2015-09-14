@@ -30,7 +30,7 @@ impl Timer {
             0xFF06 => self.modulo,
             0xFF07 => {
                 (if self.enabled { 0x4 } else { 0 }) |
-                (match self.step { 8 => 1, 32 => 2, 128 => 3, _ => 0 })
+                (match self.step { 16 => 1, 64 => 2, 256 => 3, _ => 0 })
             }
             _ => panic!("Timer does not handler read {:4X}", a),
         }
@@ -43,7 +43,7 @@ impl Timer {
             0xFF06 => { self.modulo = v; },
             0xFF07 => {
                 self.enabled = v & 0x4 != 0;
-                self.step = match v & 0x3 { 1 => 8, 2 => 32, 3 => 128, _ => 512 };
+                self.step = match v & 0x3 { 1 => 16, 2 => 64, 3 => 256, _ => 1024 };
             },
             _ => panic!("Timer does not handler write {:4X}", a),
         };
@@ -51,9 +51,9 @@ impl Timer {
 
     pub fn do_cycle(&mut self, ticks: u32) {
         self.internaldiv += ticks;
-        while self.internaldiv >= 128 {
+        while self.internaldiv >= 256 {
             self.divider = self.divider.wrapping_add(1);
-            self.internaldiv -= 128;
+            self.internaldiv -= 256;
         }
 
         if self.enabled {

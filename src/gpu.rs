@@ -114,13 +114,13 @@ impl GPU {
         let mut ticksleft = ticks;
 
         while ticksleft > 0 {
-            let curticks = if ticksleft >= 40 { 40 } else { ticksleft };
+            let curticks = if ticksleft >= 80 { 80 } else { ticksleft };
             self.modeclock += curticks;
             ticksleft -= curticks;
 
             // Full line takes 114 ticks
-            if self.modeclock >= 228 {
-                self.modeclock -= 228;
+            if self.modeclock >= 456 {
+                self.modeclock -= 456;
                 self.line = (self.line + 1) % 154;
                 self.check_interrupt_lyc();
 
@@ -132,11 +132,11 @@ impl GPU {
 
             // This is a normal line
             if self.line < 144 {
-                if self.modeclock <= 40 {
+                if self.modeclock <= 80 {
                     if self.mode != 2 { self.change_mode(2); }
-                } else if self.modeclock <= (40 + 86) {
+                } else if self.modeclock <= (80 + 172) { // 252 cycles
                     if self.mode != 3 { self.change_mode(3); }
-                } else { // the remaining 102
+                } else { // the remaining 204
                     if self.mode != 0 { self.change_mode(0); }
                 }
             }

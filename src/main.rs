@@ -79,17 +79,14 @@ fn real_main() {
 
     let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
 
-    let periodic = timer_periodic(8);
-
     let mut event_queue = sdl_context.event_pump().unwrap();
     'main : loop {
-        let _ = periodic.recv();
         match sdl_rx.try_recv() {
             Err(Disconnected) => { break 'main },
             Ok(_) => recalculate_screen(&mut renderer, &arc),
             Err(Empty) => {},
         }
-        for event in event_queue.wait_timeout_iter(8) {
+        for event in event_queue.wait_timeout_iter(2) {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. }
@@ -176,7 +173,7 @@ fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<
     let periodic = timer_periodic(8);
     let mut limit_speed = true;
 
-    let waitticks = (4194.304f32 * 4.0) as u32;
+    let waitticks = (4194304f64 / 1000.0 * 8.0) as u32;
 
     let mut ticks = 0;
     'cpuloop: loop {

@@ -130,11 +130,12 @@ impl<'a> MMU<'a> {
     }
 
     pub fn do_cycle(&mut self, cputicks: u32) -> u32 {
-        let ticks = cputicks + self.perform_vramdma();
-
-        let gputicks = ticks /
-            if self.gbspeed == GbSpeed::Single { 1 }
-            else { 2 };
+        let cpudivider = match self.gbspeed {
+            GbSpeed::Single => 1,
+            GbSpeed::Double => 2,
+        };
+        let ticks = cputicks / cpudivider;
+        let gputicks = ticks + self.perform_vramdma();
 
         self.timer.do_cycle(ticks);
         self.intf |= self.timer.interrupt;
@@ -280,7 +281,7 @@ impl<'a> MMU<'a> {
         self.perform_vramdma_row();
         if self.hdma_len == 0xFF { self.hdma_status = DMAType::NoDMA; }
 
-        return 0x10 * (if self.gbspeed == GbSpeed::Single { 4 } else { 2 });
+        return 0x10 * 8;
     }
 
     fn perform_gdma(&mut self) -> u32 {
@@ -290,7 +291,7 @@ impl<'a> MMU<'a> {
         }
 
         self.hdma_status = DMAType::NoDMA;
-        return len * 0x10 * 2;
+        return len * 0x10 * 8;
     }
 
     fn perform_vramdma_row(&mut self) {
