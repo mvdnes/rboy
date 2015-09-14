@@ -140,7 +140,7 @@ fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<
             screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
                                                             data[y*160*3 + x*3 + 1],
                                                             data[y*160*3 + x*3 + 2]));
-            screen.draw_rect(sdl2::rect::Rect::new(x as i32 * SCALE as i32, y as i32 * SCALE as i32, SCALE, SCALE).unwrap().unwrap());
+            screen.fill_rect(sdl2::rect::Rect::new(x as i32 * SCALE as i32, y as i32 * SCALE as i32, SCALE, SCALE).unwrap().unwrap());
         }
     }
     screen.present();
