@@ -70,10 +70,13 @@ fn real_main() -> i32 {
 
     let mut event_queue = sdl_context.event_pump().unwrap();
     'main : loop {
-        match sdl_rx.try_recv() {
-            Err(Disconnected) => { break 'main },
-            Ok(_) => recalculate_screen(&mut renderer, &arc),
-            Err(Empty) => {},
+        let mut refreshed = false;
+        'rx : loop {
+            match sdl_rx.try_recv() {
+                Err(Disconnected) => break 'main,
+                Ok(_) => { if !refreshed { recalculate_screen(&mut renderer, &arc); refreshed = true } },
+                Err(Empty) => break 'rx,
+            }
         }
         for event in event_queue.wait_timeout_iter(2) {
             match event {
@@ -184,16 +187,18 @@ fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<
         ticks -= waitticks;
         if limit_speed { let _ = periodic.recv(); }
 
-        match cpu_rx.try_recv() {
-            Ok(event) => match event {
-                GBEvent::KeyUp(key) => c.keyup(key),
-                GBEvent::KeyDown(key) => c.keydown(key),
-                GBEvent::SpeedUp => limit_speed = false,
-                GBEvent::SlowDown => limit_speed = true,
-            },
-            Err(Empty) => {},
-            Err(Disconnected) => { break },
-        };
+        'rx : loop {
+            match cpu_rx.try_recv() {
+                Ok(event) => match event {
+                    GBEvent::KeyUp(key) => c.keyup(key),
+                    GBEvent::KeyDown(key) => c.keydown(key),
+                    GBEvent::SpeedUp => limit_speed = false,
+                    GBEvent::SlowDown => limit_speed = true,
+                },
+                Err(Empty) => break 'rx,
+                Err(Disconnected) => break 'cpuloop,
+            }
+        }
     }
 }
 
