@@ -8,26 +8,19 @@ use rboy::device::Device;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
-use std::sync::atomic;
-use std::sync::atomic::Ordering::Relaxed;
 
 const SCALE : u32 = 2;
-const EXITCODE_SUCCESS : isize = 0;
-const EXITCODE_CPULOADFAILS : isize = 2;
-
-static EXITCODE : atomic::AtomicIsize = atomic::ATOMIC_ISIZE_INIT;
+const EXITCODE_SUCCESS : i32 = 0;
+const EXITCODE_CPULOADFAILS : i32 = 2;
 
 fn main() {
-    set_exit_status(EXITCODE_SUCCESS);
-    real_main();
-    std::process::exit(EXITCODE.load(Relaxed) as i32);
+    let exit_status = real_main();
+    if exit_status != EXITCODE_SUCCESS {
+        std::process::exit(exit_status);
+    }
 }
 
-fn set_exit_status(status: isize) {
-    EXITCODE.store(status, Relaxed);
-}
-
-fn real_main() {
+fn real_main() -> i32 {
     let matches = clap::App::new("rboy")
         .version("0.1")
         .author("Mathijs van de Nes")
@@ -50,7 +43,7 @@ fn real_main() {
     let filename = matches.value_of("filename").unwrap();
 
     let cpu = construct_cpu(filename, opt_classic, opt_serial);
-    if cpu.is_none() { return; }
+    if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
     let cpu = cpu.unwrap();
 
     let sdl_context = sdl2::init().unwrap();
@@ -110,6 +103,8 @@ fn real_main() {
 
     drop(sdl_tx); // Disconnect such that the cpuloop will exit
     let _ = cpuloop_thread.join();
+
+    EXITCODE_SUCCESS
 }
 
 fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
@@ -162,7 +157,7 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     let mut c = match opt_c
     {
         Ok(cpu) => { cpu },
-        Err(message) => { warn(message); set_exit_status(EXITCODE_CPULOADFAILS); return None; },
+        Err(message) => { warn(message); return None; },
     };
     c.set_stdout(output_serial);
     Some(c)
