@@ -1,5 +1,6 @@
 #![crate_name = "rboy"]
 
+extern crate clap;
 extern crate sdl2;
 extern crate rboy;
 
@@ -12,7 +13,6 @@ use std::sync::atomic::Ordering::Relaxed;
 
 const SCALE : u32 = 2;
 const EXITCODE_SUCCESS : isize = 0;
-const EXITCODE_INCORRECTOPTIONS : isize = 1;
 const EXITCODE_CPULOADFAILS : isize = 2;
 
 static EXITCODE : atomic::AtomicIsize = atomic::ATOMIC_ISIZE_INIT;
@@ -27,35 +27,31 @@ fn set_exit_status(status: isize) {
     EXITCODE.store(status, Relaxed);
 }
 
-fn print_usage() {
-    println!("usage: rboy <filename> [-s|--serial] [-c|--classic]");
-    set_exit_status(EXITCODE_INCORRECTOPTIONS);
-}
-
 fn real_main() {
-    let args: Vec<_> = std::env::args().collect();
+    let matches = clap::App::new("rboy")
+        .version("0.1")
+        .author("Mathijs van de Nes")
+        .about("A Gameboy Colour emulator written in Rust")
+        .arg(clap::Arg::with_name("filename")
+             .help("Sets the ROM file to load")
+             .required(true))
+        .arg(clap::Arg::with_name("serial")
+             .help("Prints the data from the serial port to stdout")
+             .short("s")
+             .long("serial"))
+        .arg(clap::Arg::with_name("classic")
+             .help("Forces the emulator to run in classic Gameboy mode")
+             .short("c")
+             .long("classic"))
+        .get_matches();
 
-    match args.len() {
-        0 ... 1 => { print_usage(); return }
-        _ => {}
-    };
+    let opt_serial = matches.is_present("serial");
+    let opt_classic = matches.is_present("classic");
+    let filename = matches.value_of("filename").unwrap();
 
-    let mut opt_serial = false;
-    let mut opt_classic = false;
-    let mut file = None;
-    for argument in &args[1..] {
-        let arg = &argument[..];
-        if arg == "-s" || arg == "--serial" { opt_serial = true; }
-        else if arg == "-c" || arg == "--classic" { opt_classic = true; }
-        else { file = Some(argument.clone()); }
-    }
-
-    let filename = if let Some(ref f) = file {
-        f.clone()
-    } else {
-        print_usage();
-        return;
-    };
+    let cpu = construct_cpu(filename, opt_classic, opt_serial);
+    if cpu.is_none() { return; }
+    let cpu = cpu.unwrap();
 
     let sdl_context = sdl2::init().unwrap();
     let sdl_video = sdl_context.video().unwrap();
@@ -77,7 +73,7 @@ fn real_main() {
     let arc = Arc::new(RwLock::new(rawscreen));
     let arc2 = arc.clone();
 
-    let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, &filename, opt_classic, opt_serial));
+    let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, cpu));
 
     let mut event_queue = sdl_context.event_pump().unwrap();
     'main : loop {
@@ -158,18 +154,22 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, filename: &str, need_c: bool, need_s: bool) {
-    let opt_c = match need_c {
+fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Option<Device> {
+    let opt_c = match classic_mode {
         true => Device::new(filename),
         false => Device::new_cgb(filename),
     };
     let mut c = match opt_c
     {
         Ok(cpu) => { cpu },
-        Err(message) => { warn(message); set_exit_status(EXITCODE_CPULOADFAILS); return; },
+        Err(message) => { warn(message); set_exit_status(EXITCODE_CPULOADFAILS); return None; },
     };
-    c.set_stdout(need_s);
+    c.set_stdout(output_serial);
+    Some(c)
+}
 
+fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, cpu: Device) {
+    let mut c = cpu;
     let periodic = timer_periodic(8);
     let mut limit_speed = true;
 

@@ -7,6 +7,7 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 time = "0.1"
 podio = "0.1"
 sdl2 = "0.9"
+clap = { version = "1.4", default_features = false }
 
 [features]
 use-pkgconfig = [ "sdl2/use-pkgconfig" ]
