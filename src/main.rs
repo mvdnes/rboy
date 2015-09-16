@@ -60,7 +60,7 @@ fn real_main() -> i32 {
     let cpu = cpu.unwrap();
 
     let sdl_context = sdl2::init().unwrap();
-    let sdl_video = sdl_context.video().unwrap();
+    let sdl_video = sdl_context.video().ok().expect("Could not open video");
     let window = match sdl2::video::WindowBuilder::new(&sdl_video,
                                                 "RBoy - A gameboy in Rust",
                                                 160*scale,
