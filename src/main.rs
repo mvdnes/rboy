@@ -8,8 +8,8 @@ use rboy::device::Device;
 use std::sync::{Arc,RwLock};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
+use std::error::Error;
 
-const SCALE : u32 = 2;
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
 
@@ -36,11 +36,24 @@ fn real_main() -> i32 {
              .help("Forces the emulator to run in classic Gameboy mode")
              .short("c")
              .long("classic"))
+        .arg(clap::Arg::with_name("scale")
+             .help("Sets the scale of the interface. Default: 2")
+             .short("x")
+             .long("scale")
+             .validator(|s|
+                 match s.parse::<u32>() {
+                     Err(e) => Err(format!("Could not parse scale: {}", e.description())),
+                     Ok(s) if s < 1 => Err("Scale must be at least 1".to_owned()),
+                     Ok(s) if s > 8 => Err("Scale may be at most 8".to_owned()),
+                     Ok(..) => Ok(()),
+                 })
+             .takes_value(true))
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
     let opt_classic = matches.is_present("classic");
     let filename = matches.value_of("filename").unwrap();
+    let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
 
     let cpu = construct_cpu(filename, opt_classic, opt_serial);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
@@ -50,8 +63,8 @@ fn real_main() -> i32 {
     let sdl_video = sdl_context.video().unwrap();
     let window = match sdl2::video::WindowBuilder::new(&sdl_video,
                                                 "RBoy - A gameboy in Rust",
-                                                160*SCALE,
-                                                144*SCALE).build() {
+                                                160*scale,
+                                                144*scale).build() {
         Ok(window) => window,
         Err(err) => panic!("failed to open window: {}", err),
     };
@@ -74,7 +87,7 @@ fn real_main() -> i32 {
         'rx : loop {
             match sdl_rx.try_recv() {
                 Err(Disconnected) => break 'main,
-                Ok(_) => { if !refreshed { recalculate_screen(&mut renderer, &arc); refreshed = true } },
+                Ok(_) => { if !refreshed { recalculate_screen(&mut renderer, &arc, scale); refreshed = true } },
                 Err(Empty) => break 'rx,
             }
         }
@@ -124,7 +137,7 @@ fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
     }
 }
 
-fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>) {
+fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>, scale: u32) {
     screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
     screen.clear();
 
@@ -134,7 +147,7 @@ fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<
             screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
                                                             data[y*160*3 + x*3 + 1],
                                                             data[y*160*3 + x*3 + 2]));
-            screen.fill_rect(sdl2::rect::Rect::new(x as i32 * SCALE as i32, y as i32 * SCALE as i32, SCALE, SCALE).unwrap().unwrap());
+            screen.fill_rect(sdl2::rect::Rect::new(x as i32 * scale as i32, y as i32 * scale as i32, scale, scale).unwrap().unwrap());
         }
     }
     screen.present();
