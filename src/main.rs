@@ -61,10 +61,14 @@ fn real_main() -> i32 {
 
     let sdl_context = sdl2::init().unwrap();
     let sdl_video = sdl_context.video().ok().expect("Could not open video");
-    let window = match sdl2::video::WindowBuilder::new(&sdl_video,
-                                                "RBoy - A gameboy in Rust",
-                                                160*scale,
-                                                144*scale).build() {
+    let window = match sdl2::video::WindowBuilder::new(
+            &sdl_video,
+            "RBoy - A gameboy in Rust",
+            160 * scale,
+            144 * scale)
+        .resizable()
+        .build()
+    {
         Ok(window) => window,
         Err(err) => panic!("failed to open window: {}", err),
     };
@@ -97,6 +101,10 @@ fn real_main() -> i32 {
                 sdl2::event::Event::Quit { .. } => break 'main,
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. }
                     => break 'main,
+                sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Num1), .. }
+                    => renderer.window_mut().unwrap().set_size(160, 144),
+                sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::R), .. }
+                    => renderer.window_mut().unwrap().set_size(160*scale, 144*scale),
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
                     => { let _ = sdl_tx.send(GBEvent::SpeedUp); },
                 sdl2::event::Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
