@@ -5,7 +5,7 @@ extern crate sdl2;
 extern crate rboy;
 
 use rboy::device::Device;
-use std::sync::{Arc,RwLock};
+use std::sync::{Arc,Mutex};
 use std::sync::mpsc::{Sender,Receiver};
 use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
 use std::error::Error;
@@ -81,7 +81,7 @@ fn real_main() -> i32 {
     let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
     let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
     let rawscreen = ::std::iter::repeat(0u8).take(160*144*3).collect();
-    let arc = Arc::new(RwLock::new(rawscreen));
+    let arc = Arc::new(Mutex::new(rawscreen));
     let arc2 = arc.clone();
 
     let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, cpu));
@@ -146,13 +146,10 @@ fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
     }
 }
 
-fn recalculate_screen(renderer: &mut sdl2::render::Renderer, texture: &mut sdl2::render::Texture, arc: &Arc<RwLock<Vec<u8>>>) {
-    use std::io::Write;
+fn recalculate_screen(renderer: &mut sdl2::render::Renderer, texture: &mut sdl2::render::Texture, arc: &Arc<Mutex<Vec<u8>>>) {
+    texture.update(None, &*arc.lock().unwrap().clone(), 160*3).unwrap();
 
-    texture.with_lock(None, |ref mut buffer, _pitch| {
-        buffer.write(&*arc.read().unwrap()).unwrap();
-    }).unwrap();
-
+    renderer.clear();
     renderer.copy(&texture, None, None);
     renderer.present();
 }
@@ -183,7 +180,7 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     Some(c)
 }
 
-fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<u8>>>, cpu: Device) {
+fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<Mutex<Vec<u8>>>, cpu: Device) {
     let mut c = cpu;
     let periodic = timer_periodic(8);
     let mut limit_speed = true;
@@ -195,7 +192,7 @@ fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<
         while ticks < waitticks {
             ticks += c.do_cycle();
             if c.check_and_reset_gpu_updated() {
-                *arc.write().unwrap() = c.get_gpu_data().to_vec();
+                *arc.lock().unwrap() = c.get_gpu_data().to_vec();
                 if cpu_tx.send(()).is_err() { break 'cpuloop };
             }
         }
