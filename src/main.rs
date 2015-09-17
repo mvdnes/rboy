@@ -187,9 +187,7 @@ fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<RwLock<Vec<
         while ticks < waitticks {
             ticks += c.do_cycle();
             if c.check_and_reset_gpu_updated() {
-                let mut data = arc.write().unwrap();
-                let gpu_data = c.get_gpu_data();
-                for i in 0..data.len() { data[i] = gpu_data[i]; }
+                *arc.write().unwrap() = c.get_gpu_data().to_vec();
                 if cpu_tx.send(()).is_err() { break 'cpuloop };
             }
         }
