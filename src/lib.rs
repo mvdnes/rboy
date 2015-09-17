@@ -5,6 +5,7 @@ extern crate time;
 extern crate podio;
 
 pub use keypad::KeypadKey;
+pub use gpu::{SCREEN_W, SCREEN_H};
 
 pub mod device;
 

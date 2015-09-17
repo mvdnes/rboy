@@ -64,8 +64,8 @@ fn real_main() -> i32 {
     let window = match sdl2::video::WindowBuilder::new(
             &sdl_video,
             "RBoy - A gameboy in Rust",
-            160 * scale,
-            144 * scale)
+            rboy::SCREEN_W as u32 * scale,
+            rboy::SCREEN_H as u32 * scale)
         .resizable()
         .build()
     {
@@ -76,11 +76,11 @@ fn real_main() -> i32 {
         Ok(screen) => screen,
         Err(err) => panic!("failed to open screen: {}", err),
     };
-    let mut texture = renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::RGB24, (160, 144)).unwrap();
+    let mut texture = renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::RGB24, (rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)).unwrap();
 
     let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
     let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
-    let rawscreen = ::std::iter::repeat(0u8).take(160*144*3).collect();
+    let rawscreen = ::std::iter::repeat(0u8).take(rboy::SCREEN_W * rboy::SCREEN_H * 3).collect();
     let arc = Arc::new(Mutex::new(rawscreen));
     let arc2 = arc.clone();
 
@@ -102,9 +102,9 @@ fn real_main() -> i32 {
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Escape), .. }
                     => break 'main,
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::Num1), .. }
-                    => renderer.window_mut().unwrap().set_size(160, 144),
+                    => renderer.window_mut().unwrap().set_size(rboy::SCREEN_W as u32, rboy::SCREEN_H as u32),
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::R), .. }
-                    => renderer.window_mut().unwrap().set_size(160*scale, 144*scale),
+                    => renderer.window_mut().unwrap().set_size(rboy::SCREEN_W as u32 * scale as u32, rboy::SCREEN_H as u32 * scale),
                 sdl2::event::Event::KeyDown { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
                     => { let _ = sdl_tx.send(GBEvent::SpeedUp); },
                 sdl2::event::Event::KeyUp { keycode: Some(sdl2::keyboard::Keycode::LShift), .. }
@@ -147,7 +147,8 @@ fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
 }
 
 fn recalculate_screen(renderer: &mut sdl2::render::Renderer, texture: &mut sdl2::render::Texture, arc: &Arc<Mutex<Vec<u8>>>) {
-    texture.update(None, &*arc.lock().unwrap().clone(), 160*3).unwrap();
+    // pitch = row size = rboy::SCREEN_W pixels at 3 bytes per pixel
+    texture.update(None, &*arc.lock().unwrap().clone(), rboy::SCREEN_W * 3).unwrap();
 
     renderer.clear();
     renderer.copy(&texture, None, None);

@@ -2,8 +2,8 @@ use gbmode::GbMode;
 
 const VRAM_SIZE: usize = 0x4000;
 const VOAM_SIZE: usize = 0xA0;
-const SCREEN_W: usize = 160;
-const SCREEN_H: usize = 144;
+pub const SCREEN_W: usize = 160;
+pub const SCREEN_H: usize = 144;
 
 #[derive(PartialEq, Copy, Clone)]
 enum PrioType {
