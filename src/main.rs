@@ -68,7 +68,7 @@ fn real_main() -> i32 {
         Ok(window) => window,
         Err(err) => panic!("failed to open window: {}", err),
     };
-    let mut renderer = match sdl2::render::RendererBuilder::new(window).accelerated().build() {
+    let mut renderer = match sdl2::render::RendererBuilder::new(window).software().build() {
         Ok(screen) => screen,
         Err(err) => panic!("failed to open screen: {}", err),
     };
