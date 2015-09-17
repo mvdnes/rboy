@@ -72,6 +72,7 @@ fn real_main() -> i32 {
         Ok(screen) => screen,
         Err(err) => panic!("failed to open screen: {}", err),
     };
+    let mut texture = renderer.create_texture_streaming(sdl2::pixels::PixelFormatEnum::RGB24, (160, 144)).unwrap();
 
     let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
     let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
@@ -87,7 +88,7 @@ fn real_main() -> i32 {
         'rx : loop {
             match sdl_rx.try_recv() {
                 Err(Disconnected) => break 'main,
-                Ok(_) => { if !refreshed { recalculate_screen(&mut renderer, &arc, scale); refreshed = true } },
+                Ok(_) => { if !refreshed { recalculate_screen(&mut renderer, &mut texture, &arc); refreshed = true } },
                 Err(Empty) => break 'rx,
             }
         }
@@ -137,20 +138,15 @@ fn sdl_to_keypad(key: sdl2::keyboard::Keycode) -> Option<rboy::KeypadKey> {
     }
 }
 
-fn recalculate_screen(screen: &mut sdl2::render::Renderer, arc: &Arc<RwLock<Vec<u8>>>, scale: u32) {
-    screen.set_draw_color(sdl2::pixels::Color::RGB(0xFF, 0xFF, 0xFF));
-    screen.clear();
+fn recalculate_screen(renderer: &mut sdl2::render::Renderer, texture: &mut sdl2::render::Texture, arc: &Arc<RwLock<Vec<u8>>>) {
+    use std::io::Write;
 
-    let data =  arc.read().unwrap().clone();
-    for y in 0..144 {
-        for x in 0..160 {
-            screen.set_draw_color(sdl2::pixels::Color::RGB(data[y*160*3 + x*3 + 0],
-                                                            data[y*160*3 + x*3 + 1],
-                                                            data[y*160*3 + x*3 + 2]));
-            screen.fill_rect(sdl2::rect::Rect::new(x as i32 * scale as i32, y as i32 * scale as i32, scale, scale).unwrap().unwrap());
-        }
-    }
-    screen.present();
+    texture.with_lock(None, |ref mut buffer, _pitch| {
+        buffer.write(&*arc.read().unwrap()).unwrap();
+    }).unwrap();
+
+    renderer.copy(&texture, None, None);
+    renderer.present();
 }
 
 enum GBEvent {
