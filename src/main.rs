@@ -14,6 +14,11 @@ use std::error::Error;
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
 
+#[derive(Default)]
+struct RenderOptions {
+    pub linear_interpolation: bool,
+}
+
 fn main() {
     let exit_status = real_main();
     if exit_status != EXITCODE_SUCCESS {
@@ -82,12 +87,14 @@ fn real_main() -> i32 {
 
     let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, cpu));
 
+    let mut renderoptions = Default::default();
+
     'main : loop {
         let mut refreshed = false;
         'rx : loop {
             match sdl_rx.try_recv() {
                 Err(Disconnected) => break 'main,
-                Ok(_) => { if !refreshed { recalculate_screen(&display, &mut texture, &arc); refreshed = true } },
+                Ok(_) => { if !refreshed { recalculate_screen(&display, &mut texture, &arc, &renderoptions); refreshed = true } },
                 Err(Empty) => break 'rx,
             }
         }
@@ -100,7 +107,7 @@ fn real_main() -> i32 {
                 Event::Closed
                     => break 'main,
                 Event::Resized(..)
-                    => { if !refreshed { recalculate_screen(&display, &mut texture, &arc); refreshed = true } },
+                    => { if !refreshed { recalculate_screen(&display, &mut texture, &arc, &renderoptions); refreshed = true } },
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Escape))
                     => break 'main,
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Key1))
@@ -111,6 +118,8 @@ fn real_main() -> i32 {
                     => { let _ = sdl_tx.send(GBEvent::SpeedUp); },
                 Event::KeyboardInput(Released, _, Some(VirtualKeyCode::LShift))
                     => { let _ = sdl_tx.send(GBEvent::SlowDown); },
+                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::T))
+                    => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
                 Event::KeyboardInput(Pressed, _, Some(glutinkey)) => {
                     match glutin_to_keypad(glutinkey) {
                         Some(key) =>  { let _ = sdl_tx.send(GBEvent::KeyDown(key)); },
@@ -149,8 +158,19 @@ fn glutin_to_keypad(key: glium::glutin::VirtualKeyCode) -> Option<rboy::KeypadKe
     }
 }
 
-fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade, texture: &mut glium::texture::texture2d::Texture2d, arc: &Arc<Mutex<Vec<u8>>>) {
+fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade,
+                      texture: &mut glium::texture::texture2d::Texture2d,
+                      arc: &Arc<Mutex<Vec<u8>>>,
+                      renderoptions: &RenderOptions)
+{
     use glium::Surface;
+
+    let interpolation_type = if renderoptions.linear_interpolation {
+        glium::uniforms::MagnifySamplerFilter::Linear
+    }
+    else {
+        glium::uniforms::MagnifySamplerFilter::Nearest
+    };
 
     {
         // Scope to release the Mutex as soon as possible
@@ -182,7 +202,7 @@ fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade, te
             width: target_w as i32,
             height: -(target_h as i32)
         },
-        glium::uniforms::MagnifySamplerFilter::Nearest);
+        interpolation_type);
     target.finish().unwrap();
 }
 
