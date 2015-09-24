@@ -85,7 +85,7 @@ fn real_main() -> i32 {
     let arc = Arc::new(Mutex::new(rawscreen));
     let arc2 = arc.clone();
 
-    let cpuloop_thread = std::thread::spawn(move|| cpuloop(&cpu_tx, &cpu_rx, arc2, cpu));
+    let cpuloop_thread = std::thread::spawn(move|| cpuloop(cpu_tx, cpu_rx, arc2, cpu));
 
     let mut renderoptions = Default::default();
 
@@ -232,7 +232,7 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     Some(c)
 }
 
-fn cpuloop(cpu_tx: &Sender<()>, cpu_rx: &Receiver<GBEvent>, arc: Arc<Mutex<Vec<u8>>>, cpu: Device) {
+fn cpuloop(cpu_tx: Sender<()>, cpu_rx: Receiver<GBEvent>, arc: Arc<Mutex<Vec<u8>>>, cpu: Device) {
     let mut c = cpu;
     let periodic = timer_periodic(8);
     let mut limit_speed = true;
