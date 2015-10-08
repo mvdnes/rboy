@@ -274,14 +274,14 @@ impl<'a> MMU<'a> {
     }
 
     fn perform_hdma(&mut self) -> u32 {
-        if self.gpu.may_hdma() == false || self.hdma_len == 0xFF {
+        if self.gpu.may_hdma() == false {
             return 0;
         }
 
         self.perform_vramdma_row();
-        if self.hdma_len == 0xFF { self.hdma_status = DMAType::NoDMA; }
+        if self.hdma_len == 0x7F { self.hdma_status = DMAType::NoDMA; }
 
-        return 0x10 * 8;
+        return 8;
     }
 
     fn perform_gdma(&mut self) -> u32 {
@@ -291,7 +291,7 @@ impl<'a> MMU<'a> {
         }
 
         self.hdma_status = DMAType::NoDMA;
-        return len * 0x10 * 8;
+        return len * 8;
     }
 
     fn perform_vramdma_row(&mut self) {
@@ -301,6 +301,12 @@ impl<'a> MMU<'a> {
         }
         self.hdma_src += 0x10;
         self.hdma_dst += 0x10;
-        self.hdma_len.wrapping_sub(1);
+
+        if self.hdma_len == 0 {
+            self.hdma_len = 0x7F;
+        }
+        else {
+            self.hdma_len -= 1;
+        }
     }
 }
