@@ -1,4 +1,4 @@
-pub type SerialCallback<'a> = Box<FnMut(u8) -> u8 + Send + 'a>;
+pub type SerialCallback<'a> = Box<FnMut(u8) -> u8 + 'a>;
 
 fn noop(_: u8) -> u8 { 0 }
 

@@ -6,9 +6,7 @@ extern crate rboy;
 
 use glium::DisplayBuild;
 use rboy::device::Device;
-use std::sync::{Arc,Mutex};
-use std::sync::mpsc::{Sender,Receiver};
-use std::sync::mpsc::TryRecvError::{Disconnected,Empty};
+use std::sync::mpsc::Receiver;
 use std::error::Error;
 
 const EXITCODE_SUCCESS : i32 = 0;
@@ -79,25 +77,16 @@ fn real_main() -> i32 {
             rboy::SCREEN_H as u32)
         .unwrap();
 
-    let (sdl_tx, cpu_rx) = std::sync::mpsc::channel();
-    let (cpu_tx, sdl_rx) = std::sync::mpsc::channel();
-    let rawscreen = ::std::iter::repeat(0u8).take(rboy::SCREEN_W * rboy::SCREEN_H * 3).collect();
-    let arc = Arc::new(Mutex::new(rawscreen));
-    let arc2 = arc.clone();
+    let mut renderoptions = <RenderOptions as Default>::default();
 
-    let cpuloop_thread = std::thread::spawn(move|| cpuloop(cpu_tx, cpu_rx, arc2, cpu));
+    let mut c = cpu;
+    let periodic = timer_periodic(8);
+    let mut limit_speed = true;
 
-    let mut renderoptions = Default::default();
+    let waitticks = (4194304f64 / 1000.0 * 8.0) as u32;
+    let mut ticks = 0;
 
     'main : loop {
-        let mut refreshed = false;
-        'rx : loop {
-            match sdl_rx.try_recv() {
-                Err(Disconnected) => break 'main,
-                Ok(_) => { if !refreshed { recalculate_screen(&display, &mut texture, &arc, &renderoptions); refreshed = true } },
-                Err(Empty) => break 'rx,
-            }
-        }
         for ev in display.poll_events() {
             use glium::glutin::Event;
             use glium::glutin::ElementState::{Pressed, Released};
@@ -106,8 +95,6 @@ fn real_main() -> i32 {
             match ev {
                 Event::Closed
                     => break 'main,
-                Event::Resized(..)
-                    => { if !refreshed { recalculate_screen(&display, &mut texture, &arc, &renderoptions); refreshed = true } },
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Escape))
                     => break 'main,
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Key1))
@@ -115,30 +102,34 @@ fn real_main() -> i32 {
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::R))
                     => display.get_window().unwrap().set_inner_size(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale),
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::LShift))
-                    => { let _ = sdl_tx.send(GBEvent::SpeedUp); },
+                    => { limit_speed = false; },
                 Event::KeyboardInput(Released, _, Some(VirtualKeyCode::LShift))
-                    => { let _ = sdl_tx.send(GBEvent::SlowDown); },
+                    => { limit_speed = true; },
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::T))
                     => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
                 Event::KeyboardInput(Pressed, _, Some(glutinkey)) => {
-                    match glutin_to_keypad(glutinkey) {
-                        Some(key) =>  { let _ = sdl_tx.send(GBEvent::KeyDown(key)); },
-                        None => {},
+                    if let Some(key) = glutin_to_keypad(glutinkey) {
+                        c.keydown(key);
                     }
                 },
                 Event::KeyboardInput(Released, _, Some(glutinkey)) => {
-                    match glutin_to_keypad(glutinkey) {
-                        Some(key) => { let _ = sdl_tx.send(GBEvent::KeyUp(key)); },
-                        None => {},
+                    if let Some(key) = glutin_to_keypad(glutinkey) {
+                        c.keyup(key);
                     }
                 },
                 _ => (),
             }
         }
-    }
 
-    drop(sdl_tx); // Disconnect such that the cpuloop will exit
-    let _ = cpuloop_thread.join();
+        while ticks < waitticks {
+            ticks += c.do_cycle();
+            if c.check_and_reset_gpu_updated() {
+                recalculate_screen(&display, &mut texture, c.get_gpu_data(), &renderoptions);
+            }
+        }
+        ticks -= waitticks;
+        if limit_speed { let _ = periodic.recv(); }
+    }
 
     EXITCODE_SUCCESS
 }
@@ -160,7 +151,7 @@ fn glutin_to_keypad(key: glium::glutin::VirtualKeyCode) -> Option<rboy::KeypadKe
 
 fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade,
                       texture: &mut glium::texture::texture2d::Texture2d,
-                      arc: &Arc<Mutex<Vec<u8>>>,
+                      datavec: &[u8],
                       renderoptions: &RenderOptions)
 {
     use glium::Surface;
@@ -172,24 +163,20 @@ fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade,
         glium::uniforms::MagnifySamplerFilter::Nearest
     };
 
-    {
-        // Scope to release the Mutex as soon as possible
-        let datavec = arc.lock().unwrap();
-        let rawimage2d = glium::texture::RawImage2d {
-            data: std::borrow::Cow::Borrowed(&**datavec),
+    let rawimage2d = glium::texture::RawImage2d {
+        data: std::borrow::Cow::Borrowed(datavec),
+        width: rboy::SCREEN_W as u32,
+        height: rboy::SCREEN_H as u32,
+        format: glium::texture::ClientFormat::U8U8U8,
+    };
+    texture.write(
+        glium::Rect {
+            left: 0,
+            bottom: 0,
             width: rboy::SCREEN_W as u32,
-            height: rboy::SCREEN_H as u32,
-            format: glium::texture::ClientFormat::U8U8U8,
-        };
-        texture.write(
-            glium::Rect {
-                left: 0,
-                bottom: 0,
-                width: rboy::SCREEN_W as u32,
-                height: rboy::SCREEN_H as u32
-            },
-            rawimage2d);
-    }
+            height: rboy::SCREEN_H as u32
+        },
+        rawimage2d);
 
     // We use a custom BlitTarget to transform OpenGL coordinates to row-column coordinates
     let target = display.draw();
@@ -204,13 +191,6 @@ fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade,
         },
         interpolation_type);
     target.finish().unwrap();
-}
-
-enum GBEvent {
-    KeyUp(rboy::KeypadKey),
-    KeyDown(rboy::KeypadKey),
-    SpeedUp,
-    SlowDown,
 }
 
 fn warn(message: &'static str) {
@@ -230,42 +210,6 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     };
     c.set_stdout(output_serial);
     Some(c)
-}
-
-fn cpuloop(cpu_tx: Sender<()>, cpu_rx: Receiver<GBEvent>, arc: Arc<Mutex<Vec<u8>>>, cpu: Device) {
-    let mut c = cpu;
-    let periodic = timer_periodic(8);
-    let mut limit_speed = true;
-
-    let waitticks = (4194304f64 / 1000.0 * 8.0) as u32;
-
-    let mut ticks = 0;
-    'cpuloop: loop {
-        while ticks < waitticks {
-            ticks += c.do_cycle();
-            if c.check_and_reset_gpu_updated() {
-                let mut data = arc.lock().unwrap();
-                let gpudata = c.get_gpu_data();
-                for i in 0..data.len() { data[i] = gpudata[i]; }
-                if cpu_tx.send(()).is_err() { break 'cpuloop };
-            }
-        }
-        ticks -= waitticks;
-        if limit_speed { let _ = periodic.recv(); }
-
-        'rx : loop {
-            match cpu_rx.try_recv() {
-                Ok(event) => match event {
-                    GBEvent::KeyUp(key) => c.keyup(key),
-                    GBEvent::KeyDown(key) => c.keydown(key),
-                    GBEvent::SpeedUp => limit_speed = false,
-                    GBEvent::SlowDown => limit_speed = true,
-                },
-                Err(Empty) => break 'rx,
-                Err(Disconnected) => break 'cpuloop,
-            }
-        }
-    }
 }
 
 fn timer_periodic(ms: u32) -> Receiver<()> {
