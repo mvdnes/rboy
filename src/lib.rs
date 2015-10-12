@@ -1,8 +1,10 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-extern crate time;
+extern crate blip_buf;
+extern crate cpal;
 extern crate podio;
+extern crate time;
 
 pub use keypad::KeypadKey;
 pub use gpu::{SCREEN_W, SCREEN_H};

@@ -8,6 +8,8 @@ time = "0.1"
 podio = "0.1"
 glium = { version = "0.9", default_features = false, features = [ "glutin" ] }
 clap = { version = "1.4", default_features = false }
+blip_buf = "0.1"
+cpal = "0.2"
 
 [[bin]]
 name = "rboy"
