@@ -92,6 +92,7 @@ impl Sound {
 }
 
 fn get_channel() -> Option<cpal::Voice> {
+    if cpal::get_endpoints_list().count() == 0 { return None; }
     let endpoint = try_opt!(cpal::get_default_endpoint());
     let format = try_opt!(endpoint.get_supported_formats_list().ok().and_then(|mut v| v.next()));
     let channel = try_opt!(cpal::Voice::new(&endpoint, &format).ok());
