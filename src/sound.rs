@@ -14,6 +14,7 @@ macro_rules! try_opt {
 const WAVE_PATTERN : [[u8; 8]; 4] = [[0,0,0,0,1,0,0,0],[0,0,0,0,1,1,0,0],[0,0,1,1,1,1,0,0],[1,1,1,1,0,0,1,1]];
 
 pub struct Sound {
+    on: bool,
     waveram: [u8; 32],
     channel2_started: bool,
     channel2_duty: u8,
@@ -52,11 +53,11 @@ impl Sound {
             .map(|v| {
                 let mut bb = BlipBuf::new(v.format().samples_rate.0);
                 bb.set_rates((1 << 22) as f64, v.format().samples_rate.0 as f64);
-                println!("BB: {}", v.format().samples_rate.0);
                 bb
             });
 
         Sound {
+            on: false,
             waveram: [0; 32],
             channel2_started: false,
             channel2_duty: 0,
@@ -87,11 +88,18 @@ impl Sound {
 
    pub fn rb(&self, a: u16) -> u8 {
         match a {
+            0xFF16 => self.channel2_duty << 6,
+            0xFF17 => self.channel2_vol << 4 | if self.channel2_volup { 8 } else { 0 } | self.channel2_volsweep,
+            0xFF18 => 0,
+            0xFF19 => if self.channel2_started { 1 << 6 } else { 0 },
             0xFF1A => if self.channel3_on { 0x80 } else { 0 },
             0xFF1B => self.channel3_len,
             0xFF1C => self.channel3_vol << 5,
             0xFF1D => 0,
             0xFF1E => 0,
+            0xFF26 => (if self.on { 0x80 } else { 0 })
+                | (if self.channel2_started { 2 } else { 0 })
+                | (if self.channel3_started { 4 } else { 0 }),
             0xFF30 ... 0xFF3F => {
                 let wave_a = a as usize - 0xFF30;
                 self.waveram[wave_a * 2] << 4 | self.waveram[wave_a * 2 + 1]
@@ -101,6 +109,7 @@ impl Sound {
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
+        if a != 0xFF26 && !self.on { return; }
         match a {
             0xFF16 => {
                 self.channel2_duty = (v & 0xC) >> 6;
@@ -131,6 +140,7 @@ impl Sound {
                 self.channel3_wave_idx = 31;
                 self.channel3_freq_div = 0;
             }
+            0xFF26 => self.on = v & 0x80 == 0x80,
             0xFF30 ... 0xFF3F => {
                 let wave_a = a as usize - 0xFF30;
                 self.waveram[wave_a * 2] = v >> 4;
@@ -152,11 +162,24 @@ impl Sound {
 
     pub fn do_cycle(&mut self, cycles: u32)
     {
+        if !self.on { return; }
         self.time += cycles;
         self.hz256 += cycles;
 
         let trigger256 = if self.hz256 >= (1 << 22) / 256 {
             self.hz256 -= (1 << 22) / 256;
+
+            /*
+            let time = self.time;
+            let newblip = if self.blipval == 10000 {
+                -10000
+            }
+            else {
+                10000
+            };
+            self.blipval += newblip;
+            self.blip().add_delta(time, newblip);
+            */
             true
         }
         else {
@@ -238,9 +261,9 @@ impl Sound {
             self.blip().add_delta(time, newblip);
             self.blipval = 0;
         }*/
-        if self.time >= (1 << 17) && self.blip.is_some() {
-            self.blip().end_frame(1 << 17);
-            self.time -= 1 << 17;
+        if self.time >= (1 << 16) && self.blip.is_some() {
+            self.blip().end_frame(1 << 16);
+            self.time -= 1 << 16;
             self.play_blipbuf();
         }
     }
@@ -280,8 +303,8 @@ impl Sound {
                         }
                     }
                 }
-                self.channel().play();
             }
+            self.channel().play();
         }
     }
 }
