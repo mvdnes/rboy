@@ -25,6 +25,7 @@ pub struct Sound {
     blip: Option<BlipBuf>,
     bliptime: u32,
     blipval: i32,
+    hz256: u32,
 }
 
 impl Sound {
@@ -37,7 +38,7 @@ impl Sound {
         let blipbuf = voice.as_ref()
             .map(|v| {
                 let mut bb = BlipBuf::new(v.format().samples_rate.0 / 10);
-                bb.set_rates(0x400000 as f64, v.format().samples_rate.0 as f64);
+                bb.set_rates((1 << 22) as f64, v.format().samples_rate.0 as f64);
                 bb
             });
 
@@ -55,6 +56,7 @@ impl Sound {
             blip: blipbuf,
             bliptime: 0,
             blipval: 0,
+            hz256: 0,
         }
     }
 
@@ -72,25 +74,29 @@ impl Sound {
 
     pub fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF1A => self.channel3_on = v & 0x80 == 0x80,
+            0xFF1A => if v & 0x80 == 0x80 { self.channel3_on = true; } else { self.channel3_started = false; },
             0xFF1B => self.channel3_len = v,
-            0xFF1C => self.channel3_vol = (v >> 5) & 0x3,
+            0xFF1C => self.channel3_vol = (v & 0x60) >> 5,
             0xFF1D => self.channel3_freq = self.channel3_freq & 0xFF00 | v as u32,
             0xFF1E => {
                 self.channel3_freq = self.channel3_freq & 0x00FF | (((v & 0x7) as u32) << 8);
                 self.channel3_started = v & 0x80 == 0x80;
                 self.channel3_uselen = v & 0x40 == 0x40;
-                self.channel3_wave_idx = 0;
+                self.channel3_wave_idx = 31;
+                self.channel3_freq_div = 0;
+                self.hz256 = 0;
             }
             0xFF30 ... 0xFF3F => self.waveram[a as usize - 0xFF30] = v,
             _ => (),
         }
     }
 
+    #[inline]
     fn blip(&mut self) -> &mut BlipBuf {
         self.blip.as_mut().unwrap()
     }
 
+    #[inline]
     fn channel(&mut self) -> &mut cpal::Voice {
         self.voice.as_mut().unwrap()
     }
@@ -98,26 +104,48 @@ impl Sound {
     pub fn do_cycle(&mut self, cycles: u32)
     {
         self.bliptime += cycles;
+        self.hz256 += cycles;
+        let trigger256 = if self.hz256 >= (1 << 22) / 256 {
+            self.hz256 -= (1 << 22) / 256;
+            true
+        }
+        else {
+            false
+        };
         if self.channel3_started && self.channel3_on {
+            //let rfreq = ((2048 - (self.channel3_freq as u32)) << 5);
             let rfreq = 64 * (2048 - (self.channel3_freq as u32));
             self.channel3_freq_div += cycles;
-            while self.channel3_freq_div > rfreq {
+            if self.channel3_uselen && trigger256 {
+                self.channel3_len = self.channel3_len.wrapping_sub(1);
+                if self.channel3_len == 0 {
+                    self.channel3_started = false;
+                }
+            }
+            if self.channel3_freq_div > rfreq {
                 self.channel3_freq_div -= rfreq;
                 self.channel3_wave_idx = (self.channel3_wave_idx + 1) % 32;
-                if self.channel3_uselen {
-                    self.channel3_len = self.channel3_len.wrapping_sub(1);
-                    if self.channel3_len == 0 {
-                        self.channel3_started = false;
+                let sample = {
+                    let ramitem = self.waveram[self.channel3_wave_idx / 2];
+                    let shifted = if self.channel3_wave_idx % 2 == 0 {
+                        ramitem >> 4
                     }
-                }
-                let sample = ((self.waveram[self.channel3_wave_idx / 2]
-                    >> (if self.channel3_wave_idx % 1 == 0 { 4 } else { 0 }))
-                    & 0x0F) as i32;
-                let newblip = sample * 1000 - self.blipval;
+                    else {
+                        ramitem & 0x0F
+                    };
+                    shifted as i8
+                };
+                let volmul = match self.channel3_vol {
+                    1 => 1.0,
+                    2 => 0.5,
+                    3 => 0.25,
+                    _ => 0.0,
+                };
+                let newblip = ((sample as f64 / 7.5 - 1.0) * volmul * 5000.0) as i32 - self.blipval;
                 let time = self.bliptime;
                 if self.blip.is_some() {
                     self.blip().add_delta(time, newblip);
-                    self.blipval = sample;
+                    self.blipval += newblip;
                 }
             }
         }
@@ -127,9 +155,9 @@ impl Sound {
             self.blip().add_delta(time, newblip);
             self.blipval = 0;
         }
-        if self.bliptime > (1 << 16) && self.blip.is_some() {
-            self.blip().end_frame(1 << 16);
-            self.bliptime -= 1 << 16;
+        if self.bliptime >= (1 << 18) && self.blip.is_some() {
+            self.blip().end_frame(1 << 18);
+            self.bliptime -= 1 << 18;
             self.play_blipbuf();
         }
     }
@@ -138,9 +166,9 @@ impl Sound {
         let channels_len = self.channel().format().channels.len();
 
         while self.blip().samples_avail() > 0 {
-            let buf = &mut [0; 1024];
+            let buf = &mut [0; 1 << 13];
             let count = self.blip().read_samples(buf, false);
-            let blipbuf = &buf[0..count];
+            let blipbuf = &buf[..count];
             let mut done = 0;
             let mut lastdone = count;
 
