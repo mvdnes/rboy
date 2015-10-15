@@ -1,7 +1,7 @@
 use mbc::{MBC, ram_size};
 use std::path;
 use std::io::prelude::*;
-use std::fs;
+use std::{io, fs};
 use podio::{BigEndian, ReadPodExt, WritePodExt};
 use time;
 
@@ -53,7 +53,8 @@ impl MBC3 {
             Some(ref savepath) => {
                 let mut file = match fs::File::open(savepath) {
                     Ok(f) => f,
-                    Err(..) => return Ok(()),
+                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
+                    Err(..) => return Err("Could not read existing save file"),
                 };
                 let rtc = try!(file.read_i64::<BigEndian>().map_err(|_| "Could not read RTC"));
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
@@ -124,8 +125,9 @@ impl Drop for MBC3 {
 
 impl MBC for MBC3 {
     fn readrom(&self, a: u16) -> u8 {
-        if a < 0x4000 { self.rom[a as usize] }
-        else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
+        let idx = if a < 0x4000 { a as usize }
+        else { self.rombank * 0x4000 | ((a as usize) & 0x3FFF) };
+        *self.rom.get(idx).unwrap_or(&0)
     }
     fn readram(&self, a: u16) -> u8 {
         if !self.ram_on { return 0 }

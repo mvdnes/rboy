@@ -1,6 +1,6 @@
 use std::io::prelude::*;
 use mbc::{MBC, ram_size};
-use std::{path, fs};
+use std::{path, fs, io};
 
 pub struct MBC1 {
     rom: Vec<u8>,
@@ -39,6 +39,7 @@ impl MBC1 {
                 let mut data = vec![];
                 match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
                 {
+                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
                     Err(_) => Err("Could not open save file"),
                     Ok(..) => { self.ram = data; Ok(()) },
                 }
@@ -61,8 +62,9 @@ impl Drop for MBC1 {
 
 impl MBC for MBC1 {
     fn readrom(&self, a: u16) -> u8 {
-        if a < 0x4000 { self.rom[a as usize] }
-        else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
+        let idx = if a < 0x4000 { a as usize }
+        else { self.rombank * 0x4000 | ((a as usize) & 0x3FFF) };
+        *self.rom.get(idx).unwrap_or(&0)
     }
     fn readram(&self, a: u16) -> u8 {
         if !self.ram_on { return 0 }

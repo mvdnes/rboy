@@ -1,6 +1,6 @@
 use std::fs::File;
 use mbc::{MBC, ram_size};
-use std::path;
+use std::{io, path};
 use std::io::prelude::*;
 
 pub struct MBC5 {
@@ -41,6 +41,7 @@ impl MBC5 {
             Some(ref savepath) => {
                 let mut data = vec![];
                 match File::open(&savepath).and_then(|mut f| f.read_to_end(&mut data)) {
+                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
                     Err(_) => Err("Could not read RAM"),
                     Ok(..) => { self.ram = data; Ok(()) },
                 }
@@ -63,8 +64,9 @@ impl Drop for MBC5 {
 
 impl MBC for MBC5 {
     fn readrom(&self, a: u16) -> u8 {
-        if a < 0x4000 { self.rom[a as usize] }
-        else { self.rom[self.rombank * 0x4000 | ((a as usize) & 0x3FFF)] }
+        let idx = if a < 0x4000 { a as usize }
+        else { self.rombank * 0x4000 | ((a as usize) & 0x3FFF) };
+        *self.rom.get(idx).unwrap_or(&0)
     }
     fn readram(&self, a: u16) -> u8 {
         if !self.ram_on { return 0 }
