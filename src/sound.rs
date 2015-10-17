@@ -13,139 +13,165 @@ macro_rules! try_opt {
 
 const WAVE_PATTERN : [[u8; 8]; 4] = [[0,0,0,0,1,0,0,0],[0,0,0,0,1,1,0,0],[0,0,1,1,1,1,0,0],[1,1,1,1,0,0,1,1]];
 
-pub struct Sound {
-    on: bool,
-    waveram: [u8; 32],
-    channel2_started: bool,
-    channel2_duty: u8,
-    channel2_duty_cnt: u8,
-    channel2_len: u8,
-    channel2_freq: u32,
-    channel2_freq_div: u32,
-    channel2_uselen: bool,
-    channel2_vol: u8,
-    channel2_volup: bool,
-    channel2_volsweep: u8,
-    channel2_volcnt: u8,
-    channel3_on: bool,
-    channel3_len: u8,
-    channel3_vol: u8,
-    channel3_freq: u32,
-    channel3_freq_div: u32,
-    channel3_uselen: bool,
-    channel3_started: bool,
-    channel3_wave_idx: usize,
-    voice: Option<cpal::Voice>,
-    blip: Option<BlipBuf>,
-    time: u32,
-    blipval: i32,
-    hz256: u32,
+struct VolumeEnvelope {
+    period : u32,
+    goes_up : bool,
+    delay : u32,
+    initial_volume : u32,
+    volume : u32,
 }
 
-impl Sound {
-    pub fn new() -> Sound {
-        let voice = get_channel();
-        if voice.is_none() {
-            println!("Could not open audio device");
-        }
-
-        let blipbuf = voice.as_ref()
-            .map(|v| {
-                let mut bb = BlipBuf::new(v.format().samples_rate.0);
-                bb.set_rates((1 << 22) as f64, v.format().samples_rate.0 as f64);
-                bb
-            });
-
-        Sound {
-            on: false,
-            waveram: [0; 32],
-            channel2_started: false,
-            channel2_duty: 0,
-            channel2_duty_cnt: 0,
-            channel2_len: 0,
-            channel2_freq: 0,
-            channel2_freq_div: 0,
-            channel2_uselen: false,
-            channel2_vol: 0,
-            channel2_volup: false,
-            channel2_volsweep: 0,
-            channel2_volcnt: 0,
-            channel3_on: false,
-            channel3_len: 0,
-            channel3_vol: 0,
-            channel3_freq: 0,
-            channel3_uselen: false,
-            channel3_started: false,
-            channel3_freq_div: 0,
-            channel3_wave_idx: 0,
-            voice: voice,
-            blip: blipbuf,
-            time: 0,
-            blipval: 0,
-            hz256: 0,
+impl VolumeEnvelope {
+    fn new() -> VolumeEnvelope {
+        VolumeEnvelope {
+            period: 0,
+            goes_up: false,
+            delay: 0,
+            initial_volume: 0,
+            volume: 0,
         }
     }
 
-   pub fn rb(&self, a: u16) -> u8 {
+    fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF16 => self.channel2_duty << 6,
-            0xFF17 => self.channel2_vol << 4 | if self.channel2_volup { 8 } else { 0 } | self.channel2_volsweep,
-            0xFF18 => 0,
-            0xFF19 => if self.channel2_started { 1 << 6 } else { 0 },
-            0xFF1A => if self.channel3_on { 0x80 } else { 0 },
-            0xFF1B => self.channel3_len,
-            0xFF1C => self.channel3_vol << 5,
-            0xFF1D => 0,
-            0xFF1E => 0,
-            0xFF26 => (if self.on { 0x80 } else { 0 })
-                | (if self.channel2_started { 2 } else { 0 })
-                | (if self.channel3_started { 4 } else { 0 }),
-            0xFF30 ... 0xFF3F => {
-                let wave_a = a as usize - 0xFF30;
-                self.waveram[wave_a * 2] << 4 | self.waveram[wave_a * 2 + 1]
+            0xFF12 | 0xFF17 | 0xFF21 => {
+                self.period = v & 0x7;
+                self.goes_up = v & 0x8 == 0x8;
+                self.initial_volume = v >> 4;
+                self.volume = self.initial_volume;
             },
+            0xFF14 | 0xFF19 | 0xFF23 if v & 0x80 == 0x80 => {
+                self.delay = self.period;
+                self.volume = self.initial_volume;
+                // enabled = true
+            },
+        }
+    }
+
+    fn step(&mut self) {
+        if self.delay > 1 {
+            self.delay -= 1;
+        }
+        else if self.delay == 1 {
+            self.delay = self.period;
+            if self.goes_up && self.volume < 15 {
+                self.volume += 1;
+            }
+            else if !self.goes_up && self.volume > 0 {
+                self.volume -= 1;
+            }
+        }
+    }
+}
+
+struct SquareChannel {
+    enabled : bool,
+    duty : u8,
+    phase : u8,
+    length: u8,
+    length_enabled : bool,
+    has_sweep : bool,
+    frequency: u32,
+    period: u32,
+    last_amp: i32,
+    delay: u32,
+    volume_envelope: VolumeEnvelope,
+    blip: BlipBuf,
+}
+
+impl SquareChannel {
+    fn new(with_sweep: bool, blip: BlipBuf) -> SquareChannel {
+        SquareChannel {
+            enabled: false,
+            duty: 0,
+            phase: 0,
+            length: 0,
+            length_enabled: false,
+            has_sweep: with_sweep,
+            frequency: 0,
+            period: 0,
+            last_amp: 0,
+            delay: 0,
+            volume_envelope: VolumeEnvelope::new(),
+            blip: blip,
+        }
+    }
+
+    fn run(&mut self) {
+    }
+}
+
+pub struct Sound {
+    on: bool,
+    registerdata: [u8; 0x17],
+    time: u32,
+    voice: cpal::Voice,
+}
+
+impl Sound {
+    pub fn new() -> Option<Sound> {
+        let voice = match get_channel() {
+            Some(v) => v,
+            None => {
+                println!("Could not open audio device");
+                return None;
+            },
+        };
+
+        Sound {
+            on: false,
+            registerdata: [0, 0x17],
+            time: 0,
+            voice: voice,
+        }
+    }
+
+    fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
+        let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0);
+        blipbuf.set_rates((1 << 22) as f64, voice.format().samples_rate.0 as f64);
+        blipbuf
+    }
+
+    pub fn rb(&self, a: u16) -> u8 {
+        // run
+        match a {
+            // 0xFF16 => self.channel2_duty << 6,
+            // 0xFF17 => self.channel2_vol << 4 | if self.channel2_volup { 8 } else { 0 } | self.channel2_volsweep,
+            // 0xFF18 => 0,
+            // 0xFF19 => if self.channel2_started { 1 << 6 } else { 0 },
+            // 0xFF1A => if self.channel3_on { 0x80 } else { 0 },
+            // 0xFF1B => self.channel3_len,
+            // 0xFF1C => self.channel3_vol << 5,
+            // 0xFF1D => 0,
+            // 0xFF1E => 0,
+            // 0xFF26 => (if self.on { 0x80 } else { 0 })
+            //     | (if self.channel2_started { 2 } else { 0 })
+            //     | (if self.channel3_started { 4 } else { 0 }),
+            // 0xFF30 ... 0xFF3F => {
+            //     let wave_a = a as usize - 0xFF30;
+            //     self.waveram[wave_a * 2] << 4 | self.waveram[wave_a * 2 + 1]
+            // },
+            0xFF10 ... 0xFF25 => self.registerdata[a - 0xFF10],
+            0xFF26 => {
+                self.registerdata[a - 0xFF10] & 0xF0
+                // add information about other channels
+            }
+            //0xFF30 ... 0xFF3F =>
             _ => 0,
         }
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
         if a != 0xFF26 && !self.on { return; }
+        // run
         match a {
-            0xFF16 => {
-                self.channel2_duty = (v & 0xC) >> 6;
-                self.channel2_len = v & 0x3F;
-            },
-            0xFF17 => {
-                self.channel2_volcnt = 0;
-                self.channel2_vol = (v & 0xF0) >> 4;
-                self.channel2_volup = v & 0x8 == 0x8;
-                self.channel2_volsweep = v & 0x7;
-            },
-            0xFF18 => self.channel2_freq = self.channel3_freq & 0xFF00 | v as u32,
-            0xFF19 => {
-                self.channel2_freq = self.channel2_freq & 0x00FF | (((v & 0x7) as u32) << 8);
-                self.channel2_started = v & 0x80 == 0x80;
-                self.channel2_uselen = v & 0x40 == 0x40;
-                self.channel2_freq_div = 0;
-                self.channel2_duty_cnt = 7;
-            },
-            0xFF1A => if v & 0x80 == 0x80 { self.channel3_on = true; } else { self.channel3_started = false; },
-            0xFF1B => self.channel3_len = v,
-            0xFF1C => self.channel3_vol = (v & 0x60) >> 5,
-            0xFF1D => self.channel3_freq = self.channel3_freq & 0xFF00 | v as u32,
-            0xFF1E => {
-                self.channel3_freq = self.channel3_freq & 0x00FF | (((v & 0x7) as u32) << 8);
-                self.channel3_started = v & 0x80 == 0x80;
-                self.channel3_uselen = v & 0x40 == 0x40;
-                self.channel3_wave_idx = 31;
-                self.channel3_freq_div = 0;
-            }
+            0xFF10 ... 0xFF25 => self.registerdata[a - 0xFF10],
             0xFF26 => self.on = v & 0x80 == 0x80,
-            0xFF30 ... 0xFF3F => {
-                let wave_a = a as usize - 0xFF30;
-                self.waveram[wave_a * 2] = v >> 4;
-                self.waveram[wave_a * 2 + 1] = v & 0xF;
-            },
+            // 0xFF30 ... 0xFF3F => {
+            //     let wave_a = a as usize - 0xFF30;
+            //     self.waveram[wave_a * 2] = v >> 4;
+            //     self.waveram[wave_a * 2 + 1] = v & 0xF;
+            // },
             _ => (),
         }
     }

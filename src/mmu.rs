@@ -26,7 +26,7 @@ pub struct MMU<'a> {
     pub timer: Timer,
     pub keypad: Keypad,
     pub gpu: GPU,
-    pub sound: Sound,
+    pub sound: Option<Sound>,
     hdma_status: DMAType,
     hdma_src: u16,
     hdma_dst: u16,
@@ -148,7 +148,7 @@ impl<'a> MMU<'a> {
         self.intf |= self.gpu.interrupt;
         self.gpu.interrupt = 0;
 
-        self.sound.do_cycle(gputicks);
+        self.sound.as_mut().map_or(|s| s.do_cycle(gputicks), ());
 
         return gputicks;
     }
@@ -165,7 +165,7 @@ impl<'a> MMU<'a> {
             0xFF01 ... 0xFF02 => self.serial.rb(address),
             0xFF04 ... 0xFF07 => self.timer.rb(address),
             0xFF0F => self.intf,
-            0xFF10 ... 0xFF3F => self.sound.rb(address),
+            0xFF10 ... 0xFF3F => self.sound.as_ref().map_or(|s| s.rb(address)),
             0xFF4D => (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
             0xFF40 ... 0xFF4F => self.gpu.rb(address),
             0xFF51 ... 0xFF55 => self.hdma_read(address),
@@ -192,7 +192,7 @@ impl<'a> MMU<'a> {
             0xFF00 => self.keypad.wb(value),
             0xFF01 ... 0xFF02 => self.serial.wb(address, value),
             0xFF04 ... 0xFF07 => self.timer.wb(address, value),
-            0xFF10 ... 0xFF3F => self.sound.wb(address, value),
+            0xFF10 ... 0xFF3F => self.sound.as_mut().map_or(|s| s.wb(address, value), ()),
             0xFF46 => self.oamdma(value),
             0xFF4D => if value & 0x1 == 0x1 { self.speed_switch_req = true; },
             0xFF40 ... 0xFF4F => self.gpu.wb(address, value),
