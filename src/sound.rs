@@ -11,14 +11,16 @@ macro_rules! try_opt {
      }
 }
 
-const WAVE_PATTERN : [[u8; 8]; 4] = [[0,0,0,0,1,0,0,0],[0,0,0,0,1,1,0,0],[0,0,1,1,1,1,0,0],[1,1,1,1,0,0,1,1]];
+const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
+const CLOCKS_PER_SECOND : u32 = 1 << 22;
+const CLOCKS_PER_PLAY : u32 = 1 << 17;
 
 struct VolumeEnvelope {
-    period : u32,
+    period : u8,
     goes_up : bool,
-    delay : u32,
-    initial_volume : u32,
-    volume : u32,
+    delay : u8,
+    initial_volume : u8,
+    volume : u8,
 }
 
 impl VolumeEnvelope {
@@ -45,6 +47,7 @@ impl VolumeEnvelope {
                 self.volume = self.initial_volume;
                 // enabled = true
             },
+            _ => (),
         }
     }
 
@@ -70,34 +73,149 @@ struct SquareChannel {
     phase : u8,
     length: u8,
     length_enabled : bool,
-    has_sweep : bool,
-    frequency: u32,
+    frequency: u16,
     period: u32,
     last_amp: i32,
     delay: u32,
+    has_sweep : bool,
+    sweep_frequency: u16,
+    sweep_delay: u8,
+    sweep_period: u8,
+    sweep_shift: u8,
+    sweep_by_adding: bool,
     volume_envelope: VolumeEnvelope,
     blip: BlipBuf,
 }
 
 impl SquareChannel {
-    fn new(with_sweep: bool, blip: BlipBuf) -> SquareChannel {
+    fn new(blip: BlipBuf, with_sweep: bool) -> SquareChannel {
         SquareChannel {
             enabled: false,
-            duty: 0,
-            phase: 0,
+            duty: 1,
+            phase: 1,
             length: 0,
             length_enabled: false,
-            has_sweep: with_sweep,
             frequency: 0,
             period: 0,
             last_amp: 0,
             delay: 0,
+            has_sweep: with_sweep,
+            sweep_frequency: 0,
+            sweep_delay: 0,
+            sweep_period: 0,
+            sweep_shift: 0,
+            sweep_by_adding: false,
             volume_envelope: VolumeEnvelope::new(),
             blip: blip,
         }
     }
 
-    fn run(&mut self) {
+    fn on(&self) -> bool {
+        self.enabled && (!self.length_enabled || self.length < 64)
+    }
+
+    fn wb(&mut self, a: u16, v: u8) {
+        match a {
+            0xFF10 if self.has_sweep => {
+                self.sweep_period = (v >> 4) & 0x7;
+                self.sweep_shift = v & 0x7;
+                self.sweep_by_adding = v & 0x8 == 0x8;
+            },
+            0xFF11 | 0xFF16 => {
+                self.duty = v >> 6;
+                self.length = v & 0b0011_1111;
+            },
+            0xFF13 | 0xFF18 => {
+                self.frequency = (self.frequency & 0xFF00) | (v as u16);
+                self.calculate_period();
+            },
+            0xFF14 | 0xFF19 => {
+                self.frequency = (self.frequency & 0x00FF) | (((v & 0b0000_0111) as u16) << 8);
+                self.calculate_period();
+                self.length_enabled = v & 0x40 == 0x40;
+                self.enabled = v & 0x80 == 0x80;
+                self.delay = 0;
+
+                self.sweep_frequency = self.frequency;
+			    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
+				    self.sweep_delay = 1;
+				    self.step_sweep();
+			    }
+            },
+            _ => (),
+        }
+        self.volume_envelope.wb(a, v);
+    }
+
+    fn calculate_period(&mut self) {
+        if self.frequency > 2048 { self.period = 0; }
+        else { self.period = (2048 - self.frequency as u32) * 4; }
+    }
+
+    // This assumes no volume or sweep adjustments need to be done in the meantime
+    fn run(&mut self, start_time: u32, end_time: u32) {
+        if !self.enabled || (self.length == 64 && self.length_enabled) || self.period == 0 {
+            if self.last_amp != 0 {
+                self.blip.add_delta(start_time, -self.last_amp);
+                self.last_amp = 0;
+                self.delay = 0;
+            }
+        }
+        else {
+            let mut time = start_time + self.delay;
+            let pattern = WAVE_PATTERN[self.duty as usize];
+            let vol = self.volume_envelope.volume;
+            while time <= end_time {
+                let amp = vol as i32 * pattern[self.phase as usize];
+                if amp != self.last_amp {
+                    self.blip.add_delta(time, amp - self.last_amp);
+                    self.last_amp = amp;
+                }
+                time += self.period;
+                self.phase = (self.phase + 1) % 8;
+            }
+
+            // next time, we have to wait an additional delay timesteps
+            self.delay = time - end_time;
+        }
+    }
+
+    fn step_length(&mut self) {
+        if self.length_enabled && self.length < 64 {
+            self.length += 1;
+        }
+    }
+
+    fn step_sweep(&mut self) {
+        if !self.has_sweep || self.sweep_period == 0 { return; }
+
+        if self.sweep_delay > 1 {
+            self.sweep_delay -= 1;
+        }
+        else {
+            self.sweep_delay = self.sweep_period;
+            self.frequency = self.sweep_frequency;
+            self.calculate_period();
+
+            let offset = self.sweep_frequency >> self.sweep_shift;
+            if self.sweep_by_adding {
+                if self.sweep_frequency >= 2048 - offset {
+                    self.sweep_delay = 0;
+                    self.sweep_frequency = 2048;
+                }
+                else {
+                    self.sweep_frequency += offset;
+                }
+            }
+            else {
+                if self.sweep_frequency <= offset {
+                    self.sweep_frequency = 0;
+                }
+                else {
+                    self.sweep_frequency -= offset;
+                }
+            }
+        }
     }
 }
 
@@ -105,11 +223,20 @@ pub struct Sound {
     on: bool,
     registerdata: [u8; 0x17],
     time: u32,
+    prev_time: u32,
+    next_time: u32,
+    time_divider: u8,
+    channel1: SquareChannel,
+    channel2: SquareChannel,
+    volume_left: u8,
+    volume_right: u8,
     voice: cpal::Voice,
 }
 
 impl Sound {
     pub fn new() -> Option<Sound> {
+        debug_assert!(CLOCKS_PER_SECOND % 256 == 0);
+        debug_assert!(CLOCKS_PER_PLAY % (CLOCKS_PER_SECOND / 256) == 0);
         let voice = match get_channel() {
             Some(v) => v,
             None => {
@@ -118,54 +245,51 @@ impl Sound {
             },
         };
 
-        Sound {
+        let blipbuf1 = create_blipbuf(&voice);
+        let blipbuf2 = create_blipbuf(&voice);
+
+        Some(Sound {
             on: false,
-            registerdata: [0, 0x17],
+            registerdata: [0; 0x17],
             time: 0,
+            prev_time: 0,
+            next_time: CLOCKS_PER_SECOND / 256,
+            time_divider: 0,
+            channel1: SquareChannel::new(blipbuf1, true),
+            channel2: SquareChannel::new(blipbuf2, false),
+            volume_left: 7,
+            volume_right: 7,
             voice: voice,
-        }
+        })
     }
 
-    fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
-        let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0);
-        blipbuf.set_rates((1 << 22) as f64, voice.format().samples_rate.0 as f64);
-        blipbuf
-    }
-
-    pub fn rb(&self, a: u16) -> u8 {
-        // run
+   pub fn rb(&mut self, a: u16) -> u8 {
+        self.run();
         match a {
-            // 0xFF16 => self.channel2_duty << 6,
-            // 0xFF17 => self.channel2_vol << 4 | if self.channel2_volup { 8 } else { 0 } | self.channel2_volsweep,
-            // 0xFF18 => 0,
-            // 0xFF19 => if self.channel2_started { 1 << 6 } else { 0 },
-            // 0xFF1A => if self.channel3_on { 0x80 } else { 0 },
-            // 0xFF1B => self.channel3_len,
-            // 0xFF1C => self.channel3_vol << 5,
-            // 0xFF1D => 0,
-            // 0xFF1E => 0,
-            // 0xFF26 => (if self.on { 0x80 } else { 0 })
-            //     | (if self.channel2_started { 2 } else { 0 })
-            //     | (if self.channel3_started { 4 } else { 0 }),
-            // 0xFF30 ... 0xFF3F => {
-            //     let wave_a = a as usize - 0xFF30;
-            //     self.waveram[wave_a * 2] << 4 | self.waveram[wave_a * 2 + 1]
-            // },
-            0xFF10 ... 0xFF25 => self.registerdata[a - 0xFF10],
+            0xFF10 ... 0xFF25 => self.registerdata[a as usize - 0xFF10],
             0xFF26 => {
-                self.registerdata[a - 0xFF10] & 0xF0
-                // add information about other channels
+                self.registerdata[a as usize - 0xFF10] & 0xF0
+                    | (if self.channel1.on() { 1 } else { 0 })
+                    | (if self.channel2.on() { 2 } else { 0 })
             }
-            //0xFF30 ... 0xFF3F =>
+
             _ => 0,
         }
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
         if a != 0xFF26 && !self.on { return; }
-        // run
+        self.run();
+        if a >= 0xFF10 && a <= 0xFF26 {
+            self.registerdata[a as usize - 0xFF10] = v;
+        }
         match a {
-            0xFF10 ... 0xFF25 => self.registerdata[a - 0xFF10],
+            0xFF10 ... 0xFF14 => self.channel1.wb(a, v),
+            0xFF16 ... 0xFF19 => self.channel2.wb(a, v),
+            0xFF24 => {
+                self.volume_left = v & 0x7;
+                self.volume_right = (v >> 4) & 0x7;
+            }
             0xFF26 => self.on = v & 0x80 == 0x80,
             // 0xFF30 ... 0xFF3F => {
             //     let wave_a = a as usize - 0xFF30;
@@ -176,162 +300,152 @@ impl Sound {
         }
     }
 
-    #[inline]
-    fn blip(&mut self) -> &mut BlipBuf {
-        self.blip.as_mut().unwrap()
-    }
-
-    #[inline]
-    fn channel(&mut self) -> &mut cpal::Voice {
-        self.voice.as_mut().unwrap()
-    }
-
     pub fn do_cycle(&mut self, cycles: u32)
     {
         if !self.on { return; }
+
         self.time += cycles;
-        self.hz256 += cycles;
 
-        let trigger256 = if self.hz256 >= (1 << 22) / 256 {
-            self.hz256 -= (1 << 22) / 256;
-
-            /*
-            let time = self.time;
-            let newblip = if self.blipval == 10000 {
-                -10000
-            }
-            else {
-                10000
-            };
-            self.blipval += newblip;
-            self.blip().add_delta(time, newblip);
-            */
-            true
-        }
-        else {
-            false
-        };
-
-        if self.channel2_started {
-            let rfreq = 32 * (2048 - self.channel2_freq);
-            self.channel2_freq_div += cycles;
-            if self.channel2_uselen && trigger256 {
-                if self.channel2_len == 0 {
-                    self.channel2_len = 63;
-                }
-                else {
-                    self.channel2_len -= 1;
-                }
-                if self.channel2_len == 0 {
-                    self.channel2_started = false;
-                }
-            }
-
-            if self.channel2_freq_div >= rfreq {
-                self.channel2_freq_div -= rfreq;
-                self.channel2_duty_cnt = (self.channel2_duty_cnt + 1) % 8;
-
-                self.channel2_volcnt = (self.channel2_volcnt + 1) % 8;
-                if self.channel2_volcnt == 0 && self.channel2_volsweep != 0 {
-                    self.channel2_volsweep -= 1;
-                    if self.channel2_volup && self.channel2_vol != 0xF {
-                        self.channel2_vol += 1;
-                    }
-                    else if self.channel2_vol != 0 {
-                        self.channel2_vol -= 1;
-                    }
-                }
-
-                let sample = WAVE_PATTERN[self.channel2_duty as usize][self.channel2_duty_cnt as usize];
-
-                if self.blip.is_some() {
-                    let newblip = (sample as f64 * self.channel2_vol as f64 * (1.0/15.0) * 10000.0).round() as i32 - self.blipval;
-                    let time = self.time;
-                    self.blip().add_delta(time, newblip);
-                    self.blipval += newblip;
-                }
-            }
-        }
-
-        /*
-        if self.channel3_started && self.channel3_on {
-            let rfreq = 32 * (2048 - (self.channel3_freq as u32));
-            self.channel3_freq_div += cycles;
-            if self.channel3_uselen && trigger256 {
-                self.channel3_len = self.channel3_len.wrapping_sub(1);
-                if self.channel3_len == 0 {
-                    self.channel3_started = false;
-                }
-            }
-            if self.channel3_freq_div >= rfreq {
-                self.channel3_freq_div -= rfreq;
-                self.channel3_wave_idx = (self.channel3_wave_idx + 1) % 32;
-                let sample = self.waveram[self.channel3_wave_idx];
-                let volmul = match self.channel3_vol {
-                    1 => 1.0,
-                    2 => 0.5,
-                    3 => 0.25,
-                    _ => 0.0,
-                };
-                let newblip = ((sample as f64 / 7.5 - 1.0) * volmul * 10000.0) as i32 - self.blipval;
-                let time = self.time;
-                if self.blip.is_some() {
-                    self.blip().add_delta(time, newblip);
-                    self.blipval += newblip;
-                }
-            }
-        }*/
-/*        else if self.blipval != 0 && self.blip.is_some() {
-            let time = self.time;
-            let newblip = -self.blipval;
-            self.blip().add_delta(time, newblip);
-            self.blipval = 0;
-        }*/
-        if self.time >= (1 << 16) && self.blip.is_some() {
-            self.blip().end_frame(1 << 16);
-            self.time -= 1 << 16;
-            self.play_blipbuf();
+        if self.time >= CLOCKS_PER_PLAY {
+            self.run();
+            self.channel1.blip.end_frame(CLOCKS_PER_PLAY);
+            self.channel2.blip.end_frame(CLOCKS_PER_PLAY);
+            self.time -= CLOCKS_PER_PLAY;
+            self.prev_time -= CLOCKS_PER_PLAY;
+            self.next_time -= CLOCKS_PER_PLAY;
+            self.mix_buffers();
         }
     }
 
-    fn play_blipbuf(&mut self) {
-        let channels_len = self.channel().format().channels.len();
+    fn run(&mut self) {
+        while self.next_time <= self.time {
+            self.channel1.run(self.prev_time, self.next_time);
+            self.channel2.run(self.prev_time, self.next_time);
 
-        while self.blip().samples_avail() > 0 {
-            let buf = &mut [0; 2048];
-            let count = self.blip().read_samples(buf, false);
-            let blipbuf = &buf[..count];
-            let mut done = 0;
-            let mut lastdone = count;
+            self.channel1.step_length();
+            self.channel2.step_length();
 
-            while lastdone != done && done < count {
-                lastdone = done;
-                let channelbuf = &blipbuf[done..];
-                match self.channel().append_data(channelbuf.len()) {
-                    cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                        for (sample, value) in buffer.chunks_mut(channels_len).zip(channelbuf) {
-                            let value = *value as u16 + std::i16::MAX as u16;
-                            for out in sample.iter_mut() { *out = value; }
-                            done += 1;
-                        }
-                    }
-                    cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                        for (sample, value) in buffer.chunks_mut(channels_len).zip(channelbuf) {
-                            for out in sample.iter_mut() { *out = *value; }
-                            done += 1;
-                        }
-                    }
-                    cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                        for (sample, value) in buffer.chunks_mut(channels_len).zip(channelbuf) {
-                            let value = *value as f32 / std::i16::MAX as f32;
-                            for out in sample.iter_mut() { *out = value; }
-                            done += 1;
-                        }
-                    }
+            if self.time_divider == 0 {
+                self.channel1.volume_envelope.step();
+                self.channel2.volume_envelope.step();
+            }
+            else if self.time_divider & 1 == 1 {
+                self.channel1.step_sweep();
+            }
+
+            self.time_divider = (self.time_divider + 1) % 4;
+            self.prev_time = self.next_time;
+            self.next_time += CLOCKS_PER_SECOND / 256;
+        }
+    }
+
+    fn active_channels(&self, right: bool) -> i32 {
+        let shift = if right { 4 } else { 0 };
+        let channels = (self.registerdata[0x15] >> shift) & 0x0F;
+        let mut answer = 0;
+        if channels & 1 != 0 && self.channel1.on() { answer += 1; }
+        if channels & 2 != 0 && self.channel2.on() { answer += 1; }
+        //if channels & 4 != 0 && self.channel3.on() { answer += 1; }
+        //if channels & 8 != 0 && self.channel4.on() { answer += 1; }
+        answer
+    }
+
+    fn mix_buffers(&mut self) {
+        use std::cmp;
+
+        let maxsize = cmp::min(self.channel1.blip.samples_avail(), self.channel2.blip.samples_avail()) as usize;
+        let mut outputted = 0;
+
+        let left_vol = (1.0 / self.active_channels(false) as f32) * (self.volume_left as f32 / 7.0) * (1.0 / 15.0);
+        let right_vol = (1.0 / self.active_channels(true) as f32) * (self.volume_right as f32 / 7.0) * (1.0 / 15.0);
+
+        while outputted < maxsize {
+            let buf_left = &mut [0f32; 2048];
+            let buf_right = &mut [0f32; 2048];
+            let buf1 = &mut [0i16; 2048];
+            let buf2 = &mut [0i16; 2048];
+
+            let count1 = self.channel1.blip.read_samples(buf1, false);
+            for (i, v) in buf1[..count1].iter().enumerate() {
+                if self.registerdata[0x15] & 0x02 == 0x02 {
+                    buf_left[i] += *v as f32 * left_vol;
+                }
+                if self.registerdata[0x15] & 0x20 == 0x20 {
+                    buf_right[i] += *v as f32 * right_vol;
                 }
             }
-            self.channel().play();
+
+            let count2 = self.channel2.blip.read_samples(buf2, false);
+            for (i, v) in buf2[..count2].iter().enumerate() {
+                if self.registerdata[0x15] & 0x02 == 0x02 {
+                    buf_left[i] += *v as f32 * left_vol;
+                }
+                if self.registerdata[0x15] & 0x20 == 0x20 {
+                    buf_right[i] += *v as f32 * right_vol;
+                }
+            }
+
+            debug_assert!(count1 == count2);
+
+            play_buf(&mut self.voice, &buf_left[..count1], &buf_right[..count1]);
+
+            outputted += count1;
         }
+    }
+}
+
+fn play_buf(voice: &mut cpal::Voice, buf_left: &[f32], buf_right: &[f32]) {
+    debug_assert!(buf_left.len() == buf_right.len());
+
+    let left_idx = voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontLeft);
+    let right_idx = voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontRight);
+
+    let channel_count = voice.format().channels.len();
+
+    let count = buf_left.len();
+    let mut done = 0;
+    let mut lastdone = count;
+
+    while lastdone != done && done < count {
+        lastdone = done;
+        let buf_left_next = &buf_left[done..];
+        let buf_right_next = &buf_right[done..];
+        match voice.append_data(buf_left_next.len()) {
+            cpal::UnknownTypeBuffer::U16(mut buffer) => {
+                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                    if let Some(idx) = left_idx {
+                        sample[idx] = (buf_left_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
+                    }
+                    if let Some(idx) = right_idx {
+                        sample[idx] = (buf_right_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
+                    }
+                    done += 1;
+                }
+            }
+            cpal::UnknownTypeBuffer::I16(mut buffer) => {
+                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                    if let Some(idx) = left_idx {
+                        sample[idx] = (buf_left_next[i] * std::i16::MAX as f32) as i16;
+                    }
+                    if let Some(idx) = right_idx {
+                        sample[idx] = (buf_right_next[i] * std::i16::MAX as f32) as i16;
+                    }
+                    done += 1;
+                }
+            }
+            cpal::UnknownTypeBuffer::F32(mut buffer) => {
+                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                    if let Some(idx) = left_idx {
+                        sample[idx] = buf_left_next[i];
+                    }
+                    if let Some(idx) = right_idx {
+                        sample[idx] = buf_right_next[i];
+                    }
+                    done += 1;
+                }
+            }
+        }
+        voice.play();
     }
 }
 
@@ -342,4 +456,10 @@ fn get_channel() -> Option<cpal::Voice> {
     let format = try_opt!(endpoint.get_supported_formats_list().ok().and_then(|mut v| v.next()));
 
     cpal::Voice::new(&endpoint, &format).ok()
+}
+
+fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
+    let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0 / 10);
+    blipbuf.set_rates(CLOCKS_PER_SECOND as f64, voice.format().samples_rate.0 as f64);
+    blipbuf
 }
