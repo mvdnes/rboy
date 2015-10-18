@@ -128,7 +128,8 @@ fn real_main() -> i32 {
             }
         }
         ticks -= waitticks;
-        if limit_speed { let _ = periodic.recv(); }
+        c.process_audio();
+        if limit_speed { let _ = periodic.recv(); while let Ok(..) = periodic.try_recv() {} }
     }
 
     EXITCODE_SUCCESS

@@ -13,7 +13,6 @@ macro_rules! try_opt {
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
-const CLOCKS_PER_PLAY : u32 = 1 << 17;
 
 struct VolumeEnvelope {
     period : u8,
@@ -235,8 +234,6 @@ pub struct Sound {
 
 impl Sound {
     pub fn new() -> Option<Sound> {
-        debug_assert!(CLOCKS_PER_SECOND % 256 == 0);
-        debug_assert!(CLOCKS_PER_PLAY % (CLOCKS_PER_SECOND / 256) == 0);
         let voice = match get_channel() {
             Some(v) => v,
             None => {
@@ -305,14 +302,16 @@ impl Sound {
         if !self.on { return; }
 
         self.time += cycles;
+    }
 
-        if self.time >= CLOCKS_PER_PLAY {
+    pub fn do_output(&mut self) {
+        if self.time >= self.voice.get_period() as u32 {
             self.run();
-            self.channel1.blip.end_frame(CLOCKS_PER_PLAY);
-            self.channel2.blip.end_frame(CLOCKS_PER_PLAY);
-            self.time -= CLOCKS_PER_PLAY;
-            self.prev_time -= CLOCKS_PER_PLAY;
-            self.next_time -= CLOCKS_PER_PLAY;
+            self.channel1.blip.end_frame(self.prev_time);
+            self.channel2.blip.end_frame(self.prev_time);
+            self.time -= self.prev_time;
+            self.next_time -= self.prev_time;
+            self.prev_time = 0;
             self.mix_buffers();
         }
     }
@@ -356,8 +355,8 @@ impl Sound {
         let maxsize = cmp::min(self.channel1.blip.samples_avail(), self.channel2.blip.samples_avail()) as usize;
         let mut outputted = 0;
 
-        let left_vol = (1.0 / self.active_channels(false) as f32) * (self.volume_left as f32 / 7.0) * (1.0 / 15.0);
-        let right_vol = (1.0 / self.active_channels(true) as f32) * (self.volume_right as f32 / 7.0) * (1.0 / 15.0);
+        let left_vol = (1.0 / self.active_channels(false) as f32) * (self.volume_left as f32 / 7.0) * (1.0 / 15.0) * 0.5;
+        let right_vol = (1.0 / self.active_channels(true) as f32) * (self.volume_right as f32 / 7.0) * (1.0 / 15.0) * 0.5;
 
         while outputted < maxsize {
             let buf_left = &mut [0f32; 2048];
@@ -367,10 +366,10 @@ impl Sound {
 
             let count1 = self.channel1.blip.read_samples(buf1, false);
             for (i, v) in buf1[..count1].iter().enumerate() {
-                if self.registerdata[0x15] & 0x02 == 0x02 {
+                if self.registerdata[0x15] & 0x01 == 0x01 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
-                if self.registerdata[0x15] & 0x20 == 0x20 {
+                if self.registerdata[0x15] & 0x10 == 0x10 {
                     buf_right[i] += *v as f32 * right_vol;
                 }
             }
@@ -410,7 +409,7 @@ fn play_buf(voice: &mut cpal::Voice, buf_left: &[f32], buf_right: &[f32]) {
         lastdone = done;
         let buf_left_next = &buf_left[done..];
         let buf_right_next = &buf_right[done..];
-        match voice.append_data(buf_left_next.len()) {
+        match voice.append_data(count - done) {
             cpal::UnknownTypeBuffer::U16(mut buffer) => {
                 for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
                     if let Some(idx) = left_idx {
@@ -445,8 +444,8 @@ fn play_buf(voice: &mut cpal::Voice, buf_left: &[f32], buf_right: &[f32]) {
                 }
             }
         }
-        voice.play();
     }
+    voice.play();
 }
 
 fn get_channel() -> Option<cpal::Voice> {
@@ -459,7 +458,7 @@ fn get_channel() -> Option<cpal::Voice> {
 }
 
 fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
-    let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0 / 10);
+    let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0);
     blipbuf.set_rates(CLOCKS_PER_SECOND as f64, voice.format().samples_rate.0 as f64);
     blipbuf
 }
