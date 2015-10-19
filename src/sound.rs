@@ -458,25 +458,14 @@ impl Sound {
         }
     }
 
-    fn active_channels(&self, right: bool) -> i32 {
-        let shift = if right { 4 } else { 0 };
-        let channels = (self.registerdata[0x15] >> shift) & 0x0F;
-        let mut answer = 0;
-        if channels & 1 != 0 && self.channel1.on() { answer += 1; }
-        if channels & 2 != 0 && self.channel2.on() { answer += 1; }
-        if channels & 4 != 0 && self.channel3.on() { answer += 1; }
-        //if channels & 8 != 0 && self.channel4.on() { answer += 1; }
-        answer
-    }
-
     fn mix_buffers(&mut self) {
         use std::cmp;
 
         let maxsize = cmp::min(self.channel1.blip.samples_avail(), cmp::min(self.channel2.blip.samples_avail(), self.channel3.blip.samples_avail())) as usize;
         let mut outputted = 0;
 
-        let left_vol = (1.0 / self.active_channels(false) as f32) * (self.volume_left as f32 / 7.0) * (1.0 / 15.0) * 0.5;
-        let right_vol = (1.0 / self.active_channels(true) as f32) * (self.volume_right as f32 / 7.0) * (1.0 / 15.0) * 0.5;
+        let left_vol = (self.volume_left as f32 / 7.0) * (1.0 / 15.0) * 0.25;
+        let right_vol = (self.volume_right as f32 / 7.0) * (1.0 / 15.0) * 0.25;
 
         while outputted < maxsize {
             let buf_left = &mut [0f32; 2048];
