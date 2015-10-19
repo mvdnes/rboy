@@ -268,7 +268,7 @@ impl WaveChannel {
                 self.calculate_period();
             }
             0xFF1E => {
-                self.frequency = (self.frequency & 0x00FF) | ((v as u16) << 8);
+                self.frequency = (self.frequency & 0x00FF) | (((v & 0b111) as u16) << 8);
                 self.calculate_period();
                 self.length_enabled = v & 0x40 == 0x40;
                 if v & 0x80 == 0x80 && self.enabled_flag {
@@ -286,7 +286,7 @@ impl WaveChannel {
 
     fn calculate_period(&mut self) {
         if self.frequency > 2048 { self.period = 0; }
-        else { self.period = (2048 - self.frequency as u32) * 4; }
+        else { self.period = (2048 - self.frequency as u32) * 2; }
     }
 
     fn on(&self) -> bool {
