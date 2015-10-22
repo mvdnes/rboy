@@ -178,8 +178,14 @@ impl SquareChannel {
         }
     }
 
+    fn step_volume(&mut self) {
+        if self.on() {
+            self.volume_envelope.step();
+        }
+    }
+
     fn step_length(&mut self) {
-        if self.length_enabled && self.length < 64 {
+        if self.enabled && self.length_enabled && self.length < 64 {
             self.length += 1;
         }
     }
@@ -325,7 +331,107 @@ impl WaveChannel {
     }
 
     fn step_length(&mut self) {
-        if self.length_enabled && self.length < 256 {
+        if self.enabled && self.length_enabled && self.length < 256 {
+            self.length += 1;
+        }
+    }
+}
+
+struct NoiseChannel {
+    enabled: bool,
+    length: u8,
+    length_enabled: bool,
+    volume_envelope: VolumeEnvelope,
+    period: u32,
+    shift_width: u8,
+    state: u16,
+    delay: u32,
+    last_amp: i32,
+    blip: BlipBuf,
+}
+
+impl NoiseChannel {
+    fn new(blip: BlipBuf) -> NoiseChannel {
+        NoiseChannel {
+            enabled: false,
+            length: 0,
+            length_enabled: false,
+            volume_envelope: VolumeEnvelope::new(),
+            period: 0,
+            shift_width: 0,
+            state: 1,
+            delay: 0,
+            last_amp: 0,
+            blip: blip,
+        }
+    }
+
+    fn wb(&mut self, a: u16, v: u8) {
+        match a {
+            0xFF20 => self.length = v & 0x3F,
+            0xFF21 => (),
+            0xFF22 => {
+                self.shift_width = if v & 8 == 8 { 6 } else { 14 };
+                let shift_freq : u32 = (v >> 4) as u32;
+                let ratio = (v & 7) as u32;
+                self.period = (4 * (ratio + 1)) << (shift_freq + 1);
+            },
+            0xFF23 => {
+                self.enabled = v & 0x80 == 0x80;
+                if v & 0x80 == 0x80 {
+                    self.state = 0xFF;
+                    self.delay = 0;
+                }
+            },
+            _ => (),
+        }
+        self.volume_envelope.wb(a, v);
+    }
+
+    fn on(&self) -> bool {
+        self.enabled && (!self.length_enabled || self.length < 64)
+    }
+
+    fn run(&mut self, start_time: u32, end_time: u32) {
+        if !self.enabled || (self.length_enabled && self.length == 64) || self.volume_envelope.volume == 0 {
+            if self.last_amp != 0 {
+                self.blip.add_delta(start_time, -self.last_amp);
+                self.last_amp = 0;
+                self.delay = 0;
+            }
+        }
+        else {
+            let mut time = start_time + self.delay;
+            while time < end_time {
+                let oldstate = self.state;
+                self.state <<= 1;
+                let bit = ((oldstate >> self.shift_width) ^ (self.state >> self.shift_width)) & 1;
+                self.state |= bit;
+
+                let amp = match (oldstate >> self.shift_width) & 1 {
+                    0 => -(self.volume_envelope.volume as i32),
+                    _ => self.volume_envelope.volume as i32,
+                };
+
+                if self.last_amp != amp {
+                    self.blip.add_delta(time, amp - self.last_amp);
+                    self.last_amp = amp;
+                }
+
+                time += self.period;
+            }
+            self.delay = time - end_time;
+        }
+    }
+
+    fn step_volume(&mut self) {
+        if self.on() {
+            self.volume_envelope.step();
+        }
+    }
+
+    fn step_length(&mut self) {
+        if self.enabled && self.length_enabled && self.length < 64 {
             self.length += 1;
         }
     }
@@ -341,6 +447,7 @@ pub struct Sound {
     channel1: SquareChannel,
     channel2: SquareChannel,
     channel3: WaveChannel,
+    channel4: NoiseChannel,
     volume_left: u8,
     volume_right: u8,
     voice: cpal::Voice,
@@ -359,6 +466,7 @@ impl Sound {
         let blipbuf1 = create_blipbuf(&voice);
         let blipbuf2 = create_blipbuf(&voice);
         let blipbuf3 = create_blipbuf(&voice);
+        let blipbuf4 = create_blipbuf(&voice);
 
         Some(Sound {
             on: false,
@@ -370,6 +478,7 @@ impl Sound {
             channel1: SquareChannel::new(blipbuf1, true),
             channel2: SquareChannel::new(blipbuf2, false),
             channel3: WaveChannel::new(blipbuf3),
+            channel4: NoiseChannel::new(blipbuf4),
             volume_left: 7,
             volume_right: 7,
             voice: voice,
@@ -385,6 +494,7 @@ impl Sound {
                     | (if self.channel1.on() { 1 } else { 0 })
                     | (if self.channel2.on() { 2 } else { 0 })
                     | (if self.channel3.on() { 4 } else { 0 })
+                    | (if self.channel4.on() { 8 } else { 0 })
             }
             0xFF30 ... 0xFF3F => {
                 (self.channel3.waveram[(a as usize - 0xFF30) / 2] << 4) |
@@ -404,6 +514,7 @@ impl Sound {
             0xFF10 ... 0xFF14 => self.channel1.wb(a, v),
             0xFF16 ... 0xFF19 => self.channel2.wb(a, v),
             0xFF1A ... 0xFF1E => self.channel3.wb(a, v),
+            0xFF20 ... 0xFF23 => self.channel4.wb(a, v),
             0xFF24 => {
                 self.volume_left = v & 0x7;
                 self.volume_right = (v >> 4) & 0x7;
@@ -427,6 +538,7 @@ impl Sound {
             self.channel1.blip.end_frame(self.prev_time);
             self.channel2.blip.end_frame(self.prev_time);
             self.channel3.blip.end_frame(self.prev_time);
+            self.channel4.blip.end_frame(self.prev_time);
             self.time -= self.prev_time;
             self.next_time -= self.prev_time;
             self.prev_time = 0;
@@ -439,14 +551,17 @@ impl Sound {
             self.channel1.run(self.prev_time, self.next_time);
             self.channel2.run(self.prev_time, self.next_time);
             self.channel3.run(self.prev_time, self.next_time);
+            self.channel4.run(self.prev_time, self.next_time);
 
             self.channel1.step_length();
             self.channel2.step_length();
             self.channel3.step_length();
+            self.channel4.step_length();
 
             if self.time_divider == 0 {
-                self.channel1.volume_envelope.step();
-                self.channel2.volume_envelope.step();
+                self.channel1.step_volume();
+                self.channel2.step_volume();
+                self.channel4.step_volume();
             }
             else if self.time_divider & 1 == 1 {
                 self.channel1.step_sweep();
@@ -461,7 +576,14 @@ impl Sound {
     fn mix_buffers(&mut self) {
         use std::cmp;
 
-        let maxsize = cmp::min(self.channel1.blip.samples_avail(), cmp::min(self.channel2.blip.samples_avail(), self.channel3.blip.samples_avail())) as usize;
+        let maxsize = cmp::min(
+            self.channel1.blip.samples_avail(),
+            cmp::min(
+                self.channel2.blip.samples_avail(),
+                cmp::min(
+                    self.channel3.blip.samples_avail(),
+                    self.channel4.blip.samples_avail()
+        ))) as usize;
         let mut outputted = 0;
 
         let left_vol = (self.volume_left as f32 / 7.0) * (1.0 / 15.0) * 0.25;
@@ -473,6 +595,7 @@ impl Sound {
             let buf1 = &mut [0i16; 2048];
             let buf2 = &mut [0i16; 2048];
             let buf3 = &mut [0i16; 2048];
+            let buf4 = &mut [0i16; 2048];
 
             let count1 = self.channel1.blip.read_samples(buf1, false);
             for (i, v) in buf1[..count1].iter().enumerate() {
@@ -504,8 +627,19 @@ impl Sound {
                 }
             }
 
+            let count4 = self.channel4.blip.read_samples(buf4, false);
+            for (i, v) in buf4[..count4].iter().enumerate() {
+                if self.registerdata[0x15] & 0x08 == 0x08 {
+                    buf_left[i] += *v as f32 * left_vol;
+                }
+                if self.registerdata[0x15] & 0x80 == 0x80 {
+                    buf_right[i] += *v as f32 * right_vol;
+                }
+            }
+
             debug_assert!(count1 == count2);
             debug_assert!(count1 == count3);
+            debug_assert!(count1 == count4);
             play_buf(&mut self.voice, &buf_left[..count1], &buf_right[..count1]);
 
             outputted += count1;
