@@ -574,22 +574,17 @@ impl Sound {
     }
 
     fn mix_buffers(&mut self) {
-        use std::cmp;
+        let sample_count = self.channel1.blip.samples_avail() as usize;
+        debug_assert!(sample_count == self.channel2.blip.samples_avail() as usize);
+        debug_assert!(sample_count == self.channel3.blip.samples_avail() as usize);
+        debug_assert!(sample_count == self.channel4.blip.samples_avail() as usize);
 
-        let maxsize = cmp::min(
-            self.channel1.blip.samples_avail(),
-            cmp::min(
-                self.channel2.blip.samples_avail(),
-                cmp::min(
-                    self.channel3.blip.samples_avail(),
-                    self.channel4.blip.samples_avail()
-        ))) as usize;
         let mut outputted = 0;
 
         let left_vol = (self.volume_left as f32 / 7.0) * (1.0 / 15.0) * 0.25;
         let right_vol = (self.volume_right as f32 / 7.0) * (1.0 / 15.0) * 0.25;
 
-        while outputted < maxsize {
+        while outputted < sample_count {
             let buf_left = &mut [0f32; 2048];
             let buf_right = &mut [0f32; 2048];
             let buf1 = &mut [0i16; 2048];
