@@ -70,6 +70,7 @@ struct SquareChannel {
     duty : u8,
     phase : u8,
     length: u8,
+    new_length: u8,
     length_enabled : bool,
     frequency: u16,
     period: u32,
@@ -92,9 +93,10 @@ impl SquareChannel {
             duty: 1,
             phase: 1,
             length: 0,
+            new_length: 0,
             length_enabled: false,
             frequency: 0,
-            period: 0,
+            period: 2048,
             last_amp: 0,
             delay: 0,
             has_sweep: with_sweep,
@@ -121,10 +123,11 @@ impl SquareChannel {
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
-                self.length = v & 0b0011_1111;
+                self.new_length = v & 0b0011_1111;
             },
             0xFF13 | 0xFF18 => {
                 self.frequency = (self.frequency & 0xFF00) | (v as u16);
+                self.length = self.new_length;
                 self.calculate_period();
             },
             0xFF14 | 0xFF19 => {
@@ -133,6 +136,10 @@ impl SquareChannel {
                 self.length_enabled = v & 0x40 == 0x40;
                 self.enabled = v & 0x80 == 0x80;
                 self.delay = 0;
+
+                if self.enabled {
+                    self.length = self.new_length;
+                }
 
                 self.sweep_frequency = self.frequency;
 			    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
@@ -227,6 +234,7 @@ struct WaveChannel {
     enabled : bool,
     enabled_flag : bool,
     length: u16,
+    new_length: u16,
     length_enabled : bool,
     frequency: u16,
     period: u32,
@@ -244,9 +252,10 @@ impl WaveChannel {
             enabled: false,
             enabled_flag: false,
             length: 0,
+            new_length: 0,
             length_enabled: false,
             frequency: 0,
-            period: 0,
+            period: 2048,
             last_amp: 0,
             delay: 0,
             volume_shift: 0,
@@ -267,7 +276,7 @@ impl WaveChannel {
                     self.enabled = false;
                 }
             }
-            0xFF1B => self.length = v as u16,
+            0xFF1B => self.new_length = v as u16,
             0xFF1C => self.volume_shift = v >> 5,
             0xFF1D => {
                 self.frequency = (self.frequency & 0xFF00) | (v as u16);
@@ -278,6 +287,7 @@ impl WaveChannel {
                 self.calculate_period();
                 self.length_enabled = v & 0x40 == 0x40;
                 if v & 0x80 == 0x80 && self.enabled_flag {
+                    self.length = self.new_length;
                     self.enabled = true;
                     self.current_wave = 0;
                 }
@@ -340,6 +350,7 @@ impl WaveChannel {
 struct NoiseChannel {
     enabled: bool,
     length: u8,
+    new_length: u8,
     length_enabled: bool,
     volume_envelope: VolumeEnvelope,
     period: u32,
@@ -355,10 +366,11 @@ impl NoiseChannel {
         NoiseChannel {
             enabled: false,
             length: 0,
+            new_length: 0,
             length_enabled: false,
             volume_envelope: VolumeEnvelope::new(),
-            period: 0,
-            shift_width: 0,
+            period: 2048,
+            shift_width: 14,
             state: 1,
             delay: 0,
             last_amp: 0,
@@ -368,17 +380,20 @@ impl NoiseChannel {
 
     fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF20 => self.length = v & 0x3F,
+            0xFF20 => self.new_length = v & 0x3F,
             0xFF21 => (),
             0xFF22 => {
                 self.shift_width = if v & 8 == 8 { 6 } else { 14 };
-                let shift_freq : u32 = (v >> 4) as u32;
-                let ratio = (v & 7) as u32;
-                self.period = (4 * (ratio + 1)) << (shift_freq + 1);
+                let freq_div = match v & 7 {
+                    0 => 8,
+                    n => (n as u32 + 1) * 16,
+                };
+                self.period = freq_div << (v >> 4);
             },
             0xFF23 => {
                 self.enabled = v & 0x80 == 0x80;
                 if v & 0x80 == 0x80 {
+                    self.length = self.new_length;
                     self.state = 0xFF;
                     self.delay = 0;
                 }
