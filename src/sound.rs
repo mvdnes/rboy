@@ -586,6 +586,15 @@ impl Sound {
             self.prev_time = self.next_time;
             self.next_time += CLOCKS_PER_SECOND / 256;
         }
+
+        if self.prev_time != self.time {
+            self.channel1.run(self.prev_time, self.time);
+            self.channel2.run(self.prev_time, self.time);
+            self.channel3.run(self.prev_time, self.time);
+            self.channel4.run(self.prev_time, self.time);
+
+            self.prev_time = self.time;
+        }
     }
 
     fn mix_buffers(&mut self) {
