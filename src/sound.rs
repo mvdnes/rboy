@@ -112,7 +112,7 @@ impl SquareChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length < 64)
+        self.enabled && (!self.length_enabled || self.length != 0)
     }
 
     fn wb(&mut self, a: u16, v: u8) {
@@ -124,10 +124,10 @@ impl SquareChannel {
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
-                self.new_length = v & 0b0011_1111;
+                self.new_length = 64 - (v & 0x3F);
             },
             0xFF13 | 0xFF18 => {
-                self.frequency = (self.frequency & 0xFF00) | (v as u16);
+                self.frequency = (self.frequency & 0x0700) | (v as u16);
                 self.length = self.new_length;
                 self.calculate_period();
             },
@@ -137,10 +137,8 @@ impl SquareChannel {
                 self.length_enabled = v & 0x40 == 0x40;
                 self.enabled = v & 0x80 == 0x80;
                 self.delay = 0;
-
-                if self.enabled {
-                    self.length = self.new_length;
-                }
+                self.length = self.new_length;
+                self.phase = 0;
 
                 self.sweep_frequency = self.frequency;
 			    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
@@ -160,7 +158,7 @@ impl SquareChannel {
 
     // This assumes no volume or sweep adjustments need to be done in the meantime
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length == 64 && self.length_enabled) || self.period == 0 {
+        if !self.enabled || (self.length == 0 && self.length_enabled) || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -170,9 +168,10 @@ impl SquareChannel {
         else {
             let mut time = start_time + self.delay;
             let pattern = WAVE_PATTERN[self.duty as usize];
-            let vol = self.volume_envelope.volume;
+            let vol = self.volume_envelope.volume as i32;
+
             while time < end_time {
-                let amp = vol as i32 * pattern[self.phase as usize];
+                let amp = vol * pattern[self.phase as usize];
                 if amp != self.last_amp {
                     self.blip.add_delta(time, amp - self.last_amp);
                     self.last_amp = amp;
@@ -187,14 +186,12 @@ impl SquareChannel {
     }
 
     fn step_volume(&mut self) {
-        if self.on() {
-            self.volume_envelope.step();
-        }
+        self.volume_envelope.step();
     }
 
     fn step_length(&mut self) {
-        if self.enabled && self.length_enabled && self.length < 64 {
-            self.length += 1;
+        if self.length_enabled && self.length != 0 {
+            self.length -= 1;
         }
     }
 
@@ -277,7 +274,7 @@ impl WaveChannel {
                     self.enabled = false;
                 }
             }
-            0xFF1B => self.new_length = v as u16,
+            0xFF1B => self.new_length = 256 - (v as u16),
             0xFF1C => self.volume_shift = v >> 5,
             0xFF1D => {
                 self.frequency = (self.frequency & 0xFF00) | (v as u16);
@@ -307,11 +304,11 @@ impl WaveChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length < 256)
+        self.enabled && (!self.length_enabled || self.length != 0)
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length == 256 && self.length_enabled) || self.period == 0 {
+        if !self.enabled || (self.length == 0 && self.length_enabled) || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -342,8 +339,8 @@ impl WaveChannel {
     }
 
     fn step_length(&mut self) {
-        if self.enabled && self.length_enabled && self.length < 256 {
-            self.length += 1;
+        if self.length_enabled && self.length != 0 {
+            self.length -= 1;
         }
     }
 }
@@ -381,7 +378,7 @@ impl NoiseChannel {
 
     fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF20 => self.new_length = v & 0x3F,
+            0xFF20 => self.new_length = 64 - (v & 0x3F),
             0xFF21 => (),
             0xFF22 => {
                 self.shift_width = if v & 8 == 8 { 6 } else { 14 };
@@ -405,11 +402,11 @@ impl NoiseChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length < 64)
+        self.enabled && (!self.length_enabled || self.length != 0)
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length_enabled && self.length == 64) || self.volume_envelope.volume == 0 {
+        if !self.enabled || (self.length_enabled && self.length == 0) || self.volume_envelope.volume == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -441,14 +438,12 @@ impl NoiseChannel {
     }
 
     fn step_volume(&mut self) {
-        if self.on() {
-            self.volume_envelope.step();
-        }
+        self.volume_envelope.step();
     }
 
     fn step_length(&mut self) {
-        if self.enabled && self.length_enabled && self.length < 64 {
-            self.length += 1;
+        if self.length_enabled && self.length != 0 {
+            self.length -= 1;
         }
     }
 }
