@@ -5,6 +5,11 @@ rust:
 
 sudo: false
 
+addons:
+  apt:
+    packages:
+      - libasound2-dev
+
 notifications:
   email:
     on_success: never

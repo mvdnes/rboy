@@ -26,7 +26,7 @@ pub struct MMU<'a> {
     pub timer: Timer,
     pub keypad: Keypad,
     pub gpu: GPU,
-    pub sound: Sound,
+    pub sound: Option<Sound>,
     hdma_status: DMAType,
     hdma_src: u16,
     hdma_dst: u16,
@@ -56,7 +56,7 @@ impl<'a> MMU<'a> {
             timer: Timer::new(),
             keypad: Keypad::new(),
             gpu: GPU::new(),
-            sound: Sound::new(),
+            sound: None,
             mbc: mmu_mbc,
             gbmode: GbMode::Classic,
             gbspeed: GbSpeed::Single,
@@ -90,7 +90,7 @@ impl<'a> MMU<'a> {
             timer: Timer::new(),
             keypad: Keypad::new(),
             gpu: GPU::new_cgb(),
-            sound: Sound::new(),
+            sound: None,
             mbc: mmu_mbc,
             gbmode: GbMode::Color,
             gbspeed: GbSpeed::Single,
@@ -148,12 +148,12 @@ impl<'a> MMU<'a> {
         self.intf |= self.gpu.interrupt;
         self.gpu.interrupt = 0;
 
-        self.sound.do_cycle(gputicks);
+        self.sound.as_mut().map_or((), |s| s.do_cycle(gputicks));
 
         return gputicks;
     }
 
-    pub fn rb(&self, address: u16) -> u8 {
+    pub fn rb(&mut self, address: u16) -> u8 {
         match address {
             0x0000 ... 0x7FFF => self.mbc.readrom(address),
             0x8000 ... 0x9FFF => self.gpu.rb(address),
@@ -165,7 +165,7 @@ impl<'a> MMU<'a> {
             0xFF01 ... 0xFF02 => self.serial.rb(address),
             0xFF04 ... 0xFF07 => self.timer.rb(address),
             0xFF0F => self.intf,
-            0xFF10 ... 0xFF3F => self.sound.rb(address),
+            0xFF10 ... 0xFF3F => self.sound.as_mut().map_or(0, |s| s.rb(address)),
             0xFF4D => (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
             0xFF40 ... 0xFF4F => self.gpu.rb(address),
             0xFF51 ... 0xFF55 => self.hdma_read(address),
@@ -177,7 +177,7 @@ impl<'a> MMU<'a> {
         }
     }
 
-    pub fn rw(&self, address: u16) -> u16 {
+    pub fn rw(&mut self, address: u16) -> u16 {
         (self.rb(address) as u16) | ((self.rb(address + 1) as u16) << 8)
     }
 
@@ -192,7 +192,7 @@ impl<'a> MMU<'a> {
             0xFF00 => self.keypad.wb(value),
             0xFF01 ... 0xFF02 => self.serial.wb(address, value),
             0xFF04 ... 0xFF07 => self.timer.wb(address, value),
-            0xFF10 ... 0xFF3F => self.sound.wb(address, value),
+            0xFF10 ... 0xFF3F => self.sound.as_mut().map_or((), |s| s.wb(address, value)),
             0xFF46 => self.oamdma(value),
             0xFF4D => if value & 0x1 == 0x1 { self.speed_switch_req = true; },
             0xFF40 ... 0xFF4F => self.gpu.wb(address, value),
@@ -295,8 +295,9 @@ impl<'a> MMU<'a> {
     }
 
     fn perform_vramdma_row(&mut self) {
+        let mmu_src = self.hdma_src;
         for j in (0u16 .. 0x10) {
-            let b: u8 = self.rb(self.hdma_src + j);
+            let b: u8 = self.rb(mmu_src + j);
             self.gpu.wb(self.hdma_dst + j, b);
         }
         self.hdma_src += 0x10;

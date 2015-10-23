@@ -7,7 +7,7 @@ mod mbc1;
 mod mbc3;
 mod mbc5;
 
-pub trait MBC {
+pub trait MBC : Send {
     fn readrom(&self, a: u16) -> u8;
     fn readram(&self, a: u16) -> u8;
     fn writerom(&mut self, a: u16, v: u8);

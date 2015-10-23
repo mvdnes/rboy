@@ -6,7 +6,8 @@ extern crate rboy;
 
 use glium::DisplayBuild;
 use rboy::device::Device;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::thread;
 use std::error::Error;
 
 const EXITCODE_SUCCESS : i32 = 0;
@@ -15,6 +16,13 @@ const EXITCODE_CPULOADFAILS : i32 = 2;
 #[derive(Default)]
 struct RenderOptions {
     pub linear_interpolation: bool,
+}
+
+enum GBEvent {
+    KeyUp(rboy::KeypadKey),
+    KeyDown(rboy::KeypadKey),
+    SpeedUp,
+    SpeedDown,
 }
 
 fn main() {
@@ -52,16 +60,27 @@ fn real_main() -> i32 {
                      Ok(..) => Ok(()),
                  })
              .takes_value(true))
+        .arg(clap::Arg::with_name("audio")
+             .help("Enables audio")
+             .short("a")
+             .long("audio"))
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
     let opt_classic = matches.is_present("classic");
+    let opt_audio = matches.is_present("audio");
     let filename = matches.value_of("filename").unwrap();
     let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
 
     let cpu = construct_cpu(filename, opt_classic, opt_serial);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
-    let cpu = cpu.unwrap();
+    let mut cpu = cpu.unwrap();
+    if opt_audio {
+        cpu.enable_audio();
+    }
+
+    let (sender1, receiver1) = mpsc::channel();
+    let (sender2, receiver2) = mpsc::channel();
 
     let display = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
@@ -79,12 +98,7 @@ fn real_main() -> i32 {
 
     let mut renderoptions = <RenderOptions as Default>::default();
 
-    let mut c = cpu;
-    let periodic = timer_periodic(8);
-    let mut limit_speed = true;
-
-    let waitticks = (4194304f64 / 1000.0 * 8.0) as u32;
-    let mut ticks = 0;
+    let cputhread = thread::spawn(move|| run_cpu(cpu, sender2, receiver1));
 
     'main : loop {
         for ev in display.poll_events() {
@@ -102,34 +116,36 @@ fn real_main() -> i32 {
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::R))
                     => display.get_window().unwrap().set_inner_size(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale),
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::LShift))
-                    => { limit_speed = false; },
+                    => { let _ = sender1.send(GBEvent::SpeedUp); },
                 Event::KeyboardInput(Released, _, Some(VirtualKeyCode::LShift))
-                    => { limit_speed = true; },
+                    => { let _ = sender1.send(GBEvent::SpeedDown); },
                 Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::T))
                     => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
                 Event::KeyboardInput(Pressed, _, Some(glutinkey)) => {
                     if let Some(key) = glutin_to_keypad(glutinkey) {
-                        c.keydown(key);
+                        let _ = sender1.send(GBEvent::KeyDown(key));
                     }
                 },
                 Event::KeyboardInput(Released, _, Some(glutinkey)) => {
                     if let Some(key) = glutin_to_keypad(glutinkey) {
-                        c.keyup(key);
+                        let _ = sender1.send(GBEvent::KeyUp(key));
                     }
                 },
                 _ => (),
             }
         }
 
-        while ticks < waitticks {
-            ticks += c.do_cycle();
-            if c.check_and_reset_gpu_updated() {
-                recalculate_screen(&display, &mut texture, c.get_gpu_data(), &renderoptions);
+        'recv: loop {
+            match receiver2.try_recv() {
+                Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
+                Err(TryRecvError::Empty) => break 'recv,
+                Err(TryRecvError::Disconnected) => break 'main,
             }
         }
-        ticks -= waitticks;
-        if limit_speed { let _ = periodic.recv(); }
     }
+
+    drop(sender1);
+    let _ = cputhread.join();
 
     EXITCODE_SUCCESS
 }
@@ -210,6 +226,46 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     };
     c.set_stdout(output_serial);
     Some(c)
+}
+
+fn run_cpu(mut cpu: Device, sender: Sender<Vec<u8>>, receiver: Receiver<GBEvent>) {
+    let periodic = timer_periodic(16);
+    let mut limit_speed = true;
+
+    let waitticks = (4194304f64 / 1000.0 * 16.0).round() as u32;
+    let mut ticks = 0;
+    
+    'outer: loop {
+        while ticks < waitticks {
+            ticks += cpu.do_cycle();
+            if cpu.check_and_reset_gpu_updated() {
+                let data = cpu.get_gpu_data().to_vec();
+                if let Err(..) = sender.send(data) {
+                    break 'outer;
+                }
+            }
+        }
+
+        ticks -= waitticks;
+
+        'recv: loop {
+            match receiver.try_recv() {
+                Ok(event) => {
+                    match event {
+                        GBEvent::KeyUp(key) => cpu.keyup(key),
+                        GBEvent::KeyDown(key) => cpu.keydown(key),
+                        GBEvent::SpeedUp => limit_speed = false,
+                        GBEvent::SpeedDown => limit_speed = true,
+                    }
+                },
+                Err(TryRecvError::Empty) => break 'recv,
+                Err(TryRecvError::Disconnected) => break 'outer,
+            }
+        }
+
+        if limit_speed { let _ = periodic.recv(); }
+        while let Ok(..) = periodic.try_recv() {};
+    }
 }
 
 fn timer_periodic(ms: u32) -> Receiver<()> {

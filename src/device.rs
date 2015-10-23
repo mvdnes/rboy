@@ -52,6 +52,10 @@ impl Device
         &self.cpu.mmu.gpu.data
     }
 
+    pub fn enable_audio(&mut self) {
+        self.cpu.mmu.sound = ::sound::Sound::new();
+    }
+
     pub fn keyup(&mut self, key: KeypadKey)
     {
         self.cpu.mmu.keypad.keyup(key);

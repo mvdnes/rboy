@@ -1,4 +1,6 @@
 roms/*.gb
+roms/*.gbsave
 target
 opt
 Cargo.lock
+*.swp
