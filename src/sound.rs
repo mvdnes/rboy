@@ -13,6 +13,7 @@ macro_rules! try_opt {
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
+const OUTPUT_SAMPLE_COUNT : u32 = 2000; // this should be less than blip_buf::MAX_FRAME
 
 struct VolumeEnvelope {
     period : u8,
@@ -459,6 +460,7 @@ pub struct Sound {
     prev_time: u32,
     next_time: u32,
     time_divider: u8,
+    output_period: u32,
     channel1: SquareChannel,
     channel2: SquareChannel,
     channel3: WaveChannel,
@@ -483,6 +485,8 @@ impl Sound {
         let blipbuf3 = create_blipbuf(&voice);
         let blipbuf4 = create_blipbuf(&voice);
 
+        let output_period = (OUTPUT_SAMPLE_COUNT as u64 * CLOCKS_PER_SECOND as u64) / voice.format().samples_rate.0 as u64;
+
         Some(Sound {
             on: false,
             registerdata: [0; 0x17],
@@ -490,6 +494,7 @@ impl Sound {
             prev_time: 0,
             next_time: CLOCKS_PER_SECOND / 256,
             time_divider: 0,
+            output_period: output_period as u32,
             channel1: SquareChannel::new(blipbuf1, true),
             channel2: SquareChannel::new(blipbuf2, false),
             channel3: WaveChannel::new(blipbuf3),
@@ -545,17 +550,22 @@ impl Sound {
         if !self.on { return; }
 
         self.time += cycles;
+
+        if self.time >= self.output_period {
+            self.do_output();
+        }
     }
 
-    pub fn do_output(&mut self) {
+    fn do_output(&mut self) {
         if self.time >= self.voice.get_period() as u32 {
             self.run();
-            self.channel1.blip.end_frame(self.prev_time);
-            self.channel2.blip.end_frame(self.prev_time);
-            self.channel3.blip.end_frame(self.prev_time);
-            self.channel4.blip.end_frame(self.prev_time);
-            self.time -= self.prev_time;
-            self.next_time -= self.prev_time;
+            debug_assert!(self.time == self.prev_time);
+            self.channel1.blip.end_frame(self.time);
+            self.channel2.blip.end_frame(self.time);
+            self.channel3.blip.end_frame(self.time);
+            self.channel4.blip.end_frame(self.time);
+            self.next_time -= self.time;
+            self.time = 0;
             self.prev_time = 0;
             self.mix_buffers();
         }
@@ -731,7 +741,8 @@ fn get_channel() -> Option<cpal::Voice> {
 }
 
 fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
-    let mut blipbuf = BlipBuf::new(voice.format().samples_rate.0);
-    blipbuf.set_rates(CLOCKS_PER_SECOND as f64, voice.format().samples_rate.0 as f64);
+    let samples_rate = voice.format().samples_rate.0;
+    let mut blipbuf = BlipBuf::new(samples_rate);
+    blipbuf.set_rates(CLOCKS_PER_SECOND as f64, samples_rate as f64);
     blipbuf
 }

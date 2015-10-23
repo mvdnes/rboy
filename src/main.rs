@@ -263,7 +263,6 @@ fn run_cpu(mut cpu: Device, sender: Sender<Vec<u8>>, receiver: Receiver<GBEvent>
             }
         }
 
-        cpu.process_audio();
         if limit_speed { let _ = periodic.recv(); while let Ok(..) = periodic.try_recv() {} }
     }
 }
