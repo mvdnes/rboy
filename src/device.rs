@@ -52,6 +52,10 @@ impl Device
         &self.cpu.mmu.gpu.data
     }
 
+    pub fn enable_audio(&mut self) {
+        self.cpu.mmu.sound = ::sound::Sound::new();
+    }
+
     pub fn process_audio(&mut self) {
         self.cpu.mmu.sound.as_mut().map(|s| s.do_output());
     }

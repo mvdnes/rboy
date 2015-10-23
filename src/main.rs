@@ -60,16 +60,24 @@ fn real_main() -> i32 {
                      Ok(..) => Ok(()),
                  })
              .takes_value(true))
+        .arg(clap::Arg::with_name("audio")
+             .help("Enables audio")
+             .short("a")
+             .long("audio"))
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
     let opt_classic = matches.is_present("classic");
+    let opt_audio = matches.is_present("audio");
     let filename = matches.value_of("filename").unwrap();
     let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
 
     let cpu = construct_cpu(filename, opt_classic, opt_serial);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
-    let cpu = cpu.unwrap();
+    let mut cpu = cpu.unwrap();
+    if opt_audio {
+        cpu.enable_audio();
+    }
 
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::channel();
