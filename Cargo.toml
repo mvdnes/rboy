@@ -8,7 +8,7 @@ time = "0.1"
 podio = "0.1"
 glium = { version = "0.10", default_features = false, features = [ "glutin" ] }
 clap = { version = "1.4", default_features = false }
-blip_buf = "0.1"
+blip_buf = ">=0.1.3"
 cpal = "0.2"
 
 [[bin]]
