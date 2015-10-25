@@ -13,7 +13,7 @@ macro_rules! try_opt {
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
-const OUTPUT_SAMPLE_COUNT : usize = 3000; // this should be less than blip_buf::MAX_FRAME
+const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
 
 struct VolumeEnvelope {
     period : u8,
@@ -112,7 +112,7 @@ impl SquareChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length != 0)
+        self.enabled
     }
 
     fn wb(&mut self, a: u16, v: u8) {
@@ -159,7 +159,7 @@ impl SquareChannel {
 
     // This assumes no volume or sweep adjustments need to be done in the meantime
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length == 0 && self.length_enabled) || self.period == 0 {
+        if !self.enabled || self.period == 0 || self.volume_envelope.volume == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -189,6 +189,9 @@ impl SquareChannel {
     fn step_length(&mut self) {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
+            if self.length == 0 {
+                self.enabled = false;
+            }
         }
     }
 
@@ -208,6 +211,7 @@ impl SquareChannel {
                 if self.sweep_frequency >= 2048 - offset {
                     self.sweep_delay = 0;
                     self.sweep_frequency = 2048;
+                    self.enabled = false;
                 }
                 else {
                     self.sweep_frequency += offset;
@@ -301,11 +305,11 @@ impl WaveChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length != 0)
+        self.enabled
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length == 0 && self.length_enabled) || self.period == 0 {
+        if !self.enabled || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -338,6 +342,9 @@ impl WaveChannel {
     fn step_length(&mut self) {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
+            if self.length == 0 {
+                self.enabled = false;
+            }
         }
     }
 }
@@ -399,11 +406,11 @@ impl NoiseChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled && (!self.length_enabled || self.length != 0)
+        self.enabled
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || (self.length_enabled && self.length == 0) || self.volume_envelope.volume == 0 {
+        if !self.enabled || self.volume_envelope.volume == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -437,6 +444,9 @@ impl NoiseChannel {
     fn step_length(&mut self) {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
+            if self.length == 0 {
+                self.enabled = false;
+            }
         }
     }
 }
@@ -498,7 +508,7 @@ impl Sound {
         match a {
             0xFF10 ... 0xFF25 => self.registerdata[a as usize - 0xFF10],
             0xFF26 => {
-                self.registerdata[a as usize - 0xFF10] & 0xF0
+                (self.registerdata[a as usize - 0xFF10] & 0xF0)
                     | (if self.channel1.on() { 1 } else { 0 })
                     | (if self.channel2.on() { 2 } else { 0 })
                     | (if self.channel3.on() { 4 } else { 0 })
@@ -545,18 +555,16 @@ impl Sound {
     }
 
     fn do_output(&mut self) {
-        if self.time >= self.voice.get_period() as u32 {
-            self.run();
-            debug_assert!(self.time == self.prev_time);
-            self.channel1.blip.end_frame(self.time);
-            self.channel2.blip.end_frame(self.time);
-            self.channel3.blip.end_frame(self.time);
-            self.channel4.blip.end_frame(self.time);
-            self.next_time -= self.time;
-            self.time = 0;
-            self.prev_time = 0;
-            self.mix_buffers();
-        }
+        self.run();
+        debug_assert!(self.time == self.prev_time);
+        self.channel1.blip.end_frame(self.time);
+        self.channel2.blip.end_frame(self.time);
+        self.channel3.blip.end_frame(self.time);
+        self.channel4.blip.end_frame(self.time);
+        self.next_time -= self.time;
+        self.time = 0;
+        self.prev_time = 0;
+        self.mix_buffers();
     }
 
     fn run(&mut self) {
