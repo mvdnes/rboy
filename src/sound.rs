@@ -138,15 +138,13 @@ impl SquareChannel {
 
                 if v & 0x80 == 0x80 {
                     self.enabled = true;
-                    self.delay = 0;
                     self.length = self.new_length;
-                    self.phase = 0;
-                }
 
-                self.sweep_frequency = self.frequency;
-                if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
-                    self.sweep_delay = 1;
-                    self.step_sweep();
+                    self.sweep_frequency = self.frequency;
+                    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
+                        self.sweep_delay = 1;
+                        self.step_sweep();
+                    }
                 }
             },
             _ => (),
