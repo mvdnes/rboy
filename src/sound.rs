@@ -135,16 +135,19 @@ impl SquareChannel {
                 self.frequency = (self.frequency & 0x00FF) | (((v & 0b0000_0111) as u16) << 8);
                 self.calculate_period();
                 self.length_enabled = v & 0x40 == 0x40;
-                self.enabled = v & 0x80 == 0x80;
-                self.delay = 0;
-                self.length = self.new_length;
-                self.phase = 0;
+
+                if v & 0x80 == 0x80 {
+                    self.enabled = true;
+                    self.delay = 0;
+                    self.length = self.new_length;
+                    self.phase = 0;
+                }
 
                 self.sweep_frequency = self.frequency;
-			    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
-				    self.sweep_delay = 1;
-				    self.step_sweep();
-			    }
+                if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
+                    self.sweep_delay = 1;
+                    self.step_sweep();
+                }
             },
             _ => (),
         }
@@ -389,8 +392,8 @@ impl NoiseChannel {
                 self.period = freq_div << (v >> 4);
             },
             0xFF23 => {
-                self.enabled = v & 0x80 == 0x80;
                 if v & 0x80 == 0x80 {
+                    self.enabled = true;
                     self.length = self.new_length;
                     self.state = 0xFF;
                     self.delay = 0;
