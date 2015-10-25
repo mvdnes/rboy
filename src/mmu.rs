@@ -148,15 +148,16 @@ impl<'a> MMU<'a> {
         self.gpu.gbmode = mode;
     }
 
-    pub fn do_cycle(&mut self, cputicks: u32) -> u32 {
+    pub fn do_cycle(&mut self, ticks: u32) -> u32 {
         let cpudivider = match self.gbspeed {
             GbSpeed::Single => 1,
             GbSpeed::Double => 2,
         };
-        let ticks = cputicks / cpudivider;
-        let gputicks = ticks + self.perform_vramdma();
+        let vramticks = self.perform_vramdma();
+        let gputicks = ticks / cpudivider + vramticks;
+        let cputicks = ticks + vramticks * cpudivider;
 
-        self.timer.do_cycle(ticks);
+        self.timer.do_cycle(cputicks);
         self.intf |= self.timer.interrupt;
         self.timer.interrupt = 0;
 
