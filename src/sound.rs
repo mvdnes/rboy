@@ -186,10 +186,6 @@ impl SquareChannel {
         }
     }
 
-    fn step_volume(&mut self) {
-        self.volume_envelope.step();
-    }
-
     fn step_length(&mut self) {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
@@ -438,10 +434,6 @@ impl NoiseChannel {
         }
     }
 
-    fn step_volume(&mut self) {
-        self.volume_envelope.step();
-    }
-
     fn step_length(&mut self) {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
@@ -580,9 +572,9 @@ impl Sound {
             self.channel4.step_length();
 
             if self.time_divider == 0 {
-                self.channel1.step_volume();
-                self.channel2.step_volume();
-                self.channel4.step_volume();
+                self.channel1.volume_envelope.step();
+                self.channel2.volume_envelope.step();
+                self.channel4.volume_envelope.step();
             }
             else if self.time_divider & 1 == 1 {
                 self.channel1.step_sweep();
