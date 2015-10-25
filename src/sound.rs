@@ -13,7 +13,7 @@ macro_rules! try_opt {
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
-const OUTPUT_SAMPLE_COUNT : u32 = 2000; // this should be less than blip_buf::MAX_FRAME
+const OUTPUT_SAMPLE_COUNT : usize = 3000; // this should be less than blip_buf::MAX_FRAME
 
 struct VolumeEnvelope {
     period : u8,
@@ -607,15 +607,12 @@ impl Sound {
         let right_vol = (self.volume_right as f32 / 7.0) * (1.0 / 15.0) * 0.25;
 
         while outputted < sample_count {
-            let buf_left = &mut [0f32; 2048];
-            let buf_right = &mut [0f32; 2048];
-            let buf1 = &mut [0i16; 2048];
-            let buf2 = &mut [0i16; 2048];
-            let buf3 = &mut [0i16; 2048];
-            let buf4 = &mut [0i16; 2048];
+            let buf_left = &mut [0f32; OUTPUT_SAMPLE_COUNT + 10];
+            let buf_right = &mut [0f32; OUTPUT_SAMPLE_COUNT + 10];
+            let buf = &mut [0i16; OUTPUT_SAMPLE_COUNT + 10];
 
-            let count1 = self.channel1.blip.read_samples(buf1, false);
-            for (i, v) in buf1[..count1].iter().enumerate() {
+            let count1 = self.channel1.blip.read_samples(buf, false);
+            for (i, v) in buf[..count1].iter().enumerate() {
                 if self.registerdata[0x15] & 0x01 == 0x01 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
@@ -624,8 +621,8 @@ impl Sound {
                 }
             }
 
-            let count2 = self.channel2.blip.read_samples(buf2, false);
-            for (i, v) in buf2[..count2].iter().enumerate() {
+            let count2 = self.channel2.blip.read_samples(buf, false);
+            for (i, v) in buf[..count2].iter().enumerate() {
                 if self.registerdata[0x15] & 0x02 == 0x02 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
@@ -634,8 +631,8 @@ impl Sound {
                 }
             }
 
-            let count3 = self.channel3.blip.read_samples(buf3, false);
-            for (i, v) in buf3[..count3].iter().enumerate() {
+            let count3 = self.channel3.blip.read_samples(buf, false);
+            for (i, v) in buf[..count3].iter().enumerate() {
                 if self.registerdata[0x15] & 0x04 == 0x04 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
@@ -644,8 +641,8 @@ impl Sound {
                 }
             }
 
-            let count4 = self.channel4.blip.read_samples(buf4, false);
-            for (i, v) in buf4[..count4].iter().enumerate() {
+            let count4 = self.channel4.blip.read_samples(buf, false);
+            for (i, v) in buf[..count4].iter().enumerate() {
                 if self.registerdata[0x15] & 0x08 == 0x08 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
