@@ -1,17 +1,10 @@
 RBoy
 ====
 
-A Gameboy Color Emulator written in Rust using SDL
-
-Build status
-------------
 [![Build Status](https://travis-ci.org/mvdnes/rboy.png?branch=master)](https://travis-ci.org/mvdnes/rboy)
 
-Dependencies
-------------
+A Gameboy Color Emulator written in Rust
 
-* Rust (master)
-* SDL
 
 Implemented
 -----------
@@ -25,13 +18,13 @@ Implemented
   - Color mode
 * Keypad
 * Timer
+* Audio
 * MMU
   - MBC-less
   - MBC1
   - MBC3 (with RTC)
   - MBC5
   - save games
-
 
 Special thanks to
 -----------------
