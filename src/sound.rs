@@ -465,6 +465,7 @@ pub struct Sound {
     channel4: NoiseChannel,
     volume_left: u8,
     volume_right: u8,
+    need_sync: bool,
     voice: cpal::Voice,
 }
 
@@ -499,6 +500,7 @@ impl Sound {
             channel4: NoiseChannel::new(blipbuf4),
             volume_left: 7,
             volume_right: 7,
+            need_sync: false,
             voice: voice,
         })
     }
@@ -554,6 +556,10 @@ impl Sound {
         }
     }
 
+    pub fn sync(&mut self) {
+        self.need_sync = true;
+    }
+
     fn do_output(&mut self) {
         self.run();
         debug_assert!(self.time == self.prev_time);
@@ -564,7 +570,15 @@ impl Sound {
         self.next_time -= self.time;
         self.time = 0;
         self.prev_time = 0;
-        self.mix_buffers();
+
+        if !self.need_sync || self.voice.underflowed() {
+            self.need_sync = false;
+            self.mix_buffers();
+        }
+        else {
+            // Prevent the BlipBuf's from filling up and triggering an assertion
+            self.clear_buffers();
+        }
     }
 
     fn run(&mut self) {
@@ -666,6 +680,13 @@ impl Sound {
 
             outputted += count1;
         }
+    }
+
+    fn clear_buffers(&mut self) {
+        self.channel1.blip.clear();
+        self.channel2.blip.clear();
+        self.channel3.blip.clear();
+        self.channel4.blip.clear();
     }
 }
 

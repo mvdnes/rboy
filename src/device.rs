@@ -56,6 +56,12 @@ impl Device
         self.cpu.mmu.sound = ::sound::Sound::new();
     }
 
+    pub fn sync_audio(&mut self) {
+        if let Some(ref mut sound) = self.cpu.mmu.sound {
+            sound.sync();
+        }
+    }
+
     pub fn keyup(&mut self, key: KeypadKey)
     {
         self.cpu.mmu.keypad.keyup(key);

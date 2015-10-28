@@ -255,7 +255,7 @@ fn run_cpu(mut cpu: Device, sender: Sender<Vec<u8>>, receiver: Receiver<GBEvent>
                         GBEvent::KeyUp(key) => cpu.keyup(key),
                         GBEvent::KeyDown(key) => cpu.keydown(key),
                         GBEvent::SpeedUp => limit_speed = false,
-                        GBEvent::SpeedDown => limit_speed = true,
+                        GBEvent::SpeedDown => { limit_speed = true; cpu.sync_audio(); }
                     }
                 },
                 Err(TryRecvError::Empty) => break 'recv,
