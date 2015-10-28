@@ -405,8 +405,8 @@ impl GPU {
                 | if b2 & (1 << xbit) != 0 { 2 } else { 0 };
 
             self.bgprio[x] =
-                if prio { PrioType::PrioFlag }
-                else if colnr == 0 { PrioType::Color0 }
+                if colnr == 0 { PrioType::Color0 }
+                else if prio { PrioType::PrioFlag }
                 else { PrioType::Normal };
             if self.gbmode == GbMode::Color {
                 let data_a = self.line as usize * SCREEN_W * 3 + x * 3;
