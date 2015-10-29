@@ -820,7 +820,7 @@ mod test
     const CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
     const CPU_SERIAL: &'static [u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
     const GPU_CLASSIC_CHECKSUM: u32 = 3112234583;
-    const GPU_COLOR_CHECKSUM: u32 = 479666872;
+    const GPU_COLOR_CHECKSUM: u32 = 938267576;
 
     #[test]
     fn cpu_instrs_classic()
