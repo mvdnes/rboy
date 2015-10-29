@@ -331,6 +331,21 @@ impl GPU {
         self.data[self.line as usize * SCREEN_W * 3 + x * 3 + 2] = color;
     }
 
+    fn setrgb(&mut self, x: usize, r: u8, g: u8, b: u8) {
+        // Gameboy Color RGB correction
+        // Taken from the Gambatte emulator
+        // assume r, g and b are between 0 and 1F
+        let baseidx = self.line as usize * SCREEN_W * 3 + x * 3;
+
+        let r = r as u32;
+        let g = g as u32;
+        let b = b as u32;
+
+        self.data[baseidx + 0] = ((r * 13 + g * 2 + b) >> 1) as u8;
+        self.data[baseidx + 1] = ((g * 3 + b) << 1) as u8;
+        self.data[baseidx + 2] = ((r * 3 + g * 2 + b * 11) >> 1) as u8;
+    }
+
     fn draw_bg(&mut self) {
         let drawbg = self.gbmode == GbMode::Color || self.lcdc0;
 
@@ -409,10 +424,10 @@ impl GPU {
                 else if prio { PrioType::PrioFlag }
                 else { PrioType::Normal };
             if self.gbmode == GbMode::Color {
-                let data_a = self.line as usize * SCREEN_W * 3 + x * 3;
-                self.data[data_a + 0] = self.cbgpal[palnr][colnr][0] * 8 + 7;
-                self.data[data_a + 1] = self.cbgpal[palnr][colnr][1] * 8 + 7;
-                self.data[data_a + 2] = self.cbgpal[palnr][colnr][2] * 8 + 7;
+                let r = self.cbgpal[palnr][colnr][0];
+                let g = self.cbgpal[palnr][colnr][1];
+                let b = self.cbgpal[palnr][colnr][2];
+                self.setrgb(x as usize, r, g, b);
             } else {
                 let color = self.palb[colnr];
                 self.setcolor(x, color);
@@ -470,10 +485,10 @@ impl GPU {
                     if self.lcdc0 && (self.bgprio[(spritex + x) as usize] == PrioType::PrioFlag || (belowbg && self.bgprio[(spritex + x) as usize] != PrioType::Color0)) {
                         continue 'xloop
                     }
-                    let data_a = self.line as usize * SCREEN_W * 3 + ((spritex + x) as usize) * 3;
-                    self.data[data_a + 0] = self.csprit[c_palnr][colnr][0] * 8 + 7;
-                    self.data[data_a + 1] = self.csprit[c_palnr][colnr][1] * 8 + 7;
-                    self.data[data_a + 2] = self.csprit[c_palnr][colnr][2] * 8 + 7;
+                    let r = self.csprit[c_palnr][colnr][0];
+                    let g = self.csprit[c_palnr][colnr][1];
+                    let b = self.csprit[c_palnr][colnr][2];
+                    self.setrgb((spritex + x) as usize, r, g, b);
                 } else {
                     if belowbg && self.bgprio[(spritex + x) as usize] != PrioType::Color0 { continue 'xloop }
                     let color = if usepal1 { self.pal1[colnr] } else { self.pal0[colnr] };
