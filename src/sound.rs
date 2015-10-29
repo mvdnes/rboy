@@ -82,7 +82,7 @@ struct SquareChannel {
     sweep_delay: u8,
     sweep_period: u8,
     sweep_shift: u8,
-    sweep_by_adding: bool,
+    sweep_frequency_increase: bool,
     volume_envelope: VolumeEnvelope,
     blip: BlipBuf,
 }
@@ -105,7 +105,7 @@ impl SquareChannel {
             sweep_delay: 0,
             sweep_period: 0,
             sweep_shift: 0,
-            sweep_by_adding: false,
+            sweep_frequency_increase: false,
             volume_envelope: VolumeEnvelope::new(),
             blip: blip,
         }
@@ -117,10 +117,10 @@ impl SquareChannel {
 
     fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF10 if self.has_sweep => {
+            0xFF10 => {
                 self.sweep_period = (v >> 4) & 0x7;
                 self.sweep_shift = v & 0x7;
-                self.sweep_by_adding = v & 0x8 == 0x8;
+                self.sweep_frequency_increase = v & 0x8 == 0x8;
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
@@ -204,25 +204,29 @@ impl SquareChannel {
         else {
             self.sweep_delay = self.sweep_period;
             self.frequency = self.sweep_frequency;
+            if self.frequency == 2048 {
+                self.enabled = false;
+            }
             self.calculate_period();
 
             let offset = self.sweep_frequency >> self.sweep_shift;
-            if self.sweep_by_adding {
-                if self.sweep_frequency >= 2048 - offset {
-                    self.sweep_delay = 0;
-                    self.sweep_frequency = 2048;
-                    self.enabled = false;
-                }
-                else {
-                    self.sweep_frequency += offset;
-                }
-            }
-            else {
+
+            if self.sweep_frequency_increase {
+                // F ~ (2048 - f)
+                // Increase in frequency means subtracting the offset
                 if self.sweep_frequency <= offset {
                     self.sweep_frequency = 0;
                 }
                 else {
                     self.sweep_frequency -= offset;
+                }
+            }
+            else {
+                if self.sweep_frequency >= 2048 - offset {
+                    self.sweep_frequency = 2048;
+                }
+                else {
+                    self.sweep_frequency += offset;
                 }
             }
         }
