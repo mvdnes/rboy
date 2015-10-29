@@ -271,18 +271,13 @@ impl WaveChannel {
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF1A => {
-                if v & 0x80 == 0x80 {
-                    self.enabled_flag = true;
-                }
-                else {
-                    self.enabled_flag = false;
-                    self.enabled = false;
-                }
+                self.enabled_flag = true;
+                self.enabled = self.enabled && self.enabled_flag;
             }
             0xFF1B => self.new_length = 256 - (v as u16),
-            0xFF1C => self.volume_shift = v >> 5,
+            0xFF1C => self.volume_shift = (v >> 5) & 0b11,
             0xFF1D => {
-                self.frequency = (self.frequency & 0xFF00) | (v as u16);
+                self.frequency = (self.frequency & 0x0700) | (v as u16);
                 self.calculate_period();
             }
             0xFF1E => {
@@ -293,6 +288,7 @@ impl WaveChannel {
                     self.length = self.new_length;
                     self.enabled = true;
                     self.current_wave = 0;
+                    self.delay = 0;
                 }
             },
             0xFF30 ... 0xFF3F => {
@@ -322,12 +318,19 @@ impl WaveChannel {
         }
         else {
             let mut time = start_time + self.delay;
+
+            let volshift = match self.volume_shift {
+                0 => 4,
+                1 => 0,
+                2 => 1,
+                3 => 2,
+                _ => unreachable!(),
+            };
+
             while time < end_time {
                 let sample = self.waveram[self.current_wave as usize];
-                let amp = match self.volume_shift {
-                    v @ 1 ... 3 => sample >> (v - 1),
-                    _ => 0,
-                } as i32;
+
+                let amp = (sample >> volshift) as i32;
 
                 if amp != self.last_amp {
                     self.blip.add_delta(time, amp - self.last_amp);
