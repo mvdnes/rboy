@@ -6,7 +6,7 @@ extern crate rboy;
 
 use glium::DisplayBuild;
 use rboy::device::Device;
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
 use std::thread;
 use std::error::Error;
 
@@ -80,7 +80,7 @@ fn real_main() -> i32 {
     }
 
     let (sender1, receiver1) = mpsc::channel();
-    let (sender2, receiver2) = mpsc::channel();
+    let (sender2, receiver2) = mpsc::sync_channel(2);
 
     let display = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
@@ -228,7 +228,7 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
     Some(c)
 }
 
-fn run_cpu(mut cpu: Device, sender: Sender<Vec<u8>>, receiver: Receiver<GBEvent>) {
+fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEvent>) {
     let periodic = timer_periodic(16);
     let mut limit_speed = true;
 
