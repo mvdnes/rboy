@@ -264,12 +264,11 @@ fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEv
         }
 
         if limit_speed { let _ = periodic.recv(); }
-        while let Ok(..) = periodic.try_recv() {};
     }
 }
 
 fn timer_periodic(ms: u32) -> Receiver<()> {
-    let (tx, rx) = std::sync::mpsc::channel();
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
     std::thread::spawn(move || {
         loop {
             std::thread::sleep_ms(ms);
