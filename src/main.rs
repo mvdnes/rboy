@@ -78,13 +78,14 @@ fn real_main() -> i32 {
     if opt_audio {
         cpu.enable_audio();
     }
+    let romname = cpu.name();
 
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::sync_channel(2);
 
     let display = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
-        .with_title("RBoy - A gameboy in Rust".to_owned())
+        .with_title("RBoy - ".to_owned() + &romname)
         .build_glium()
         .unwrap();
 

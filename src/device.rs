@@ -62,4 +62,22 @@ impl Device {
     pub fn keydown(&mut self, key: KeypadKey) {
         self.cpu.mmu.keypad.keydown(key);
     }
+
+    pub fn name(&self) -> String {
+        let title_size = match self.cpu.mmu.gbmode {
+            ::gbmode::GbMode::Color => 11,
+            _ => 16,
+        };
+
+        let mut result = String::with_capacity(title_size as usize);
+
+        for i in 0..title_size {
+            match self.cpu.mmu.mbc.readrom(0x134 + i) {
+                0 => break,
+                v => result.push(v as char),
+            }
+        }
+
+        result
+    }
 }
