@@ -12,6 +12,27 @@ pub trait MBC : Send {
     fn readram(&self, a: u16) -> u8;
     fn writerom(&mut self, a: u16, v: u8);
     fn writeram(&mut self, a: u16, v: u8);
+
+    fn romname(&self) -> String {
+        const TITLE_START : u16 = 0x134;
+        const CGB_FLAG : u16 = 0x143;
+
+        let title_size = match self.readrom(CGB_FLAG) & 0x80 {
+            0x80 => 11,
+            _ => 16,
+        };
+
+        let mut result = String::with_capacity(title_size as usize);
+
+        for i in 0..title_size {
+            match self.readrom(TITLE_START + i) {
+                0 => break,
+                v => result.push(v as char),
+            }
+        }
+
+        result
+    }
 }
 
 pub fn get_mbc(file: path::PathBuf) -> ::StrResult<Box<MBC+'static>> {

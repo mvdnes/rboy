@@ -78,7 +78,7 @@ fn real_main() -> i32 {
     if opt_audio {
         cpu.enable_audio();
     }
-    let romname = cpu.name();
+    let romname = cpu.romname();
 
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::sync_channel(2);
