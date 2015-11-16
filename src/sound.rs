@@ -1,19 +1,14 @@
 use blip_buf::BlipBuf;
-use cpal;
-use std;
-
-macro_rules! try_opt {
-     ( $expr:expr ) => {
-         match $expr {
-             Some(v) => v,
-             None => return None,
-         }
-     }
-}
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
 const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
+
+pub trait AudioPlayer : Send {
+    fn play(&mut self, left_channel: &[f32], right_channel: &[f32]);
+    fn samples_rate(&self) -> u32;
+    fn underflowed(&self) -> bool;
+}
 
 struct VolumeEnvelope {
     period : u8,
@@ -473,27 +468,19 @@ pub struct Sound {
     volume_left: u8,
     volume_right: u8,
     need_sync: bool,
-    voice: cpal::Voice,
+    player: Box<AudioPlayer>,
 }
 
 impl Sound {
-    pub fn new() -> Option<Sound> {
-        let voice = match get_channel() {
-            Some(v) => v,
-            None => {
-                println!("Could not open audio device");
-                return None;
-            },
-        };
+    pub fn new(player: Box<AudioPlayer>) -> Sound {
+        let blipbuf1 = create_blipbuf(player.samples_rate());
+        let blipbuf2 = create_blipbuf(player.samples_rate());
+        let blipbuf3 = create_blipbuf(player.samples_rate());
+        let blipbuf4 = create_blipbuf(player.samples_rate());
 
-        let blipbuf1 = create_blipbuf(&voice);
-        let blipbuf2 = create_blipbuf(&voice);
-        let blipbuf3 = create_blipbuf(&voice);
-        let blipbuf4 = create_blipbuf(&voice);
+        let output_period = (OUTPUT_SAMPLE_COUNT as u64 * CLOCKS_PER_SECOND as u64) / player.samples_rate() as u64;
 
-        let output_period = (OUTPUT_SAMPLE_COUNT as u64 * CLOCKS_PER_SECOND as u64) / voice.format().samples_rate.0 as u64;
-
-        Some(Sound {
+        Sound {
             on: false,
             registerdata: [0; 0x17],
             time: 0,
@@ -508,8 +495,8 @@ impl Sound {
             volume_left: 7,
             volume_right: 7,
             need_sync: false,
-            voice: voice,
-        })
+            player: player,
+        }
     }
 
    pub fn rb(&mut self, a: u16) -> u8 {
@@ -578,7 +565,7 @@ impl Sound {
         self.time = 0;
         self.prev_time = 0;
 
-        if !self.need_sync || self.voice.underflowed() {
+        if !self.need_sync || self.player.underflowed() {
             self.need_sync = false;
             self.mix_buffers();
         }
@@ -683,7 +670,8 @@ impl Sound {
             debug_assert!(count1 == count2);
             debug_assert!(count1 == count3);
             debug_assert!(count1 == count4);
-            play_buf(&mut self.voice, &buf_left[..count1], &buf_right[..count1]);
+
+            self.player.play(&buf_left[..count1], &buf_right[..count1]);
 
             outputted += count1;
         }
@@ -697,72 +685,7 @@ impl Sound {
     }
 }
 
-fn play_buf(voice: &mut cpal::Voice, buf_left: &[f32], buf_right: &[f32]) {
-    debug_assert!(buf_left.len() == buf_right.len());
-
-    let left_idx = voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontLeft);
-    let right_idx = voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontRight);
-
-    let channel_count = voice.format().channels.len();
-
-    let count = buf_left.len();
-    let mut done = 0;
-    let mut lastdone = count;
-
-    while lastdone != done && done < count {
-        lastdone = done;
-        let buf_left_next = &buf_left[done..];
-        let buf_right_next = &buf_right[done..];
-        match voice.append_data(count - done) {
-            cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                    if let Some(idx) = left_idx {
-                        sample[idx] = (buf_left_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
-                    }
-                    if let Some(idx) = right_idx {
-                        sample[idx] = (buf_right_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
-                    }
-                    done += 1;
-                }
-            }
-            cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                    if let Some(idx) = left_idx {
-                        sample[idx] = (buf_left_next[i] * std::i16::MAX as f32) as i16;
-                    }
-                    if let Some(idx) = right_idx {
-                        sample[idx] = (buf_right_next[i] * std::i16::MAX as f32) as i16;
-                    }
-                    done += 1;
-                }
-            }
-            cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                    if let Some(idx) = left_idx {
-                        sample[idx] = buf_left_next[i];
-                    }
-                    if let Some(idx) = right_idx {
-                        sample[idx] = buf_right_next[i];
-                    }
-                    done += 1;
-                }
-            }
-        }
-    }
-    voice.play();
-}
-
-fn get_channel() -> Option<cpal::Voice> {
-    if cpal::get_endpoints_list().count() == 0 { return None; }
-
-    let endpoint = try_opt!(cpal::get_default_endpoint());
-    let format = try_opt!(endpoint.get_supported_formats_list().ok().and_then(|mut v| v.next()));
-
-    cpal::Voice::new(&endpoint, &format).ok()
-}
-
-fn create_blipbuf(voice: &cpal::Voice) -> BlipBuf {
-    let samples_rate = voice.format().samples_rate.0;
+fn create_blipbuf(samples_rate: u32) -> BlipBuf {
     let mut blipbuf = BlipBuf::new(samples_rate);
     blipbuf.set_rates(CLOCKS_PER_SECOND as f64, samples_rate as f64);
     blipbuf

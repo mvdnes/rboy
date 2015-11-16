@@ -45,8 +45,8 @@ impl Device {
         &self.cpu.mmu.gpu.data
     }
 
-    pub fn enable_audio(&mut self) {
-        self.cpu.mmu.sound = ::sound::Sound::new();
+    pub fn enable_audio(&mut self, player: Box<::sound::AudioPlayer>) {
+        self.cpu.mmu.sound = Some(::sound::Sound::new(player));
     }
 
     pub fn sync_audio(&mut self) {

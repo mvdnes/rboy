@@ -1,6 +1,7 @@
 #![crate_name = "rboy"]
 
 extern crate clap;
+extern crate cpal;
 extern crate glium;
 extern crate rboy;
 
@@ -76,7 +77,11 @@ fn real_main() -> i32 {
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
     let mut cpu = cpu.unwrap();
     if opt_audio {
-        cpu.enable_audio();
+        let player = CpalPlayer::get();
+        match player {
+            Some(v) => cpu.enable_audio(Box::new(v) as Box<rboy::AudioPlayer>),
+            None => { warn("Could not open audio device"); return EXITCODE_CPULOADFAILS; },
+        }
     }
     let romname = cpu.romname();
 
@@ -235,7 +240,7 @@ fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEv
 
     let waitticks = (4194304f64 / 1000.0 * 16.0).round() as u32;
     let mut ticks = 0;
-    
+
     'outer: loop {
         while ticks < waitticks {
             ticks += cpu.do_cycle();
@@ -279,4 +284,91 @@ fn timer_periodic(ms: u32) -> Receiver<()> {
         }
     });
     rx
+}
+
+struct CpalPlayer {
+    voice: cpal::Voice,
+}
+
+impl CpalPlayer {
+    fn get() -> Option<CpalPlayer> {
+        if cpal::get_endpoints_list().count() == 0 { return None; }
+
+        let endpoint = match cpal::get_default_endpoint() {
+            Some(e) => e,
+            None => return None,
+        };
+
+        let format = match endpoint.get_supported_formats_list().ok().and_then(|mut v| v.next()) {
+            Some(f) => f,
+            None => return None,
+        };
+
+        cpal::Voice::new(&endpoint, &format).ok().map(|v| CpalPlayer { voice: v })
+    }
+}
+
+impl rboy::AudioPlayer for CpalPlayer {
+    fn play(&mut self, buf_left: &[f32], buf_right: &[f32]) {
+        debug_assert!(buf_left.len() == buf_right.len());
+
+        let left_idx = self.voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontLeft);
+        let right_idx = self.voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontRight);
+
+        let channel_count = self.voice.format().channels.len();
+
+        let count = buf_left.len();
+        let mut done = 0;
+        let mut lastdone = count;
+
+        while lastdone != done && done < count {
+            lastdone = done;
+            let buf_left_next = &buf_left[done..];
+            let buf_right_next = &buf_right[done..];
+            match self.voice.append_data(count - done) {
+                cpal::UnknownTypeBuffer::U16(mut buffer) => {
+                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if let Some(idx) = left_idx {
+                            sample[idx] = (buf_left_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
+                        }
+                        if let Some(idx) = right_idx {
+                            sample[idx] = (buf_right_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
+                        }
+                        done += 1;
+                    }
+                }
+                cpal::UnknownTypeBuffer::I16(mut buffer) => {
+                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if let Some(idx) = left_idx {
+                            sample[idx] = (buf_left_next[i] * std::i16::MAX as f32) as i16;
+                        }
+                        if let Some(idx) = right_idx {
+                            sample[idx] = (buf_right_next[i] * std::i16::MAX as f32) as i16;
+                        }
+                        done += 1;
+                    }
+                }
+                cpal::UnknownTypeBuffer::F32(mut buffer) => {
+                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if let Some(idx) = left_idx {
+                            sample[idx] = buf_left_next[i];
+                        }
+                        if let Some(idx) = right_idx {
+                            sample[idx] = buf_right_next[i];
+                        }
+                        done += 1;
+                    }
+                }
+            }
+        }
+        self.voice.play();
+    }
+
+    fn samples_rate(&self) -> u32 {
+        self.voice.format().samples_rate.0
+    }
+
+    fn underflowed(&self) -> bool {
+        self.voice.underflowed()
+    }
 }

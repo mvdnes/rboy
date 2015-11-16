@@ -2,12 +2,12 @@
 #![crate_type = "lib" ]
 
 extern crate blip_buf;
-extern crate cpal;
 extern crate podio;
 extern crate time;
 
 pub use keypad::KeypadKey;
 pub use gpu::{SCREEN_W, SCREEN_H};
+pub use sound::AudioPlayer;
 
 pub mod device;
 
