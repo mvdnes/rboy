@@ -108,10 +108,7 @@ impl GbPrinter {
 
         match self.state {
             0 => {
-                self.count = 0;
                 if v == 0x88 {
-                    self.packet[self.count] = v;
-                    self.count += 1;
                     self.state = 1;
                 }
                 else {
@@ -120,8 +117,6 @@ impl GbPrinter {
             },
             1 => {
                 if v == 0x33 {
-                    self.packet[self.count] = v;
-                    self.count += 1;
                     self.state = 2;
                 }
                 else {
@@ -129,51 +124,38 @@ impl GbPrinter {
                 }
             },
             2 => {
-                self.packet[self.count] = v;
-                self.count += 1;
                 if self.count == 6 {
-                    self.state = 3;
                     self.datasize = self.packet[4] as usize + ((self.packet[5] as usize) << 8);
-                }
-            },
-            3 => {
-                if self.datasize != 0 {
-                    self.packet[self.count] = v;
-                    self.count += 1;
-                    if self.count == self.datasize + 6 {
+                    if self.datasize > 0 {
+                        self.state = 3;
+                    }
+                    else {
                         self.state = 4;
                     }
                 }
-                else {
+            },
+            3 => {
+                if self.count == self.datasize + 6 {
                     self.state = 4;
-                    return self.send(v);
                 }
             },
             4 => {
-                self.packet[self.count] = v;
-                self.count += 1;
                 self.state = 5;
             },
             5 => {
-                self.packet[self.count] = v;
-                self.count += 1;
                 if self.check_crc() {
                     self.command();
                 }
                 self.state = 6;
             },
             6 => {
-                self.packet[self.count] = v;
-                self.count += 1;
                 self.result = 0x81;
                 self.state = 7;
             },
             7 => {
-                self.packet[self.count] = v;
-                self.count += 1;
                 self.result = self.status;
                 self.state = 0;
-                self.count = 1;
+                self.count = 0;
             },
             _ => {
                 self.reset()
