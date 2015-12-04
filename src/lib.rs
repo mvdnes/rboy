@@ -17,7 +17,6 @@ mod gpu;
 mod keypad;
 mod mbc;
 mod mmu;
-mod printer;
 mod register;
 mod serial;
 mod sound;
