@@ -6,7 +6,7 @@ authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 [dependencies]
 time = "0.1"
 podio = "0.1"
-glium = { version = "0.12", default_features = false, features = [ "glutin" ] }
+glium = { version = "0.13", default_features = false, features = [ "glutin" ] }
 clap = { version = "1", default_features = false }
 blip_buf = ">=0.1.3"
 cpal = "0.2"
