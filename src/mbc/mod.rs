@@ -61,7 +61,7 @@ fn ram_size(v: u8) -> usize {
 
 fn check_checksum(data: &[u8]) -> ::StrResult<()> {
     let mut value: u8 = 0;
-    for i in (0x134 .. 0x14D) {
+    for i in 0x134 .. 0x14D {
         value = value.wrapping_sub(data[i]).wrapping_sub(1);
     }
     match data[0x14D] == value

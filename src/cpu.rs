@@ -840,7 +840,7 @@ mod test
             {
                 ticks += c.do_cycle();
             }
-            for i in (0 .. c.mmu.gpu.data.len())
+            for i in 0 .. c.mmu.gpu.data.len()
             {
                 sum_classic = sum_classic.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }
@@ -867,7 +867,7 @@ mod test
             {
                 ticks += c.do_cycle();
             }
-            for i in (0 .. c.mmu.gpu.data.len())
+            for i in 0 .. c.mmu.gpu.data.len()
             {
                 sum_color = sum_color.wrapping_add((c.mmu.gpu.data[i] as u32).wrapping_mul(i as u32));
             }

@@ -307,7 +307,7 @@ impl GPU {
     }
 
     fn update_pal(&mut self) {
-        for i in (0usize .. 4) {
+        for i in 0 .. 4 {
             self.palb[i] = GPU::get_monochrome_pal_val(self.palbr, i);
             self.pal0[i] = GPU::get_monochrome_pal_val(self.pal0r, i);
             self.pal1[i] = GPU::get_monochrome_pal_val(self.pal1r, i);
@@ -324,7 +324,7 @@ impl GPU {
     }
 
     fn renderscan(&mut self) {
-        for x in (0 .. SCREEN_W) {
+        for x in 0 .. SCREEN_W {
             self.setcolor(x, 255);
             self.bgprio[x] = PrioType::Normal;
         }
@@ -369,7 +369,7 @@ impl GPU {
         let bgy = self.scy.wrapping_add(self.line);
         let bgtiley = (bgy as u16 >> 3) & 31;
 
-        for x in (0 .. SCREEN_W) {
+        for x in 0 .. SCREEN_W {
             let winx = - ((self.winx as i32) - 7) + (x as i32);
             let bgx = self.scx as u32 + x as u32;
 
@@ -447,7 +447,7 @@ impl GPU {
 
         // TODO: limit of 10 sprites per line
 
-        for index in (0 .. 40) {
+        for index in 0 .. 40 {
             let i = 39 - index;
             let spriteaddr = 0xFE00 + (i as u16) * 4;
             let spritey = self.rb(spriteaddr + 0) as u16 as i32 - 16;
@@ -480,7 +480,7 @@ impl GPU {
                 (self.rbvram0(tileaddress), self.rbvram0(tileaddress + 1))
             };
 
-            'xloop: for x in (0i32 .. 8) {
+            'xloop: for x in 0 .. 8 {
                 if spritex + x < 0 || spritex + x >= (SCREEN_W as i32) { continue }
 
                 let xbit = 1 << (if xflip { x } else { 7 - x } as u32);
