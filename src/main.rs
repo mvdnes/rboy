@@ -7,7 +7,7 @@ extern crate rboy;
 
 use glium::DisplayBuild;
 use rboy::device::Device;
-use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread;
 use std::error::Error;
 
@@ -86,7 +86,7 @@ fn real_main() -> i32 {
     let romname = cpu.romname();
 
     let (sender1, receiver1) = mpsc::channel();
-    let (sender2, receiver2) = mpsc::sync_channel(2);
+    let (sender2, receiver2) = mpsc::sync_channel(1);
 
     let display = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
@@ -141,12 +141,10 @@ fn real_main() -> i32 {
             }
         }
 
-        'recv: loop {
-            match receiver2.try_recv() {
-                Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
-                Err(TryRecvError::Empty) => break 'recv,
-                Err(TryRecvError::Disconnected) => break 'main,
-            }
+        match receiver2.try_recv() {
+            Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
+            Err(TryRecvError::Empty) => (),
+            Err(TryRecvError::Disconnected) => break 'main,
         }
     }
 
@@ -246,7 +244,7 @@ fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEv
             ticks += cpu.do_cycle();
             if cpu.check_and_reset_gpu_updated() {
                 let data = cpu.get_gpu_data().to_vec();
-                if let Err(..) = sender.send(data) {
+                if let Err(TrySendError::Disconnected(..)) = sender.try_send(data) {
                     break 'outer;
                 }
             }
