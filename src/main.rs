@@ -271,11 +271,11 @@ fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEv
     }
 }
 
-fn timer_periodic(ms: u32) -> Receiver<()> {
+fn timer_periodic(ms: u64) -> Receiver<()> {
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep_ms(ms);
+            std::thread::sleep(std::time::Duration::from_millis(ms));
             if tx.send(()).is_err() {
                 break;
             }
