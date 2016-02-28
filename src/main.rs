@@ -297,7 +297,18 @@ impl CpalPlayer {
             None => return None,
         };
 
-        let format = match endpoint.get_supported_formats_list().ok().and_then(|mut v| v.next()) {
+        let mut bestf = None;
+        for f in endpoint.get_supported_formats_list().unwrap() {
+            if bestf.is_none() {
+                bestf = Some(f);
+            }
+            else if f.channels.len() == 2 && f.samples_rate.0 >= 192000 && f.data_type == cpal::SampleFormat::F32 {
+                bestf = Some(f.clone());
+                break;
+            }
+        }
+
+        let format = match bestf {
             Some(f) => f,
             None => return None,
         };
@@ -326,6 +337,9 @@ impl rboy::AudioPlayer for CpalPlayer {
             match self.voice.append_data(count - done) {
                 cpal::UnknownTypeBuffer::U16(mut buffer) => {
                     for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if sample.len() < channel_count {
+                            break;
+                        }
                         if let Some(idx) = left_idx {
                             sample[idx] = (buf_left_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
                         }
@@ -337,6 +351,9 @@ impl rboy::AudioPlayer for CpalPlayer {
                 }
                 cpal::UnknownTypeBuffer::I16(mut buffer) => {
                     for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if sample.len() < channel_count {
+                            break;
+                        }
                         if let Some(idx) = left_idx {
                             sample[idx] = (buf_left_next[i] * std::i16::MAX as f32) as i16;
                         }
@@ -348,6 +365,9 @@ impl rboy::AudioPlayer for CpalPlayer {
                 }
                 cpal::UnknownTypeBuffer::F32(mut buffer) => {
                     for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
+                        if sample.len() < channel_count {
+                            break;
+                        }
                         if let Some(idx) = left_idx {
                             sample[idx] = buf_left_next[i];
                         }
