@@ -297,23 +297,36 @@ impl CpalPlayer {
             None => return None,
         };
 
-        let mut bestf = None;
+        let mut wanted_samplerate = None;
+        let mut wanted_sampleformat = None;
         for f in endpoint.get_supported_formats_list().unwrap() {
-            if bestf.is_none() {
-                bestf = Some(f);
+            match wanted_samplerate {
+                None => wanted_samplerate = Some(f.samples_rate),
+                Some(cpal::SamplesRate(r)) if r < f.samples_rate.0 && r < 192000 => wanted_samplerate = Some(f.samples_rate),
+                _ => {},
             }
-            else if f.channels.len() == 2 && f.samples_rate.0 >= 192000 && f.data_type == cpal::SampleFormat::F32 {
-                bestf = Some(f.clone());
-                break;
+            match wanted_sampleformat {
+                None => wanted_sampleformat = Some(f.data_type),
+                Some(cpal::SampleFormat::F32) => {},
+                Some(_) if f.data_type == cpal::SampleFormat::F32 => wanted_sampleformat = Some(f.data_type),
+                _ => {},
             }
         }
 
-        let format = match bestf {
-            Some(f) => f,
-            None => return None,
+        if wanted_samplerate.is_none() || wanted_sampleformat.is_none() {
+            return None;
+        }
+
+        let format = cpal::Format {
+            channels: vec![cpal::ChannelPosition::FrontLeft, cpal::ChannelPosition::FrontRight],
+            samples_rate: wanted_samplerate.unwrap(),
+            data_type: wanted_sampleformat.unwrap(),
         };
 
-        cpal::Voice::new(&endpoint, &format).ok().map(|v| CpalPlayer { voice: v })
+        match cpal::Voice::new(&endpoint, &format) {
+            Ok(v) => Some(CpalPlayer { voice: v }),
+            Err(_) => None,
+        }
     }
 }
 
