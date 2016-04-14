@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 
 [dependencies]
-time = "0.1"
 podio = "0.1"
 glium = { version = "0.13", default_features = false, features = [ "glutin" ] }
 clap = { version = "2", default_features = false }

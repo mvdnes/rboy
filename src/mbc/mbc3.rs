@@ -1,9 +1,8 @@
 use mbc::{MBC, ram_size};
 use std::path;
 use std::io::prelude::*;
-use std::{io, fs};
+use std::{io, fs, time};
 use podio::{BigEndian, ReadPodExt, WritePodExt};
-use time;
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -14,7 +13,7 @@ pub struct MBC3 {
     savepath: Option<path::PathBuf>,
     rtc_ram: [u8; 5],
     rtc_lock: bool,
-    rtc_zero: Option<i64>,
+    rtc_zero: Option<u64>,
 }
 
 impl MBC3 {
@@ -56,7 +55,7 @@ impl MBC3 {
                     Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
                     Err(..) => return Err("Could not read existing save file"),
                 };
-                let rtc = try!(file.read_i64::<BigEndian>().map_err(|_| "Could not read RTC"));
+                let rtc = try!(file.read_u64::<BigEndian>().map_err(|_| "Could not read RTC"));
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
                 let mut data = vec![];
                 match file.read_to_end(&mut data) {
@@ -69,19 +68,19 @@ impl MBC3 {
 
     fn calc_rtc_reg(&mut self) {
         let tzero = match self.rtc_zero {
-            Some(t) => t,
+            Some(t) => time::UNIX_EPOCH + time::Duration::from_secs(t),
             None => return,
         };
         if self.rtc_ram[4] & 0x40 == 0x40 { return }
 
-        let difftime: i64 = match time::now().to_timespec().sec - tzero {
-            n if n >= 0 => { n },
+        let difftime = match time::SystemTime::now().duration_since(tzero) {
+            Ok(n) => { n.as_secs() },
             _ => { 0 },
         };
         self.rtc_ram[0] = (difftime % 60) as u8;
         self.rtc_ram[1] = ((difftime / 60) % 60) as u8;
         self.rtc_ram[2] = ((difftime / 3600) % 24) as u8;
-        let days: i64 = difftime / (3600*24);
+        let days = difftime / (3600*24);
         self.rtc_ram[3] = days as u8;
         self.rtc_ram[4] = (self.rtc_ram[4] & 0xFE) | (((days >> 8) & 0x01) as u8);
         if days >= 512 {
@@ -92,11 +91,14 @@ impl MBC3 {
 
     fn calc_rtc_zero(&mut self) {
         if self.rtc_zero.is_none() { return }
-        let mut difftime: i64 = time::now().to_timespec().sec;
-        difftime -= self.rtc_ram[0] as i64;
-        difftime -= (self.rtc_ram[1] as i64) * 60;
-        difftime -= (self.rtc_ram[2] as i64) * 3600;
-        let days = ((self.rtc_ram[4] as i64 & 0x1) << 8) | (self.rtc_ram[3] as i64);
+        let mut difftime = match time::SystemTime::now().duration_since(time::UNIX_EPOCH) {
+            Ok(t) => t.as_secs(),
+            Err(_) => panic!("System clock is set to a time before the unix epoch (1970-01-01)"),
+        };
+        difftime -= self.rtc_ram[0] as u64;
+        difftime -= (self.rtc_ram[1] as u64) * 60;
+        difftime -= (self.rtc_ram[2] as u64) * 3600;
+        let days = ((self.rtc_ram[4] as u64 & 0x1) << 8) | (self.rtc_ram[3] as u64);
         difftime -= days * 3600 * 24;
         self.rtc_zero = Some(difftime);
     }
@@ -116,7 +118,7 @@ impl Drop for MBC3 {
                     None => 0,
                 };
                 let mut ok = true;
-                if ok { ok = file.write_i64::<BigEndian>(rtc).is_ok(); };
+                if ok { ok = file.write_u64::<BigEndian>(rtc).is_ok(); };
                 if ok { let _ = file.write_all(&*self.ram); };
             },
         };

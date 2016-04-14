@@ -3,7 +3,6 @@
 
 extern crate blip_buf;
 extern crate podio;
-extern crate time;
 
 pub use keypad::KeypadKey;
 pub use gpu::{SCREEN_W, SCREEN_H};
