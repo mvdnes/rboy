@@ -5,7 +5,6 @@ extern crate cpal;
 extern crate glium;
 extern crate rboy;
 
-use glium::DisplayBuild;
 use rboy::device::Device;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::thread;
@@ -88,11 +87,12 @@ fn real_main() -> i32 {
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::sync_channel(1);
 
-    let display = glium::glutin::WindowBuilder::new()
+    let mut eventsloop = glium::glutin::EventsLoop::new();
+    let window_builder = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
-        .with_title("RBoy - ".to_owned() + &romname)
-        .build_glium()
-        .unwrap();
+        .with_title("RBoy - ".to_owned() + &romname);
+    let context_builder = glium::glutin::ContextBuilder::new();
+    let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
             &display,
@@ -106,45 +106,56 @@ fn real_main() -> i32 {
 
     let cputhread = thread::spawn(move|| run_cpu(cpu, sender2, receiver1));
 
-    'main : loop {
-        for ev in display.poll_events() {
-            use glium::glutin::Event;
+    loop {
+        let mut stop = false;
+        eventsloop.poll_events(|ev| {
+            use glium::glutin::{Event, WindowEvent, KeyboardInput};
             use glium::glutin::ElementState::{Pressed, Released};
             use glium::glutin::VirtualKeyCode;
 
             match ev {
-                Event::Closed
-                    => break 'main,
-                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Escape))
-                    => break 'main,
-                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::Key1))
-                    => display.get_window().unwrap().set_inner_size(rboy::SCREEN_W as u32, rboy::SCREEN_H as u32),
-                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::R))
-                    => display.get_window().unwrap().set_inner_size(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale),
-                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::LShift))
-                    => { let _ = sender1.send(GBEvent::SpeedUp); },
-                Event::KeyboardInput(Released, _, Some(VirtualKeyCode::LShift))
-                    => { let _ = sender1.send(GBEvent::SpeedDown); },
-                Event::KeyboardInput(Pressed, _, Some(VirtualKeyCode::T))
-                    => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
-                Event::KeyboardInput(Pressed, _, Some(glutinkey)) => {
-                    if let Some(key) = glutin_to_keypad(glutinkey) {
-                        let _ = sender1.send(GBEvent::KeyDown(key));
-                    }
-                },
-                Event::KeyboardInput(Released, _, Some(glutinkey)) => {
-                    if let Some(key) = glutin_to_keypad(glutinkey) {
-                        let _ = sender1.send(GBEvent::KeyUp(key));
-                    }
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::Closed
+                        => stop = true,
+                    WindowEvent::KeyboardInput { input, .. } => match input {
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
+                            => stop = true,
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
+                            => display.gl_window().set_inner_size(rboy::SCREEN_W as u32, rboy::SCREEN_H as u32),
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
+                            => display.gl_window().set_inner_size(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale),
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
+                            => { let _ = sender1.send(GBEvent::SpeedUp); },
+                        KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
+                            => { let _ = sender1.send(GBEvent::SpeedDown); },
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::T), .. }
+                            => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
+                        KeyboardInput { state: Pressed, virtual_keycode: Some(glutinkey), .. } => {
+                            if let Some(key) = glutin_to_keypad(glutinkey) {
+                                let _ = sender1.send(GBEvent::KeyDown(key));
+                            }
+                        },
+                        KeyboardInput { state: Released, virtual_keycode: Some(glutinkey), .. } => {
+                            if let Some(key) = glutin_to_keypad(glutinkey) {
+                                let _ = sender1.send(GBEvent::KeyUp(key));
+                            }
+                        },
+                        _ => (),
+                    },
+                    _ => (),
                 },
                 _ => (),
             }
+        });
+
+        if stop == true {
+            break;
         }
 
         match receiver2.try_recv() {
             Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
             Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => break 'main,
+            Err(TryRecvError::Disconnected) => break,
         }
     }
 
@@ -169,7 +180,7 @@ fn glutin_to_keypad(key: glium::glutin::VirtualKeyCode) -> Option<rboy::KeypadKe
     }
 }
 
-fn recalculate_screen(display: &glium::backend::glutin_backend::GlutinFacade,
+fn recalculate_screen(display: &glium::Display,
                       texture: &mut glium::texture::texture2d::Texture2d,
                       datavec: &[u8],
                       renderoptions: &RenderOptions)
