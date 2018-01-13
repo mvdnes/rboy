@@ -829,7 +829,7 @@ mod test
         let mut output = Vec::new();
 
         {
-            let serial = |v: u8| { output.push(v); 0 };
+            let serial = |v: u8| { output.push(v); None };
             let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)))
             {
                 Err(message) => { panic!(message); },
@@ -856,7 +856,7 @@ mod test
         let mut output = Vec::new();
 
         {
-            let serial = |v| { output.push(v); 0 };
+            let serial = |v| { output.push(v); None };
             let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)))
             {
                 Err(message) => { panic!(message); },

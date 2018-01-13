@@ -1,4 +1,4 @@
-struct GbPrinter {
+pub struct GbPrinter {
     status: u8,
     state: u32,
     data: [u8; 0x280*9],
@@ -7,10 +7,11 @@ struct GbPrinter {
     datacount: usize,
     datasize: usize,
     result: u8,
+    printcount: u8
 }
 
 impl GbPrinter {
-    fn new() -> GbPrinter {
+    pub fn new() -> GbPrinter {
         GbPrinter {
             status: 0,
             state: 0,
@@ -20,17 +21,17 @@ impl GbPrinter {
             datacount: 0,
             datasize: 0,
             result: 0,
+            printcount: 0,
         }
     }
 
     fn check_crc(&self) -> bool {
-        let mut crc = 0;
+        let mut crc = 0u16;
         for i in 2..(6 + self.datasize) {
-            crc += self.packet[i] as u16;
+            crc = crc.wrapping_add(self.packet[i] as u16);
         }
 
-        let msgcrc = self.packet[6 + self.datasize] as u16
-            + ((self.packet[7 + self.datasize] as u16) << 8);
+        let msgcrc = (self.packet[6 + self.datasize] as u16).wrapping_add((self.packet[7 + self.datasize] as u16) << 8);
 
         crc == msgcrc
     }
@@ -44,17 +45,53 @@ impl GbPrinter {
         self.result = 0;
     }
 
-    fn show(&self) {
-        unimplemented!();
+    fn show(&mut self) {
+        match self._show() {
+            Ok(filename) => println!("Print saved successfully to {}", filename),
+            Err(e) => println!("Error saving print... {:?}", e),
+        }
+    }
+
+    fn _show(&mut self) -> ::std::io::Result<String> {
+        use std::fs::OpenOptions;
+        use std::io::Write;
+
+        let filename = format!("rboy_print_{:03}.pgm", self.printcount);
+        self.printcount += 1;
+
+        let image_height = self.datacount / 40;
+        if image_height == 0 {
+            return Ok(filename);
+        }
+
+        let mut f = OpenOptions::new().create(true).write(true).truncate(true).open(&filename)?;
+
+        write!(f, "P5 160 {} 3\n", image_height)?;
+
+        let palbyte = self.packet[8];
+        let palette = [3 - ((palbyte >> 0) & 3), 3 - ((palbyte >> 2) & 3), 3 - ((palbyte >> 4) & 3), 3 - ((palbyte >> 6) & 3)];
+
+        for y in 0..image_height {
+            for x in 0..160 {
+                let tilenumber = ((y >> 3) * 20) + (x >> 3);
+                let tileoffset = tilenumber * 16 + (y & 7) * 2;
+                let bx = 7 - (x & 7);
+
+                let colourindex = ((self.data[tileoffset] >> bx) & 1) | (((self.data[tileoffset + 1] >> bx) << 1) & 2);
+
+                f.write_all(&[palette[colourindex as usize]])?;
+            }
+        }
+
+        Ok(filename)
     }
 
     fn receive(&mut self) {
         if self.packet[3] != 0 {
             let mut dataidx = 6;
             let mut destidx = self.datacount;
-            let mut len = 0;
 
-            while len < self.datasize {
+            while dataidx - 6 < self.datasize {
                 let control = self.packet[dataidx];
                 dataidx += 1;
 
@@ -64,7 +101,6 @@ impl GbPrinter {
                         self.data[destidx + i] = self.packet[dataidx];
                     }
                     dataidx += 1;
-                    len += curlen;
                     destidx += curlen;
                 }
                 else {
@@ -74,9 +110,10 @@ impl GbPrinter {
                     }
                     destidx += curlen;
                     dataidx += curlen;
-                    len += curlen as usize;
                 }
             }
+
+            self.datacount = destidx;
         }
         else {
             for i in 0..self.datasize {
@@ -102,7 +139,7 @@ impl GbPrinter {
         }
     }
 
-    fn send(&mut self, v: u8) -> u8 {
+    pub fn send(&mut self, v: u8) -> u8 {
         self.packet[self.count] = v;
         self.count += 1;
 

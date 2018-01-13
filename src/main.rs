@@ -44,6 +44,10 @@ fn real_main() -> i32 {
              .help("Prints the data from the serial port to stdout")
              .short("s")
              .long("serial"))
+        .arg(clap::Arg::with_name("printer")
+             .help("Emulates a gameboy printer")
+             .short("p")
+             .long("printer"))
         .arg(clap::Arg::with_name("classic")
              .help("Forces the emulator to run in classic Gameboy mode")
              .short("c")
@@ -67,12 +71,13 @@ fn real_main() -> i32 {
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
+    let opt_printer = matches.is_present("printer");
     let opt_classic = matches.is_present("classic");
     let opt_audio = matches.is_present("audio");
     let filename = matches.value_of("filename").unwrap();
     let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
 
-    let cpu = construct_cpu(filename, opt_classic, opt_serial);
+    let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
     let mut cpu = cpu.unwrap();
     if opt_audio {
@@ -229,7 +234,7 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Option<Device> {
+fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool) -> Option<Device> {
     let opt_c = match classic_mode {
         true => Device::new(filename),
         false => Device::new_cgb(filename),
@@ -239,7 +244,14 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool) -> Opt
         Ok(cpu) => { cpu },
         Err(message) => { warn(message); return None; },
     };
-    c.set_stdout(output_serial);
+
+    if output_printer {
+        c.attach_printer();
+    }
+    else {
+        c.set_stdout(output_serial);
+    }
+
     Some(c)
 }
 

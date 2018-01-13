@@ -1,16 +1,18 @@
 use cpu::CPU;
 use keypad::KeypadKey;
+use printer::GbPrinter;
 
 pub struct Device {
     cpu: CPU<'static>,
 }
 
-fn stdoutprinter(v: u8) -> u8 {
+fn stdoutprinter(v: u8) -> Option<u8> {
     use std::io::Write;
 
     print!("{}", v as char);
     let _ = ::std::io::stdout().flush();
-    0
+
+    None
 }
 
 impl Device {
@@ -33,6 +35,16 @@ impl Device {
         else {
             self.cpu.mmu.serial.unset_callback();
         }
+    }
+
+    pub fn attach_printer(&mut self) {
+        let mut printer = GbPrinter::new();
+
+        let printfun = move |v: u8| -> Option<u8> {
+            Some(printer.send(v))
+        };
+
+        self.cpu.mmu.serial.set_callback(Box::new(printfun));
     }
 
     pub fn check_and_reset_gpu_updated(&mut self) -> bool {

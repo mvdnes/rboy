@@ -1,18 +1,19 @@
-pub type SerialCallback<'a> = Box<FnMut(u8) -> u8 + Send + 'a>;
+pub type SerialCallback<'a> = Box<FnMut(u8) -> Option<u8> + Send + 'a>;
 
-fn noop(_: u8) -> u8 { 0 }
+fn noop(_: u8) -> Option<u8> { None }
 
 pub struct Serial<'a> {
     data: u8,
     control: u8,
     callback: SerialCallback<'a>,
+    pub interrupt: u8,
 }
 
 impl<'a> Serial<'a>
 {
     pub fn new_with_callback(cb: SerialCallback<'a>) -> Serial<'a>
     {
-        Serial { data: 0, control: 0, callback: cb, }
+        Serial { data: 0, control: 0, callback: cb, interrupt: 0 }
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
@@ -21,7 +22,13 @@ impl<'a> Serial<'a>
             0xFF02 => {
                 self.control = v;
                 if v == 0x81 {
-                    self.data = (self.callback)(self.data);
+                    match (self.callback)(self.data) {
+                        Some(v) => {
+                            self.data = v;
+                            self.interrupt = 0x8
+                        },
+                        None => {},
+                    }
                 }
             },
             _ => panic!("Serial does not handle address {:4X} (write)", a),
@@ -47,6 +54,6 @@ impl<'a> Serial<'a>
 
 impl Serial<'static> {
     pub fn new() -> Serial<'static> {
-        Serial { data: 0, control: 0, callback: Box::new(noop) }
+        Serial { data: 0, control: 0, callback: Box::new(noop), interrupt: 0 }
     }
 }
