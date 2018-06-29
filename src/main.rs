@@ -92,6 +92,9 @@ fn real_main() -> i32 {
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::sync_channel(1);
 
+    // Force winit to use x11 instead of wayland, wayland is not fully supported yet by winit.
+    std::env::set_var("WINIT_UNIX_BACKEND", "x11");
+
     let mut eventsloop = glium::glutin::EventsLoop::new();
     let window_builder = glium::glutin::WindowBuilder::new()
         .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
