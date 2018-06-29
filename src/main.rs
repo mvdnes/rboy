@@ -238,7 +238,7 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool) -> Option<Device> {
+fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool) -> Option<Box<Device>> {
     let opt_c = match classic_mode {
         true => Device::new(filename),
         false => Device::new_cgb(filename),
@@ -256,10 +256,10 @@ fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output
         c.set_stdout(output_serial);
     }
 
-    Some(c)
+    Some(Box::new(c))
 }
 
-fn run_cpu(mut cpu: Device, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEvent>) {
+fn run_cpu(mut cpu: Box<Device>, sender: SyncSender<Vec<u8>>, receiver: Receiver<GBEvent>) {
     let periodic = timer_periodic(16);
     let mut limit_speed = true;
 
