@@ -7,6 +7,7 @@ extern crate rboy;
 
 use rboy::device::Device;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::error::Error;
 
@@ -311,24 +312,27 @@ fn timer_periodic(ms: u64) -> Receiver<()> {
 }
 
 struct CpalPlayer {
-    voice: cpal::Voice,
+    buffer: Arc<Mutex<Vec<(f32, f32)>>>,
+    sample_rate: u32,
 }
 
 impl CpalPlayer {
     fn get() -> Option<CpalPlayer> {
-        if cpal::get_endpoints_list().count() == 0 { return None; }
-
-        let endpoint = match cpal::get_default_endpoint() {
+        let device = match cpal::default_output_device() {
             Some(e) => e,
             None => return None,
         };
 
         let mut wanted_samplerate = None;
         let mut wanted_sampleformat = None;
-        for f in endpoint.get_supported_formats_list().unwrap() {
+        let supported_formats = match device.supported_output_formats() {
+            Ok(e) => e,
+            Err(_) => return None,
+        };
+        for f in supported_formats {
             match wanted_samplerate {
-                None => wanted_samplerate = Some(f.samples_rate),
-                Some(cpal::SamplesRate(r)) if r < f.samples_rate.0 && r < 192000 => wanted_samplerate = Some(f.samples_rate),
+                None => wanted_samplerate = Some(f.max_sample_rate),
+                Some(cpal::SampleRate(r)) if r < f.max_sample_rate.0 && r < 192000 => wanted_samplerate = Some(f.max_sample_rate),
                 _ => {},
             }
             match wanted_sampleformat {
@@ -344,88 +348,80 @@ impl CpalPlayer {
         }
 
         let format = cpal::Format {
-            channels: vec![cpal::ChannelPosition::FrontLeft, cpal::ChannelPosition::FrontRight],
-            samples_rate: wanted_samplerate.unwrap(),
+            channels: 2,
+            sample_rate: wanted_samplerate.unwrap(),
             data_type: wanted_sampleformat.unwrap(),
         };
 
-        match cpal::Voice::new(&endpoint, &format) {
-            Ok(v) => Some(CpalPlayer { voice: v }),
-            Err(_) => None,
-        }
+        let event_loop = cpal::EventLoop::new();
+        let stream_id = event_loop.build_output_stream(&device, &format).unwrap();
+        event_loop.play_stream(stream_id);
+
+        let shared_buffer = Arc::new(Mutex::new(Vec::new()));
+        let player = CpalPlayer {
+            buffer: shared_buffer.clone(),
+            sample_rate: wanted_samplerate.unwrap().0,
+        };
+
+        thread::spawn(move|| cpal_thread(event_loop, shared_buffer));
+
+        Some(player)
     }
+}
+
+fn cpal_thread(event_loop: cpal::EventLoop, audio_buffer: Arc<Mutex<Vec<(f32, f32)>>>) -> ! {
+    event_loop.run(move |_stream_id, stream_data| {
+        let mut inbuffer = audio_buffer.lock().unwrap();
+        match stream_data {
+            cpal::StreamData::Output { buffer } => {
+                let outlen = ::std::cmp::min(buffer.len() / 2, inbuffer.len());
+                match buffer {
+                    cpal::UnknownTypeOutputBuffer::F32(mut outbuffer) => {
+                        for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
+                            outbuffer[i*2] = in_l;
+                            outbuffer[i*2+1] = in_r;
+                        }
+                    },
+                    cpal::UnknownTypeOutputBuffer::U16(mut outbuffer) => {
+                        for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
+                            outbuffer[i*2] = (in_l * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
+                            outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
+                        }
+                    },
+                    cpal::UnknownTypeOutputBuffer::I16(mut outbuffer) => {
+                        for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
+                            outbuffer[i*2] = (in_l * (std::i16::MAX as f32)) as i16;
+                            outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32)) as i16;
+                        }
+                    },
+                }
+            }
+            _ => (),
+        }
+    });
 }
 
 impl rboy::AudioPlayer for CpalPlayer {
     fn play(&mut self, buf_left: &[f32], buf_right: &[f32]) {
         debug_assert!(buf_left.len() == buf_right.len());
 
-        let left_idx = self.voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontLeft);
-        let right_idx = self.voice.format().channels.iter().position(|c| *c == cpal::ChannelPosition::FrontRight);
+        let mut buffer = self.buffer.lock().unwrap();
 
-        let channel_count = self.voice.format().channels.len();
-
-        let count = buf_left.len();
-        let mut done = 0;
-        let mut lastdone = count;
-
-        while lastdone != done && done < count {
-            lastdone = done;
-            let buf_left_next = &buf_left[done..];
-            let buf_right_next = &buf_right[done..];
-            match self.voice.append_data(count - done) {
-                cpal::UnknownTypeBuffer::U16(mut buffer) => {
-                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                        if sample.len() < channel_count {
-                            break;
-                        }
-                        if let Some(idx) = left_idx {
-                            sample[idx] = (buf_left_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
-                        }
-                        if let Some(idx) = right_idx {
-                            sample[idx] = (buf_right_next[i] * (std::i16::MAX as f32) + (std::i16::MAX as f32)) as u16;
-                        }
-                        done += 1;
-                    }
-                }
-                cpal::UnknownTypeBuffer::I16(mut buffer) => {
-                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                        if sample.len() < channel_count {
-                            break;
-                        }
-                        if let Some(idx) = left_idx {
-                            sample[idx] = (buf_left_next[i] * std::i16::MAX as f32) as i16;
-                        }
-                        if let Some(idx) = right_idx {
-                            sample[idx] = (buf_right_next[i] * std::i16::MAX as f32) as i16;
-                        }
-                        done += 1;
-                    }
-                }
-                cpal::UnknownTypeBuffer::F32(mut buffer) => {
-                    for (i, sample) in buffer.chunks_mut(channel_count).enumerate() {
-                        if sample.len() < channel_count {
-                            break;
-                        }
-                        if let Some(idx) = left_idx {
-                            sample[idx] = buf_left_next[i];
-                        }
-                        if let Some(idx) = right_idx {
-                            sample[idx] = buf_right_next[i];
-                        }
-                        done += 1;
-                    }
-                }
+        for (l, r) in buf_left.iter().zip(buf_right) {
+            if buffer.len() > self.sample_rate as usize {
+                // Do not fill the buffer with more than 1 second of data
+                // This speeds up the resync after the turning on and off the speed limiter
+                return
             }
+            buffer.push((*l, *r));
         }
-        self.voice.play();
     }
 
     fn samples_rate(&self) -> u32 {
-        self.voice.format().samples_rate.0
+        self.sample_rate
     }
 
     fn underflowed(&self) -> bool {
-        self.voice.underflowed()
+        (*self.buffer.lock().unwrap()).len() == 0
     }
 }
