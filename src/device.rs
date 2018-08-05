@@ -16,12 +16,12 @@ fn stdoutprinter(v: u8) -> Option<u8> {
 }
 
 impl Device {
-    pub fn new(romname: &str) -> ::StrResult<Device> {
-        CPU::new(romname, None).map(|cpu| Device { cpu: cpu })
+    pub fn new(romname: &str, skip_checksum: bool) -> ::StrResult<Device> {
+        CPU::new(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
     }
 
-    pub fn new_cgb(romname: &str) -> ::StrResult<Device> {
-        CPU::new_cgb(romname, None).map(|cpu| Device { cpu: cpu })
+    pub fn new_cgb(romname: &str, skip_checksum: bool) -> ::StrResult<Device> {
+        CPU::new_cgb(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
     }
 
     pub fn do_cycle(&mut self) -> u32 {

@@ -69,16 +69,20 @@ fn real_main() -> i32 {
              .help("Enables audio")
              .short("a")
              .long("audio"))
+        .arg(clap::Arg::with_name("skip-checksum")
+             .help("Skips verification of the cartridge checksum")
+             .long("skip-checksum"))
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
     let opt_printer = matches.is_present("printer");
     let opt_classic = matches.is_present("classic");
     let opt_audio = matches.is_present("audio");
+    let opt_skip_checksum = matches.is_present("skip-checksum");
     let filename = matches.value_of("filename").unwrap();
     let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
 
-    let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer);
+    let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer, opt_skip_checksum);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
     let mut cpu = cpu.unwrap();
     if opt_audio {
@@ -238,10 +242,10 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool) -> Option<Box<Device>> {
+fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool, skip_checksum: bool) -> Option<Box<Device>> {
     let opt_c = match classic_mode {
-        true => Device::new(filename),
-        false => Device::new_cgb(filename),
+        true => Device::new(filename, skip_checksum),
+        false => Device::new_cgb(filename, skip_checksum),
     };
     let mut c = match opt_c
     {

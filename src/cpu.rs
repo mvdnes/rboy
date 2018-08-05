@@ -11,8 +11,8 @@ pub struct CPU<'a> {
 }
 
 impl<'a> CPU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<CPU<'a>> {
-        let cpu_mmu = try!(::mmu::MMU::new(romname, serial_callback));
+    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<CPU<'a>> {
+        let cpu_mmu = try!(::mmu::MMU::new(romname, serial_callback, skip_checksum));
         Ok(CPU {
             reg: ::register::Registers::new(),
             halted: false,
@@ -23,8 +23,8 @@ impl<'a> CPU<'a> {
         })
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>) -> ::StrResult<CPU<'a>> {
-        let cpu_mmu = try!(::mmu::MMU::new_cgb(romname, serial_callback));
+    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<CPU<'a>> {
+        let cpu_mmu = try!(::mmu::MMU::new_cgb(romname, serial_callback, skip_checksum));
         Ok(CPU {
             reg: ::register::Registers::new_cgb(),
             halted: false,
@@ -830,7 +830,7 @@ mod test
 
         {
             let serial = |v: u8| { output.push(v); None };
-            let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)))
+            let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)), false)
             {
                 Err(message) => { panic!(message); },
                 Ok(cpu) => cpu,
@@ -857,7 +857,7 @@ mod test
 
         {
             let serial = |v| { output.push(v); None };
-            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)))
+            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)), false)
             {
                 Err(message) => { panic!(message); },
                 Ok(cpu) => cpu,
