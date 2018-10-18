@@ -10,6 +10,7 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::error::Error;
+use glium::glutin::dpi::LogicalSize;
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
@@ -102,7 +103,7 @@ fn real_main() -> i32 {
 
     let mut eventsloop = glium::glutin::EventsLoop::new();
     let window_builder = glium::glutin::WindowBuilder::new()
-        .with_dimensions(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)
+        .with_dimensions(LogicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)))
         .with_title("RBoy - ".to_owned() + &romname);
     let context_builder = glium::glutin::ContextBuilder::new();
     let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
@@ -128,15 +129,15 @@ fn real_main() -> i32 {
 
             match ev {
                 Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::Closed
+                    WindowEvent::CloseRequested
                         => stop = true,
                     WindowEvent::KeyboardInput { input, .. } => match input {
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
                             => stop = true,
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                            => display.gl_window().set_inner_size(rboy::SCREEN_W as u32, rboy::SCREEN_H as u32),
+                            => display.gl_window().set_inner_size(LogicalSize::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32))),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                            => display.gl_window().set_inner_size(rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale),
+                            => display.gl_window().set_inner_size(LogicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale))),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
                             => { let _ = sender1.send(GBEvent::SpeedUp); },
                         KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
