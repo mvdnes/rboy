@@ -10,7 +10,6 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::error::Error;
-use glium::glutin::dpi::LogicalSize;
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
@@ -103,10 +102,11 @@ fn real_main() -> i32 {
 
     let mut eventsloop = glium::glutin::EventsLoop::new();
     let window_builder = glium::glutin::WindowBuilder::new()
-        .with_dimensions(LogicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale)))
+        .with_dimensions(glium::glutin::dpi::LogicalSize::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
         .with_title("RBoy - ".to_owned() + &romname);
     let context_builder = glium::glutin::ContextBuilder::new();
     let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
+    set_window_size(&**display.gl_window(), scale);
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
             &display,
@@ -135,9 +135,9 @@ fn real_main() -> i32 {
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
                             => stop = true,
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                            => display.gl_window().set_inner_size(LogicalSize::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32))),
+                            => set_window_size(&**display.gl_window(), 1),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                            => display.gl_window().set_inner_size(LogicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale))),
+                            => set_window_size(&**display.gl_window(), scale),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
                             => { let _ = sender1.send(GBEvent::SpeedUp); },
                         KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
@@ -314,6 +314,17 @@ fn timer_periodic(ms: u64) -> Receiver<()> {
         }
     });
     rx
+}
+
+fn set_window_size(window: &glium::glutin::Window, scale: u32) {
+    use glium::glutin::dpi::{LogicalSize, PhysicalSize};
+
+    let dpi = window.get_hidpi_factor();
+
+    let physical_size = PhysicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
+    let logical_size = LogicalSize::from_physical(physical_size, dpi);
+
+    window.set_inner_size(logical_size);
 }
 
 struct CpalPlayer {
