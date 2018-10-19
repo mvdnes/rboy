@@ -166,10 +166,9 @@ fn real_main() -> i32 {
             break;
         }
 
-        match receiver2.try_recv() {
+        match receiver2.recv() {
             Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
-            Err(TryRecvError::Empty) => (),
-            Err(TryRecvError::Disconnected) => break,
+            Err(..) => break, // Remote end has hung-up
         }
     }
 
