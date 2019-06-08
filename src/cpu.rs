@@ -627,7 +627,6 @@ impl<'a> CPU<'a> {
             0xFD => { self.reg.l = self.reg.l | (1 << 7); 2 },
             0xFE => { let a = self.reg.hl(); let v = self.mmu.rb(a) | (1 << 7); self.mmu.wb(a, v); 4 },
             0xFF => { self.reg.a = self.reg.a | (1 << 7); 2 },
-            other => panic!(" Instruction CB{:2X} is not implemented", other),
         }
     }
 
