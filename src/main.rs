@@ -101,7 +101,7 @@ fn real_main() -> i32 {
         .with_title("RBoy - ".to_owned() + &romname);
     let context_builder = glium::glutin::ContextBuilder::new();
     let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
-    set_window_size(&**display.gl_window(), scale);
+    set_window_size(display.gl_window().window(), scale);
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
             &display,
@@ -130,9 +130,9 @@ fn real_main() -> i32 {
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
                             => stop = true,
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                            => set_window_size(&**display.gl_window(), 1),
+                            => set_window_size(display.gl_window().window(), 1),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                            => set_window_size(&**display.gl_window(), scale),
+                            => set_window_size(display.gl_window().window(), scale),
                         KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
                             => { let _ = sender1.send(GBEvent::SpeedUp); },
                         KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
