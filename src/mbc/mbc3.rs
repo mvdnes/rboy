@@ -1,4 +1,6 @@
-use mbc::{MBC, ram_size};
+use crate::mbc::{MBC, ram_size};
+use crate::StrResult;
+
 use std::path;
 use std::io::prelude::*;
 use std::{io, fs, time};
@@ -17,7 +19,7 @@ pub struct MBC3 {
 }
 
 impl MBC3 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC3> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC3> {
         let subtype = data[0x147];
         let svpath = match subtype {
             0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
@@ -46,7 +48,7 @@ impl MBC3 {
         res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> ::StrResult<()> {
+    fn loadram(&mut self) -> StrResult<()> {
         match self.savepath {
             None => Ok(()),
             Some(ref savepath) => {
@@ -55,7 +57,7 @@ impl MBC3 {
                     Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
                     Err(..) => return Err("Could not read existing save file"),
                 };
-                let rtc = try!(file.read_u64::<BigEndian>().map_err(|_| "Could not read RTC"));
+                let rtc = file.read_u64::<BigEndian>().map_err(|_| "Could not read RTC")?;
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
                 let mut data = vec![];
                 match file.read_to_end(&mut data) {

@@ -1,10 +1,5 @@
 #![crate_name = "rboy"]
 
-extern crate clap;
-extern crate cpal;
-extern crate glium;
-extern crate rboy;
-
 use rboy::device::Device;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};

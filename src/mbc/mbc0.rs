@@ -1,11 +1,12 @@
-use mbc::MBC;
+use crate::StrResult;
+use crate::mbc::MBC;
 
 pub struct MBC0 {
     rom: Vec<u8>,
 }
 
 impl MBC0 {
-    pub fn new(data: Vec<u8>) -> ::StrResult<MBC0> {
+    pub fn new(data: Vec<u8>) -> StrResult<MBC0> {
         Ok(MBC0 { rom: data })
     }
 }

@@ -1,4 +1,4 @@
-use gbmode::GbMode;
+use crate::gbmode::GbMode;
 
 const VRAM_SIZE: usize = 0x4000;
 const VOAM_SIZE: usize = 0xA0;

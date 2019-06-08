@@ -1,9 +1,11 @@
-use serial::{Serial, SerialCallback};
-use timer::Timer;
-use keypad::Keypad;
-use gpu::GPU;
-use sound::Sound;
-use gbmode::{GbMode, GbSpeed};
+use crate::serial::{Serial, SerialCallback};
+use crate::timer::Timer;
+use crate::keypad::Keypad;
+use crate::gpu::GPU;
+use crate::sound::Sound;
+use crate::gbmode::{GbMode, GbSpeed};
+use crate::StrResult;
+use crate::mbc;
 use std::path;
 
 const WRAM_SIZE: usize = 0x8000;
@@ -32,15 +34,15 @@ pub struct MMU<'a> {
     hdma_dst: u16,
     hdma_len: u8,
     wrambank: usize,
-    pub mbc: Box<::mbc::MBC+'static>,
+    pub mbc: Box<mbc::MBC+'static>,
     pub gbmode: GbMode,
     gbspeed: GbSpeed,
     speed_switch_req: bool,
 }
 
 impl<'a> MMU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<MMU<'a>> {
-        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::from(romname), skip_checksum));
+    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<MMU<'a>> {
+        let mmu_mbc = mbc::get_mbc(path::PathBuf::from(romname), skip_checksum)?;
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -73,8 +75,8 @@ impl<'a> MMU<'a> {
         Ok(res)
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<MMU<'a>> {
-        let mmu_mbc = try!(::mbc::get_mbc(path::PathBuf::from(romname), skip_checksum));
+    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<MMU<'a>> {
+        let mmu_mbc = mbc::get_mbc(path::PathBuf::from(romname), skip_checksum)?;
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),

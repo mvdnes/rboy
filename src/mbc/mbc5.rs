@@ -1,5 +1,7 @@
+use crate::mbc::{MBC, ram_size};
+use crate::StrResult;
+
 use std::fs::File;
-use mbc::{MBC, ram_size};
 use std::{io, path};
 use std::io::prelude::*;
 
@@ -13,7 +15,7 @@ pub struct MBC5 {
 }
 
 impl MBC5 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC5> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC5> {
         let subtype = data[0x147];
         let svpath = match subtype {
             0x1B | 0x1E => Some(file.with_extension("gbsave")),
@@ -35,7 +37,7 @@ impl MBC5 {
         res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> ::StrResult<()> {
+    fn loadram(&mut self) -> StrResult<()> {
         match self.savepath {
             None => Ok(()),
             Some(ref savepath) => {

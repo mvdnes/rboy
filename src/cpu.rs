@@ -1,9 +1,12 @@
-use register::CpuFlag::{C, N, H, Z};
-use serial::SerialCallback;
+use crate::register::CpuFlag::{C, N, H, Z};
+use crate::register::Registers;
+use crate::serial::SerialCallback;
+use crate::mmu::MMU;
+use crate::StrResult;
 
 pub struct CPU<'a> {
-    reg: ::register::Registers,
-    pub mmu: ::mmu::MMU<'a>,
+    reg: Registers,
+    pub mmu: MMU<'a>,
     halted: bool,
     ime: bool,
     setdi: u32,
@@ -11,10 +14,10 @@ pub struct CPU<'a> {
 }
 
 impl<'a> CPU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<CPU<'a>> {
-        let cpu_mmu = try!(::mmu::MMU::new(romname, serial_callback, skip_checksum));
+    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
+        let cpu_mmu = MMU::new(romname, serial_callback, skip_checksum)?;
         Ok(CPU {
-            reg: ::register::Registers::new(),
+            reg: Registers::new(),
             halted: false,
             ime: true,
             setdi: 0,
@@ -23,10 +26,10 @@ impl<'a> CPU<'a> {
         })
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> ::StrResult<CPU<'a>> {
-        let cpu_mmu = try!(::mmu::MMU::new_cgb(romname, serial_callback, skip_checksum));
+    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
+        let cpu_mmu = MMU::new_cgb(romname, serial_callback, skip_checksum)?;
         Ok(CPU {
-            reg: ::register::Registers::new_cgb(),
+            reg: Registers::new_cgb(),
             halted: false,
             ime: true,
             setdi: 0,

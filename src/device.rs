@@ -1,6 +1,8 @@
-use cpu::CPU;
-use keypad::KeypadKey;
-use printer::GbPrinter;
+use crate::cpu::CPU;
+use crate::keypad::KeypadKey;
+use crate::printer::GbPrinter;
+use crate::sound;
+use crate::StrResult;
 
 pub struct Device {
     cpu: CPU<'static>,
@@ -16,11 +18,11 @@ fn stdoutprinter(v: u8) -> Option<u8> {
 }
 
 impl Device {
-    pub fn new(romname: &str, skip_checksum: bool) -> ::StrResult<Device> {
+    pub fn new(romname: &str, skip_checksum: bool) -> StrResult<Device> {
         CPU::new(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
     }
 
-    pub fn new_cgb(romname: &str, skip_checksum: bool) -> ::StrResult<Device> {
+    pub fn new_cgb(romname: &str, skip_checksum: bool) -> StrResult<Device> {
         CPU::new_cgb(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
     }
 
@@ -57,8 +59,8 @@ impl Device {
         &self.cpu.mmu.gpu.data
     }
 
-    pub fn enable_audio(&mut self, player: Box<::sound::AudioPlayer>) {
-        self.cpu.mmu.sound = Some(::sound::Sound::new(player));
+    pub fn enable_audio(&mut self, player: Box<sound::AudioPlayer>) {
+        self.cpu.mmu.sound = Some(sound::Sound::new(player));
     }
 
     pub fn sync_audio(&mut self) {

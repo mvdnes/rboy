@@ -1,6 +1,8 @@
 use std::io::prelude::*;
-use mbc::{MBC, ram_size};
 use std::{path, fs, io};
+
+use crate::mbc::{MBC, ram_size};
+use crate::StrResult;
 
 pub struct MBC1 {
     rom: Vec<u8>,
@@ -13,7 +15,7 @@ pub struct MBC1 {
 }
 
 impl MBC1 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> ::StrResult<MBC1> {
+    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC1> {
         let (svpath, ramsize) = match data[0x147] {
             0x02 => (None, ram_size(data[0x149])),
             0x03 => (Some(file.with_extension("gbsave")), ram_size(data[0x149])),
@@ -32,7 +34,7 @@ impl MBC1 {
         res.loadram().map(|_| res)
     }
 
-    fn loadram(&mut self) -> ::StrResult<()> {
+    fn loadram(&mut self) -> StrResult<()> {
         match self.savepath {
             None => Ok(()),
             Some(ref savepath) => {

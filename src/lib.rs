@@ -1,12 +1,9 @@
 #![crate_name = "rboy"]
 #![crate_type = "lib" ]
 
-extern crate blip_buf;
-extern crate podio;
-
-pub use keypad::KeypadKey;
-pub use gpu::{SCREEN_W, SCREEN_H};
-pub use sound::AudioPlayer;
+pub use crate::keypad::KeypadKey;
+pub use crate::gpu::{SCREEN_W, SCREEN_H};
+pub use crate::sound::AudioPlayer;
 
 pub mod device;
 
