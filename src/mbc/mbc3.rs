@@ -4,7 +4,6 @@ use crate::StrResult;
 use std::path;
 use std::io::prelude::*;
 use std::{io, fs, time};
-use podio::{BigEndian, ReadPodExt, WritePodExt};
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -57,7 +56,9 @@ impl MBC3 {
                     Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
                     Err(..) => return Err("Could not read existing save file"),
                 };
-                let rtc = file.read_u64::<BigEndian>().map_err(|_| "Could not read RTC")?;
+                let mut rtc_bytes = [0; 8];
+                file.read_exact(&mut rtc_bytes).map_err(|_| "Could not read RTC")?;
+                let rtc = u64::from_be_bytes(rtc_bytes);
                 if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
                 let mut data = vec![];
                 match file.read_to_end(&mut data) {
@@ -120,7 +121,7 @@ impl Drop for MBC3 {
                     None => 0,
                 };
                 let mut ok = true;
-                if ok { ok = file.write_u64::<BigEndian>(rtc).is_ok(); };
+                if ok { let rtc_bytes = rtc.to_be_bytes(); ok = file.write_all(&rtc_bytes).is_ok(); };
                 if ok { let _ = file.write_all(&*self.ram); };
             },
         };
