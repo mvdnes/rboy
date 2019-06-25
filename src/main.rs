@@ -384,21 +384,28 @@ fn cpal_thread(event_loop: cpal::EventLoop, audio_buffer: Arc<Mutex<Vec<(f32, f3
         let mut inbuffer = audio_buffer.lock().unwrap();
         match stream_data {
             cpal::StreamData::Output { buffer } => {
-                let outlen = ::std::cmp::min(buffer.len() / 2, inbuffer.len());
                 match buffer {
                     cpal::UnknownTypeOutputBuffer::F32(mut outbuffer) => {
+                        // There is a bug in cpal 0.9 which causes a Deref on outputbuffer to
+                        // panic. A fix is implemented, once that is pushed to a new version we can
+                        // move the calculation of outlen to before `match buffer` and just call
+                        // buffer.len().
+                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
+
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
                             outbuffer[i*2] = in_l;
                             outbuffer[i*2+1] = in_r;
                         }
                     },
                     cpal::UnknownTypeOutputBuffer::U16(mut outbuffer) => {
+                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
                             outbuffer[i*2] = (in_l * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
                             outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
                         }
                     },
                     cpal::UnknownTypeOutputBuffer::I16(mut outbuffer) => {
+                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
                             outbuffer[i*2] = (in_l * (std::i16::MAX as f32)) as i16;
                             outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32)) as i16;
