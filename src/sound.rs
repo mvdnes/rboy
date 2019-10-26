@@ -1,21 +1,26 @@
 use blip_buf::BlipBuf;
 
-const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
-const CLOCKS_PER_SECOND : u32 = 1 << 22;
-const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
+const WAVE_PATTERN: [[i32; 8]; 4] = [
+    [-1, -1, -1, -1, 1, -1, -1, -1],
+    [-1, -1, -1, -1, 1, 1, -1, -1],
+    [-1, -1, 1, 1, 1, 1, -1, -1],
+    [1, 1, 1, 1, -1, -1, 1, 1],
+];
+const CLOCKS_PER_SECOND: u32 = 1 << 22;
+const OUTPUT_SAMPLE_COUNT: usize = 2000; // this should be less than blip_buf::MAX_FRAME
 
-pub trait AudioPlayer : Send {
+pub trait AudioPlayer: Send {
     fn play(&mut self, left_channel: &[f32], right_channel: &[f32]);
     fn samples_rate(&self) -> u32;
     fn underflowed(&self) -> bool;
 }
 
 struct VolumeEnvelope {
-    period : u8,
-    goes_up : bool,
-    delay : u8,
-    initial_volume : u8,
-    volume : u8,
+    period: u8,
+    goes_up: bool,
+    delay: u8,
+    initial_volume: u8,
+    volume: u8,
 }
 
 impl VolumeEnvelope {
@@ -36,11 +41,11 @@ impl VolumeEnvelope {
                 self.goes_up = v & 0x8 == 0x8;
                 self.initial_volume = v >> 4;
                 self.volume = self.initial_volume;
-            },
+            }
             0xFF14 | 0xFF19 | 0xFF23 if v & 0x80 == 0x80 => {
                 self.delay = self.period;
                 self.volume = self.initial_volume;
-            },
+            }
             _ => (),
         }
     }
@@ -48,13 +53,11 @@ impl VolumeEnvelope {
     fn step(&mut self) {
         if self.delay > 1 {
             self.delay -= 1;
-        }
-        else if self.delay == 1 {
+        } else if self.delay == 1 {
             self.delay = self.period;
             if self.goes_up && self.volume < 15 {
                 self.volume += 1;
-            }
-            else if !self.goes_up && self.volume > 0 {
+            } else if !self.goes_up && self.volume > 0 {
                 self.volume -= 1;
             }
         }
@@ -62,17 +65,17 @@ impl VolumeEnvelope {
 }
 
 struct SquareChannel {
-    enabled : bool,
-    duty : u8,
-    phase : u8,
+    enabled: bool,
+    duty: u8,
+    phase: u8,
     length: u8,
     new_length: u8,
-    length_enabled : bool,
+    length_enabled: bool,
     frequency: u16,
     period: u32,
     last_amp: i32,
     delay: u32,
-    has_sweep : bool,
+    has_sweep: bool,
     sweep_frequency: u16,
     sweep_delay: u8,
     sweep_period: u8,
@@ -116,16 +119,16 @@ impl SquareChannel {
                 self.sweep_period = (v >> 4) & 0x7;
                 self.sweep_shift = v & 0x7;
                 self.sweep_frequency_increase = v & 0x8 == 0x8;
-            },
+            }
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
                 self.new_length = 64 - (v & 0x3F);
-            },
+            }
             0xFF13 | 0xFF18 => {
                 self.frequency = (self.frequency & 0x0700) | (v as u16);
                 self.length = self.new_length;
                 self.calculate_period();
-            },
+            }
             0xFF14 | 0xFF19 => {
                 self.frequency = (self.frequency & 0x00FF) | (((v & 0b0000_0111) as u16) << 8);
                 self.calculate_period();
@@ -141,15 +144,18 @@ impl SquareChannel {
                         self.step_sweep();
                     }
                 }
-            },
+            }
             _ => (),
         }
         self.volume_envelope.wb(a, v);
     }
 
     fn calculate_period(&mut self) {
-        if self.frequency > 2048 { self.period = 0; }
-        else { self.period = (2048 - self.frequency as u32) * 4; }
+        if self.frequency > 2048 {
+            self.period = 0;
+        } else {
+            self.period = (2048 - self.frequency as u32) * 4;
+        }
     }
 
     // This assumes no volume or sweep adjustments need to be done in the meantime
@@ -160,8 +166,7 @@ impl SquareChannel {
                 self.last_amp = 0;
                 self.delay = 0;
             }
-        }
-        else {
+        } else {
             let mut time = start_time + self.delay;
             let pattern = WAVE_PATTERN[self.duty as usize];
             let vol = self.volume_envelope.volume as i32;
@@ -191,12 +196,13 @@ impl SquareChannel {
     }
 
     fn step_sweep(&mut self) {
-        if !self.has_sweep || self.sweep_period == 0 { return; }
+        if !self.has_sweep || self.sweep_period == 0 {
+            return;
+        }
 
         if self.sweep_delay > 1 {
             self.sweep_delay -= 1;
-        }
-        else {
+        } else {
             self.sweep_delay = self.sweep_period;
             self.frequency = self.sweep_frequency;
             if self.frequency == 2048 {
@@ -211,16 +217,13 @@ impl SquareChannel {
                 // Increase in frequency means subtracting the offset
                 if self.sweep_frequency <= offset {
                     self.sweep_frequency = 0;
-                }
-                else {
+                } else {
                     self.sweep_frequency -= offset;
                 }
-            }
-            else {
+            } else {
                 if self.sweep_frequency >= 2048 - offset {
                     self.sweep_frequency = 2048;
-                }
-                else {
+                } else {
                     self.sweep_frequency += offset;
                 }
             }
@@ -229,11 +232,11 @@ impl SquareChannel {
 }
 
 struct WaveChannel {
-    enabled : bool,
-    enabled_flag : bool,
+    enabled: bool,
+    enabled_flag: bool,
     length: u16,
     new_length: u16,
-    length_enabled : bool,
+    length_enabled: bool,
     frequency: u16,
     period: u32,
     last_amp: i32,
@@ -285,18 +288,21 @@ impl WaveChannel {
                     self.current_wave = 0;
                     self.delay = 0;
                 }
-            },
-            0xFF30 ... 0xFF3F => {
+            }
+            0xFF30..=0xFF3F => {
                 self.waveram[(a as usize - 0xFF30) / 2] = v >> 4;
                 self.waveram[(a as usize - 0xFF30) / 2 + 1] = v & 0xF;
-            },
+            }
             _ => (),
         }
     }
 
     fn calculate_period(&mut self) {
-        if self.frequency > 2048 { self.period = 0; }
-        else { self.period = (2048 - self.frequency as u32) * 2; }
+        if self.frequency > 2048 {
+            self.period = 0;
+        } else {
+            self.period = (2048 - self.frequency as u32) * 2;
+        }
     }
 
     fn on(&self) -> bool {
@@ -310,8 +316,7 @@ impl WaveChannel {
                 self.last_amp = 0;
                 self.delay = 0;
             }
-        }
-        else {
+        } else {
             let mut time = start_time + self.delay;
 
             let volshift = match self.volume_shift {
@@ -393,7 +398,7 @@ impl NoiseChannel {
                     n => (n as u32 + 1) * 16,
                 };
                 self.period = freq_div << (v >> 4);
-            },
+            }
             0xFF23 => {
                 if v & 0x80 == 0x80 {
                     self.enabled = true;
@@ -401,7 +406,7 @@ impl NoiseChannel {
                     self.state = 0xFF;
                     self.delay = 0;
                 }
-            },
+            }
             _ => (),
         }
         self.volume_envelope.wb(a, v);
@@ -418,8 +423,7 @@ impl NoiseChannel {
                 self.last_amp = 0;
                 self.delay = 0;
             }
-        }
-        else {
+        } else {
             let mut time = start_time + self.delay;
             while time < end_time {
                 let oldstate = self.state;
@@ -468,17 +472,18 @@ pub struct Sound {
     volume_left: u8,
     volume_right: u8,
     need_sync: bool,
-    player: Box<AudioPlayer>,
+    player: Box<dyn AudioPlayer>,
 }
 
 impl Sound {
-    pub fn new(player: Box<AudioPlayer>) -> Sound {
+    pub fn new(player: Box<dyn AudioPlayer>) -> Sound {
         let blipbuf1 = create_blipbuf(player.samples_rate());
         let blipbuf2 = create_blipbuf(player.samples_rate());
         let blipbuf3 = create_blipbuf(player.samples_rate());
         let blipbuf4 = create_blipbuf(player.samples_rate());
 
-        let output_period = (OUTPUT_SAMPLE_COUNT as u64 * CLOCKS_PER_SECOND as u64) / player.samples_rate() as u64;
+        let output_period =
+            (OUTPUT_SAMPLE_COUNT as u64 * CLOCKS_PER_SECOND as u64) / player.samples_rate() as u64;
 
         Sound {
             on: false,
@@ -499,10 +504,10 @@ impl Sound {
         }
     }
 
-   pub fn rb(&mut self, a: u16) -> u8 {
+    pub fn rb(&mut self, a: u16) -> u8 {
         self.run();
         match a {
-            0xFF10 ... 0xFF25 => self.registerdata[a as usize - 0xFF10],
+            0xFF10..=0xFF25 => self.registerdata[a as usize - 0xFF10],
             0xFF26 => {
                 (self.registerdata[a as usize - 0xFF10] & 0xF0)
                     | (if self.channel1.on() { 1 } else { 0 })
@@ -510,38 +515,41 @@ impl Sound {
                     | (if self.channel3.on() { 4 } else { 0 })
                     | (if self.channel4.on() { 8 } else { 0 })
             }
-            0xFF30 ... 0xFF3F => {
-                (self.channel3.waveram[(a as usize - 0xFF30) / 2] << 4) |
-                self.channel3.waveram[(a as usize - 0xFF30) / 2 + 1]
-            },
+            0xFF30..=0xFF3F => {
+                (self.channel3.waveram[(a as usize - 0xFF30) / 2] << 4)
+                    | self.channel3.waveram[(a as usize - 0xFF30) / 2 + 1]
+            }
             _ => 0,
         }
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
-        if a != 0xFF26 && !self.on { return; }
+        if a != 0xFF26 && !self.on {
+            return;
+        }
         self.run();
         if a >= 0xFF10 && a <= 0xFF26 {
             self.registerdata[a as usize - 0xFF10] = v;
         }
         match a {
-            0xFF10 ... 0xFF14 => self.channel1.wb(a, v),
-            0xFF16 ... 0xFF19 => self.channel2.wb(a, v),
-            0xFF1A ... 0xFF1E => self.channel3.wb(a, v),
-            0xFF20 ... 0xFF23 => self.channel4.wb(a, v),
+            0xFF10..=0xFF14 => self.channel1.wb(a, v),
+            0xFF16..=0xFF19 => self.channel2.wb(a, v),
+            0xFF1A..=0xFF1E => self.channel3.wb(a, v),
+            0xFF20..=0xFF23 => self.channel4.wb(a, v),
             0xFF24 => {
                 self.volume_left = v & 0x7;
                 self.volume_right = (v >> 4) & 0x7;
             }
             0xFF26 => self.on = v & 0x80 == 0x80,
-            0xFF30 ... 0xFF3F => self.channel3.wb(a, v),
+            0xFF30..=0xFF3F => self.channel3.wb(a, v),
             _ => (),
         }
     }
 
-    pub fn do_cycle(&mut self, cycles: u32)
-    {
-        if !self.on { return; }
+    pub fn do_cycle(&mut self, cycles: u32) {
+        if !self.on {
+            return;
+        }
 
         self.time += cycles;
 
@@ -568,8 +576,7 @@ impl Sound {
         if !self.need_sync || self.player.underflowed() {
             self.need_sync = false;
             self.mix_buffers();
-        }
-        else {
+        } else {
             // Prevent the BlipBuf's from filling up and triggering an assertion
             self.clear_buffers();
         }
@@ -591,8 +598,7 @@ impl Sound {
                 self.channel1.volume_envelope.step();
                 self.channel2.volume_envelope.step();
                 self.channel4.volume_envelope.step();
-            }
-            else if self.time_divider & 1 == 1 {
+            } else if self.time_divider & 1 == 1 {
                 self.channel1.step_sweep();
             }
 

@@ -1,13 +1,14 @@
 #![crate_name = "rboy"]
 
+use cpal::traits::{DeviceTrait, EventLoopTrait, HostTrait};
 use rboy::device::Device;
+use std::error::Error;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::error::Error;
 
-const EXITCODE_SUCCESS : i32 = 0;
-const EXITCODE_CPULOADFAILS : i32 = 2;
+const EXITCODE_SUCCESS: i32 = 0;
+const EXITCODE_CPULOADFAILS: i32 = 2;
 
 #[derive(Default)]
 struct RenderOptions {
@@ -33,40 +34,53 @@ fn real_main() -> i32 {
         .version("0.1")
         .author("Mathijs van de Nes")
         .about("A Gameboy Colour emulator written in Rust")
-        .arg(clap::Arg::with_name("filename")
-             .help("Sets the ROM file to load")
-             .required(true))
-        .arg(clap::Arg::with_name("serial")
-             .help("Prints the data from the serial port to stdout")
-             .short("s")
-             .long("serial"))
-        .arg(clap::Arg::with_name("printer")
-             .help("Emulates a gameboy printer")
-             .short("p")
-             .long("printer"))
-        .arg(clap::Arg::with_name("classic")
-             .help("Forces the emulator to run in classic Gameboy mode")
-             .short("c")
-             .long("classic"))
-        .arg(clap::Arg::with_name("scale")
-             .help("Sets the scale of the interface. Default: 2")
-             .short("x")
-             .long("scale")
-             .validator(|s|
-                 match s.parse::<u32>() {
-                     Err(e) => Err(format!("Could not parse scale: {}", e.description())),
-                     Ok(s) if s < 1 => Err("Scale must be at least 1".to_owned()),
-                     Ok(s) if s > 8 => Err("Scale may be at most 8".to_owned()),
-                     Ok(..) => Ok(()),
-                 })
-             .takes_value(true))
-        .arg(clap::Arg::with_name("audio")
-             .help("Enables audio")
-             .short("a")
-             .long("audio"))
-        .arg(clap::Arg::with_name("skip-checksum")
-             .help("Skips verification of the cartridge checksum")
-             .long("skip-checksum"))
+        .arg(
+            clap::Arg::with_name("filename")
+                .help("Sets the ROM file to load")
+                .required(true),
+        )
+        .arg(
+            clap::Arg::with_name("serial")
+                .help("Prints the data from the serial port to stdout")
+                .short("s")
+                .long("serial"),
+        )
+        .arg(
+            clap::Arg::with_name("printer")
+                .help("Emulates a gameboy printer")
+                .short("p")
+                .long("printer"),
+        )
+        .arg(
+            clap::Arg::with_name("classic")
+                .help("Forces the emulator to run in classic Gameboy mode")
+                .short("c")
+                .long("classic"),
+        )
+        .arg(
+            clap::Arg::with_name("scale")
+                .help("Sets the scale of the interface. Default: 2")
+                .short("x")
+                .long("scale")
+                .validator(|s| match s.parse::<u32>() {
+                    Err(e) => Err(format!("Could not parse scale: {}", e.description())),
+                    Ok(s) if s < 1 => Err("Scale must be at least 1".to_owned()),
+                    Ok(s) if s > 8 => Err("Scale may be at most 8".to_owned()),
+                    Ok(..) => Ok(()),
+                })
+                .takes_value(true),
+        )
+        .arg(
+            clap::Arg::with_name("audio")
+                .help("Enables audio")
+                .short("a")
+                .long("audio"),
+        )
+        .arg(
+            clap::Arg::with_name("skip-checksum")
+                .help("Skips verification of the cartridge checksum")
+                .long("skip-checksum"),
+        )
         .get_matches();
 
     let opt_serial = matches.is_present("serial");
@@ -75,16 +89,31 @@ fn real_main() -> i32 {
     let opt_audio = matches.is_present("audio");
     let opt_skip_checksum = matches.is_present("skip-checksum");
     let filename = matches.value_of("filename").unwrap();
-    let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
+    let scale = matches
+        .value_of("scale")
+        .unwrap_or("2")
+        .parse::<u32>()
+        .unwrap();
 
-    let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer, opt_skip_checksum);
-    if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
+    let cpu = construct_cpu(
+        filename,
+        opt_classic,
+        opt_serial,
+        opt_printer,
+        opt_skip_checksum,
+    );
+    if cpu.is_none() {
+        return EXITCODE_CPULOADFAILS;
+    }
     let mut cpu = cpu.unwrap();
     if opt_audio {
         let player = CpalPlayer::get();
         match player {
-            Some(v) => cpu.enable_audio(Box::new(v) as Box<rboy::AudioPlayer>),
-            None => { warn("Could not open audio device"); return EXITCODE_CPULOADFAILS; },
+            Some(v) => cpu.enable_audio(Box::new(v) as Box<dyn rboy::AudioPlayer>),
+            None => {
+                warn("Could not open audio device");
+                return EXITCODE_CPULOADFAILS;
+            }
         }
     }
     let romname = cpu.romname();
@@ -97,58 +126,95 @@ fn real_main() -> i32 {
 
     let mut eventsloop = glium::glutin::EventsLoop::new();
     let window_builder = glium::glutin::WindowBuilder::new()
-        .with_dimensions(glium::glutin::dpi::LogicalSize::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
+        .with_dimensions(glium::glutin::dpi::LogicalSize::from((
+            rboy::SCREEN_W as u32,
+            rboy::SCREEN_H as u32,
+        )))
         .with_title("RBoy - ".to_owned() + &romname);
     let context_builder = glium::glutin::ContextBuilder::new();
-    let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
+    let display =
+        glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
     set_window_size(display.gl_window().window(), scale);
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
-            &display,
-            glium::texture::UncompressedFloatFormat::U8U8U8,
-            glium::texture::MipmapsOption::NoMipmap,
-            rboy::SCREEN_W as u32,
-            rboy::SCREEN_H as u32)
-        .unwrap();
+        &display,
+        glium::texture::UncompressedFloatFormat::U8U8U8,
+        glium::texture::MipmapsOption::NoMipmap,
+        rboy::SCREEN_W as u32,
+        rboy::SCREEN_H as u32,
+    )
+    .unwrap();
 
     let mut renderoptions = <RenderOptions as Default>::default();
 
-    let cputhread = thread::spawn(move|| run_cpu(cpu, sender2, receiver1));
+    let cputhread = thread::spawn(move || run_cpu(cpu, sender2, receiver1));
 
     loop {
         let mut stop = false;
         eventsloop.poll_events(|ev| {
-            use glium::glutin::{Event, WindowEvent, KeyboardInput};
             use glium::glutin::ElementState::{Pressed, Released};
             use glium::glutin::VirtualKeyCode;
+            use glium::glutin::{Event, KeyboardInput, WindowEvent};
 
             match ev {
                 Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested
-                        => stop = true,
+                    WindowEvent::CloseRequested => stop = true,
                     WindowEvent::KeyboardInput { input, .. } => match input {
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
-                            => stop = true,
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                            => set_window_size(display.gl_window().window(), 1),
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                            => set_window_size(display.gl_window().window(), scale),
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                            => { let _ = sender1.send(GBEvent::SpeedUp); },
-                        KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                            => { let _ = sender1.send(GBEvent::SpeedDown); },
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::T), .. }
-                            => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(glutinkey), .. } => {
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        } => stop = true,
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Key1),
+                            ..
+                        } => set_window_size(display.gl_window().window(), 1),
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::R),
+                            ..
+                        } => set_window_size(display.gl_window().window(), scale),
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::LShift),
+                            ..
+                        } => {
+                            let _ = sender1.send(GBEvent::SpeedUp);
+                        }
+                        KeyboardInput {
+                            state: Released,
+                            virtual_keycode: Some(VirtualKeyCode::LShift),
+                            ..
+                        } => {
+                            let _ = sender1.send(GBEvent::SpeedDown);
+                        }
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::T),
+                            ..
+                        } => {
+                            renderoptions.linear_interpolation =
+                                !renderoptions.linear_interpolation;
+                        }
+                        KeyboardInput {
+                            state: Pressed,
+                            virtual_keycode: Some(glutinkey),
+                            ..
+                        } => {
                             if let Some(key) = glutin_to_keypad(glutinkey) {
                                 let _ = sender1.send(GBEvent::KeyDown(key));
                             }
-                        },
-                        KeyboardInput { state: Released, virtual_keycode: Some(glutinkey), .. } => {
+                        }
+                        KeyboardInput {
+                            state: Released,
+                            virtual_keycode: Some(glutinkey),
+                            ..
+                        } => {
                             if let Some(key) = glutin_to_keypad(glutinkey) {
                                 let _ = sender1.send(GBEvent::KeyUp(key));
                             }
-                        },
+                        }
                         _ => (),
                     },
                     _ => (),
@@ -188,17 +254,17 @@ fn glutin_to_keypad(key: glium::glutin::VirtualKeyCode) -> Option<rboy::KeypadKe
     }
 }
 
-fn recalculate_screen(display: &glium::Display,
-                      texture: &mut glium::texture::texture2d::Texture2d,
-                      datavec: &[u8],
-                      renderoptions: &RenderOptions)
-{
+fn recalculate_screen(
+    display: &glium::Display,
+    texture: &mut glium::texture::texture2d::Texture2d,
+    datavec: &[u8],
+    renderoptions: &RenderOptions,
+) {
     use glium::Surface;
 
     let interpolation_type = if renderoptions.linear_interpolation {
         glium::uniforms::MagnifySamplerFilter::Linear
-    }
-    else {
+    } else {
         glium::uniforms::MagnifySamplerFilter::Nearest
     };
 
@@ -213,9 +279,10 @@ fn recalculate_screen(display: &glium::Display,
             left: 0,
             bottom: 0,
             width: rboy::SCREEN_W as u32,
-            height: rboy::SCREEN_H as u32
+            height: rboy::SCREEN_H as u32,
         },
-        rawimage2d);
+        rawimage2d,
+    );
 
     // We use a custom BlitTarget to transform OpenGL coordinates to row-column coordinates
     let target = display.draw();
@@ -226,9 +293,10 @@ fn recalculate_screen(display: &glium::Display,
             left: 0,
             bottom: target_h,
             width: target_w as i32,
-            height: -(target_h as i32)
+            height: -(target_h as i32),
         },
-        interpolation_type);
+        interpolation_type,
+    );
     target.finish().unwrap();
 }
 
@@ -237,21 +305,28 @@ fn warn(message: &'static str) {
     let _ = write!(&mut std::io::stderr(), "{}\n", message);
 }
 
-fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool, skip_checksum: bool) -> Option<Box<Device>> {
+fn construct_cpu(
+    filename: &str,
+    classic_mode: bool,
+    output_serial: bool,
+    output_printer: bool,
+    skip_checksum: bool,
+) -> Option<Box<Device>> {
     let opt_c = match classic_mode {
         true => Device::new(filename, skip_checksum),
         false => Device::new_cgb(filename, skip_checksum),
     };
-    let mut c = match opt_c
-    {
-        Ok(cpu) => { cpu },
-        Err(message) => { warn(message); return None; },
+    let mut c = match opt_c {
+        Ok(cpu) => cpu,
+        Err(message) => {
+            warn(message);
+            return None;
+        }
     };
 
     if output_printer {
         c.attach_printer();
-    }
-    else {
+    } else {
         c.set_stdout(output_serial);
     }
 
@@ -280,12 +355,13 @@ fn run_cpu(mut cpu: Box<Device>, sender: SyncSender<Vec<u8>>, receiver: Receiver
 
         'recv: loop {
             match receiver.try_recv() {
-                Ok(event) => {
-                    match event {
-                        GBEvent::KeyUp(key) => cpu.keyup(key),
-                        GBEvent::KeyDown(key) => cpu.keydown(key),
-                        GBEvent::SpeedUp => limit_speed = false,
-                        GBEvent::SpeedDown => { limit_speed = true; cpu.sync_audio(); }
+                Ok(event) => match event {
+                    GBEvent::KeyUp(key) => cpu.keyup(key),
+                    GBEvent::KeyDown(key) => cpu.keydown(key),
+                    GBEvent::SpeedUp => limit_speed = false,
+                    GBEvent::SpeedDown => {
+                        limit_speed = true;
+                        cpu.sync_audio();
                     }
                 },
                 Err(TryRecvError::Empty) => break 'recv,
@@ -293,18 +369,18 @@ fn run_cpu(mut cpu: Box<Device>, sender: SyncSender<Vec<u8>>, receiver: Receiver
             }
         }
 
-        if limit_speed { let _ = periodic.recv(); }
+        if limit_speed {
+            let _ = periodic.recv();
+        }
     }
 }
 
 fn timer_periodic(ms: u64) -> Receiver<()> {
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    std::thread::spawn(move || {
-        loop {
-            std::thread::sleep(std::time::Duration::from_millis(ms));
-            if tx.send(()).is_err() {
-                break;
-            }
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_millis(ms));
+        if tx.send(()).is_err() {
+            break;
         }
     });
     rx
@@ -315,7 +391,8 @@ fn set_window_size(window: &glium::glutin::Window, scale: u32) {
 
     let dpi = window.get_hidpi_factor();
 
-    let physical_size = PhysicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
+    let physical_size =
+        PhysicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
     let logical_size = LogicalSize::from_physical(physical_size, dpi);
 
     window.set_inner_size(logical_size);
@@ -328,7 +405,8 @@ struct CpalPlayer {
 
 impl CpalPlayer {
     fn get() -> Option<CpalPlayer> {
-        let device = match cpal::default_output_device() {
+        let host = cpal::default_host();
+        let device = match host.default_output_device() {
             Some(e) => e,
             None => return None,
         };
@@ -342,14 +420,18 @@ impl CpalPlayer {
         for f in supported_formats {
             match wanted_samplerate {
                 None => wanted_samplerate = Some(f.max_sample_rate),
-                Some(cpal::SampleRate(r)) if r < f.max_sample_rate.0 && r < 192000 => wanted_samplerate = Some(f.max_sample_rate),
-                _ => {},
+                Some(cpal::SampleRate(r)) if r < f.max_sample_rate.0 && r < 192000 => {
+                    wanted_samplerate = Some(f.max_sample_rate)
+                }
+                _ => {}
             }
             match wanted_sampleformat {
                 None => wanted_sampleformat = Some(f.data_type),
-                Some(cpal::SampleFormat::F32) => {},
-                Some(_) if f.data_type == cpal::SampleFormat::F32 => wanted_sampleformat = Some(f.data_type),
-                _ => {},
+                Some(cpal::SampleFormat::F32) => {}
+                Some(_) if f.data_type == cpal::SampleFormat::F32 => {
+                    wanted_sampleformat = Some(f.data_type)
+                }
+                _ => {}
             }
         }
 
@@ -363,9 +445,9 @@ impl CpalPlayer {
             data_type: wanted_sampleformat.unwrap(),
         };
 
-        let event_loop = cpal::EventLoop::new();
+        let event_loop = host.event_loop();
         let stream_id = event_loop.build_output_stream(&device, &format).unwrap();
-        event_loop.play_stream(stream_id);
+        event_loop.play_stream(stream_id).ok()?;
 
         let shared_buffer = Arc::new(Mutex::new(Vec::new()));
         let player = CpalPlayer {
@@ -373,7 +455,7 @@ impl CpalPlayer {
             sample_rate: wanted_samplerate.unwrap().0,
         };
 
-        thread::spawn(move|| cpal_thread(event_loop, shared_buffer));
+        thread::spawn(move || cpal_thread(event_loop, shared_buffer));
 
         Some(player)
     }
@@ -383,34 +465,47 @@ fn cpal_thread(event_loop: cpal::EventLoop, audio_buffer: Arc<Mutex<Vec<(f32, f3
     event_loop.run(move |_stream_id, stream_data| {
         let mut inbuffer = audio_buffer.lock().unwrap();
         match stream_data {
-            cpal::StreamData::Output { buffer } => {
+            Ok(cpal::StreamData::Output { buffer }) => {
                 match buffer {
                     cpal::UnknownTypeOutputBuffer::F32(mut outbuffer) => {
                         // There is a bug in cpal 0.9 which causes a Deref on outputbuffer to
                         // panic. A fix is implemented, once that is pushed to a new version we can
                         // move the calculation of outlen to before `match buffer` and just call
                         // buffer.len().
-                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
+                        let outlen = ::std::cmp::min(
+                            std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2,
+                            inbuffer.len(),
+                        );
 
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
-                            outbuffer[i*2] = in_l;
-                            outbuffer[i*2+1] = in_r;
+                            outbuffer[i * 2] = in_l;
+                            outbuffer[i * 2 + 1] = in_r;
                         }
-                    },
+                    }
                     cpal::UnknownTypeOutputBuffer::U16(mut outbuffer) => {
-                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
+                        let outlen = ::std::cmp::min(
+                            std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2,
+                            inbuffer.len(),
+                        );
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
-                            outbuffer[i*2] = (in_l * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
-                            outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32) + (std::u16::MAX as f32) / 2.0) as u16;
+                            outbuffer[i * 2] = (in_l * (std::i16::MAX as f32)
+                                + (std::u16::MAX as f32) / 2.0)
+                                as u16;
+                            outbuffer[i * 2 + 1] = (in_r * (std::i16::MAX as f32)
+                                + (std::u16::MAX as f32) / 2.0)
+                                as u16;
                         }
-                    },
+                    }
                     cpal::UnknownTypeOutputBuffer::I16(mut outbuffer) => {
-                        let outlen = ::std::cmp::min(std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2, inbuffer.len());
+                        let outlen = ::std::cmp::min(
+                            std::ops::DerefMut::deref_mut(&mut outbuffer).len() / 2,
+                            inbuffer.len(),
+                        );
                         for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
-                            outbuffer[i*2] = (in_l * (std::i16::MAX as f32)) as i16;
-                            outbuffer[i*2+1] = (in_r * (std::i16::MAX as f32)) as i16;
+                            outbuffer[i * 2] = (in_l * (std::i16::MAX as f32)) as i16;
+                            outbuffer[i * 2 + 1] = (in_r * (std::i16::MAX as f32)) as i16;
                         }
-                    },
+                    }
                 }
             }
             _ => (),
@@ -428,7 +523,7 @@ impl rboy::AudioPlayer for CpalPlayer {
             if buffer.len() > self.sample_rate as usize {
                 // Do not fill the buffer with more than 1 second of data
                 // This speeds up the resync after the turning on and off the speed limiter
-                return
+                return;
             }
             buffer.push((*l, *r));
         }
