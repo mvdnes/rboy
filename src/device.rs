@@ -59,7 +59,7 @@ impl Device {
         &self.cpu.mmu.gpu.data
     }
 
-    pub fn enable_audio(&mut self, player: Box<sound::AudioPlayer>) {
+    pub fn enable_audio(&mut self, player: Box<dyn sound::AudioPlayer>) {
         self.cpu.mmu.sound = Some(sound::Sound::new(player));
     }
 

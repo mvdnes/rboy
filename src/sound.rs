@@ -286,7 +286,7 @@ impl WaveChannel {
                     self.delay = 0;
                 }
             },
-            0xFF30 ... 0xFF3F => {
+            0xFF30 ..= 0xFF3F => {
                 self.waveram[(a as usize - 0xFF30) / 2] = v >> 4;
                 self.waveram[(a as usize - 0xFF30) / 2 + 1] = v & 0xF;
             },
@@ -468,11 +468,11 @@ pub struct Sound {
     volume_left: u8,
     volume_right: u8,
     need_sync: bool,
-    player: Box<AudioPlayer>,
+    player: Box<dyn AudioPlayer>,
 }
 
 impl Sound {
-    pub fn new(player: Box<AudioPlayer>) -> Sound {
+    pub fn new(player: Box<dyn AudioPlayer>) -> Sound {
         let blipbuf1 = create_blipbuf(player.samples_rate());
         let blipbuf2 = create_blipbuf(player.samples_rate());
         let blipbuf3 = create_blipbuf(player.samples_rate());
@@ -502,7 +502,7 @@ impl Sound {
    pub fn rb(&mut self, a: u16) -> u8 {
         self.run();
         match a {
-            0xFF10 ... 0xFF25 => self.registerdata[a as usize - 0xFF10],
+            0xFF10 ..= 0xFF25 => self.registerdata[a as usize - 0xFF10],
             0xFF26 => {
                 (self.registerdata[a as usize - 0xFF10] & 0xF0)
                     | (if self.channel1.on() { 1 } else { 0 })
@@ -510,7 +510,7 @@ impl Sound {
                     | (if self.channel3.on() { 4 } else { 0 })
                     | (if self.channel4.on() { 8 } else { 0 })
             }
-            0xFF30 ... 0xFF3F => {
+            0xFF30 ..= 0xFF3F => {
                 (self.channel3.waveram[(a as usize - 0xFF30) / 2] << 4) |
                 self.channel3.waveram[(a as usize - 0xFF30) / 2 + 1]
             },
@@ -525,16 +525,16 @@ impl Sound {
             self.registerdata[a as usize - 0xFF10] = v;
         }
         match a {
-            0xFF10 ... 0xFF14 => self.channel1.wb(a, v),
-            0xFF16 ... 0xFF19 => self.channel2.wb(a, v),
-            0xFF1A ... 0xFF1E => self.channel3.wb(a, v),
-            0xFF20 ... 0xFF23 => self.channel4.wb(a, v),
+            0xFF10 ..= 0xFF14 => self.channel1.wb(a, v),
+            0xFF16 ..= 0xFF19 => self.channel2.wb(a, v),
+            0xFF1A ..= 0xFF1E => self.channel3.wb(a, v),
+            0xFF20 ..= 0xFF23 => self.channel4.wb(a, v),
             0xFF24 => {
                 self.volume_left = v & 0x7;
                 self.volume_right = (v >> 4) & 0x7;
             }
             0xFF26 => self.on = v & 0x80 == 0x80,
-            0xFF30 ... 0xFF3F => self.channel3.wb(a, v),
+            0xFF30 ..= 0xFF3F => self.channel3.wb(a, v),
             _ => (),
         }
     }

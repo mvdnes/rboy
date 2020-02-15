@@ -83,7 +83,7 @@ fn real_main() -> i32 {
     if opt_audio {
         let player = CpalPlayer::get();
         match player {
-            Some(v) => cpu.enable_audio(Box::new(v) as Box<rboy::AudioPlayer>),
+            Some(v) => cpu.enable_audio(Box::new(v) as Box<dyn rboy::AudioPlayer>),
             None => { warn("Could not open audio device"); return EXITCODE_CPULOADFAILS; },
         }
     }
