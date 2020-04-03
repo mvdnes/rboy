@@ -19,22 +19,20 @@ pub enum KeypadKey {
 
 impl Keypad {
     pub fn new() -> Keypad {
-        let mut res = Keypad {
+        Keypad {
             row0: 0x0F,
             row1: 0x0F,
             data: 0xFF,
             interrupt: 0,
-        };
-        res.update();
-        return res
+        }
     }
 
-    pub fn rb(&mut self) -> u8 {
+    pub fn rb(&self) -> u8 {
         self.data
     }
 
     pub fn wb(&mut self, value: u8) {
-        self.data = 0xC0 | (value & 0x30) | (self.data & 0x0F);
+        self.data = (self.data & 0xCF) | (value & 0x30);
         self.update();
     }
 
@@ -67,7 +65,6 @@ impl Keypad {
             KeypadKey::Select => self.row1 &= !(1 << 2),
             KeypadKey::Start =>  self.row1 &= !(1 << 3),
         }
-
         self.update();
     }
 
