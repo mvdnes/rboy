@@ -5,6 +5,7 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::error::Error;
+use cpal::traits::{HostTrait, DeviceTrait, EventLoopTrait};
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
@@ -328,7 +329,7 @@ struct CpalPlayer {
 
 impl CpalPlayer {
     fn get() -> Option<CpalPlayer> {
-        let device = match cpal::default_output_device() {
+        let device = match cpal::default_host().default_output_device() {
             Some(e) => e,
             None => return None,
         };
@@ -363,9 +364,12 @@ impl CpalPlayer {
             data_type: wanted_sampleformat.unwrap(),
         };
 
-        let event_loop = cpal::EventLoop::new();
+        let event_loop = cpal::default_host().event_loop();
         let stream_id = event_loop.build_output_stream(&device, &format).unwrap();
-        event_loop.play_stream(stream_id);
+        if event_loop.play_stream(stream_id).is_err() {
+            return None;
+        }
+
 
         let shared_buffer = Arc::new(Mutex::new(Vec::new()));
         let player = CpalPlayer {
@@ -383,7 +387,7 @@ fn cpal_thread(event_loop: cpal::EventLoop, audio_buffer: Arc<Mutex<Vec<(f32, f3
     event_loop.run(move |_stream_id, stream_data| {
         let mut inbuffer = audio_buffer.lock().unwrap();
         match stream_data {
-            cpal::StreamData::Output { buffer } => {
+            Ok(cpal::StreamData::Output { buffer }) => {
                 match buffer {
                     cpal::UnknownTypeOutputBuffer::F32(mut outbuffer) => {
                         // There is a bug in cpal 0.9 which causes a Deref on outputbuffer to
