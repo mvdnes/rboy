@@ -55,7 +55,7 @@ fn real_main() -> i32 {
              .long("scale")
              .validator(|s|
                  match s.parse::<u32>() {
-                     Err(e) => Err(format!("Could not parse scale: {}", e.description())),
+                     Err(e) => Err(format!("Could not parse scale: {}", e)),
                      Ok(s) if s < 1 => Err("Scale must be at least 1".to_owned()),
                      Ok(s) if s > 8 => Err("Scale may be at most 8".to_owned()),
                      Ok(..) => Ok(()),
