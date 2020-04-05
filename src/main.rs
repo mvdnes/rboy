@@ -4,8 +4,8 @@ use rboy::device::Device;
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::error::Error;
 use cpal::traits::{HostTrait, DeviceTrait, EventLoopTrait};
+use glium::glutin::platform::desktop::EventLoopExtDesktop;
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
@@ -96,12 +96,12 @@ fn real_main() -> i32 {
     // Force winit to use x11 instead of wayland, wayland is not fully supported yet by winit.
     std::env::set_var("WINIT_UNIX_BACKEND", "x11");
 
-    let mut eventsloop = glium::glutin::EventsLoop::new();
-    let window_builder = glium::glutin::WindowBuilder::new()
-        .with_dimensions(glium::glutin::dpi::LogicalSize::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
+    let mut eventloop = glium::glutin::event_loop::EventLoop::new();
+    let window_builder = glium::glutin::window::WindowBuilder::new()
+        .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
         .with_title("RBoy - ".to_owned() + &romname);
     let context_builder = glium::glutin::ContextBuilder::new();
-    let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventsloop).unwrap();
+    let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventloop).unwrap();
     set_window_size(display.gl_window().window(), scale);
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
@@ -116,66 +116,63 @@ fn real_main() -> i32 {
 
     let cputhread = thread::spawn(move|| run_cpu(cpu, sender2, receiver1));
 
-    loop {
-        let mut stop = false;
-        eventsloop.poll_events(|ev| {
-            use glium::glutin::{Event, WindowEvent, KeyboardInput};
-            use glium::glutin::ElementState::{Pressed, Released};
-            use glium::glutin::VirtualKeyCode;
+    eventloop.run_return(move |ev, _evtarget, controlflow| {
+        use glium::glutin::event::{Event, WindowEvent, KeyboardInput};
+        use glium::glutin::event::ElementState::{Pressed, Released};
+        use glium::glutin::event::VirtualKeyCode;
 
-            match ev {
-                Event::WindowEvent { event, .. } => match event {
-                    WindowEvent::CloseRequested
+        let mut stop = false;
+        match ev {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::CloseRequested
+                    => stop = true,
+                WindowEvent::KeyboardInput { input, .. } => match input {
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
                         => stop = true,
-                    WindowEvent::KeyboardInput { input, .. } => match input {
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
-                            => stop = true,
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                            => set_window_size(display.gl_window().window(), 1),
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                            => set_window_size(display.gl_window().window(), scale),
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                            => { let _ = sender1.send(GBEvent::SpeedUp); },
-                        KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                            => { let _ = sender1.send(GBEvent::SpeedDown); },
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::T), .. }
-                            => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
-                        KeyboardInput { state: Pressed, virtual_keycode: Some(glutinkey), .. } => {
-                            if let Some(key) = glutin_to_keypad(glutinkey) {
-                                let _ = sender1.send(GBEvent::KeyDown(key));
-                            }
-                        },
-                        KeyboardInput { state: Released, virtual_keycode: Some(glutinkey), .. } => {
-                            if let Some(key) = glutin_to_keypad(glutinkey) {
-                                let _ = sender1.send(GBEvent::KeyUp(key));
-                            }
-                        },
-                        _ => (),
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
+                        => set_window_size(display.gl_window().window(), 1),
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
+                        => set_window_size(display.gl_window().window(), scale),
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
+                        => { let _ = sender1.send(GBEvent::SpeedUp); },
+                    KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
+                        => { let _ = sender1.send(GBEvent::SpeedDown); },
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::T), .. }
+                        => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
+                    KeyboardInput { state: Pressed, virtual_keycode: Some(glutinkey), .. } => {
+                        if let Some(key) = glutin_to_keypad(glutinkey) {
+                            let _ = sender1.send(GBEvent::KeyDown(key));
+                        }
+                    },
+                    KeyboardInput { state: Released, virtual_keycode: Some(glutinkey), .. } => {
+                        if let Some(key) = glutin_to_keypad(glutinkey) {
+                            let _ = sender1.send(GBEvent::KeyUp(key));
+                        }
                     },
                     _ => (),
                 },
                 _ => (),
-            }
-        });
-
+            },
+            Event::MainEventsCleared => {
+                match receiver2.recv() {
+                    Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
+                    Err(..) => stop = true, // Remote end has hung-up
+                }
+            },
+            _ => (),
+        }
         if stop == true {
-            break;
+            *controlflow = glium::glutin::event_loop::ControlFlow::Exit;
         }
+    });
 
-        match receiver2.recv() {
-            Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
-            Err(..) => break, // Remote end has hung-up
-        }
-    }
-
-    drop(sender1);
     let _ = cputhread.join();
 
     EXITCODE_SUCCESS
 }
 
-fn glutin_to_keypad(key: glium::glutin::VirtualKeyCode) -> Option<rboy::KeypadKey> {
-    use glium::glutin::VirtualKeyCode;
+fn glutin_to_keypad(key: glium::glutin::event::VirtualKeyCode) -> Option<rboy::KeypadKey> {
+    use glium::glutin::event::VirtualKeyCode;
     match key {
         VirtualKeyCode::Z => Some(rboy::KeypadKey::A),
         VirtualKeyCode::X => Some(rboy::KeypadKey::B),
@@ -311,13 +308,13 @@ fn timer_periodic(ms: u64) -> Receiver<()> {
     rx
 }
 
-fn set_window_size(window: &glium::glutin::Window, scale: u32) {
+fn set_window_size(window: &glium::glutin::window::Window, scale: u32) {
     use glium::glutin::dpi::{LogicalSize, PhysicalSize};
 
-    let dpi = window.get_hidpi_factor();
+    let dpi = window.scale_factor();
 
-    let physical_size = PhysicalSize::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
-    let logical_size = LogicalSize::from_physical(physical_size, dpi);
+    let physical_size = PhysicalSize::<u32>::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
+    let logical_size = LogicalSize::<u32>::from_physical(physical_size, dpi);
 
     window.set_inner_size(logical_size);
 }
