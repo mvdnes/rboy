@@ -101,9 +101,24 @@ fn real_main() -> i32 {
     let (sender2, receiver2) = mpsc::sync_channel(1);
 
     let mut eventloop = glium::glutin::event_loop::EventLoop::new();
-    let window_builder = glium::glutin::window::WindowBuilder::new()
-        .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
-        .with_title("RBoy - ".to_owned() + &romname);
+    let window_builder;
+    if cfg!(target_os = "windows") {
+        use glium::glutin::platform::windows::WindowBuilderExtWindows;
+        window_builder = glium::glutin::window::WindowBuilder::new()
+            .with_drag_and_drop(false)
+            .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
+                rboy::SCREEN_W as u32,
+                rboy::SCREEN_H as u32,
+            )))
+            .with_title("RBoy - ".to_owned() + &romname);
+    }else{
+        window_builder = glium::glutin::window::WindowBuilder::new()
+            .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
+                rboy::SCREEN_W as u32,
+                rboy::SCREEN_H as u32,
+            )))
+            .with_title("RBoy - ".to_owned() + &romname);
+    }
     let context_builder = glium::glutin::ContextBuilder::new();
     let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventloop).unwrap();
     set_window_size(display.gl_window().window(), scale);
