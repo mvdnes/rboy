@@ -22,6 +22,28 @@ enum GBEvent {
     SpeedDown,
 }
 
+#[cfg(target_os = "windows")]
+fn create_window_builder(romname: &str)-> glium::glutin::window::WindowBuilder{
+    use glium::glutin::platform::windows::WindowBuilderExtWindows;
+    return glium::glutin::window::WindowBuilder::new()
+        .with_drag_and_drop(false)
+        .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
+            rboy::SCREEN_W as u32,
+            rboy::SCREEN_H as u32,
+        )))
+        .with_title("RBoy - ".to_owned() + romname);
+}
+
+#[cfg(not(target_os = "windows"))]
+fn create_window_builder(romname: &str)-> glium::glutin::window::WindowBuilder {
+    return glium::glutin::window::WindowBuilder::new()
+            .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
+                rboy::SCREEN_W as u32,
+                rboy::SCREEN_H as u32,
+            )))
+            .with_title("RBoy - ".to_owned() + romname);
+}
+
 fn main() {
     let exit_status = real_main();
     if exit_status != EXITCODE_SUCCESS {
@@ -101,9 +123,7 @@ fn real_main() -> i32 {
     let (sender2, receiver2) = mpsc::sync_channel(1);
 
     let mut eventloop = glium::glutin::event_loop::EventLoop::new();
-    let window_builder = glium::glutin::window::WindowBuilder::new()
-        .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((rboy::SCREEN_W as u32, rboy::SCREEN_H as u32)))
-        .with_title("RBoy - ".to_owned() + &romname);
+    let window_builder = create_window_builder(&romname);
     let context_builder = glium::glutin::ContextBuilder::new();
     let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventloop).unwrap();
     set_window_size(display.gl_window().window(), scale);
