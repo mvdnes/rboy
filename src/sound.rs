@@ -314,8 +314,12 @@ impl WaveChannel {
         else {
             let mut time = start_time + self.delay;
 
+            // A sample may be muted, 100%, 50% or 25%.
+            // To avoid loss of precision, the WaveChannel will output
+            // i32 samples at 4x the usual amplitude. This will be taken
+            // into account when mixing all the samples.
             let volshift = match self.volume_shift {
-                0 => 4,
+                0 => 4 + 2,  // to mute a 4 bit sample mutiplied by 2^2
                 1 => 0,
                 2 => 1,
                 3 => 2,
@@ -325,7 +329,8 @@ impl WaveChannel {
             while time < end_time {
                 let sample = self.waveram[self.current_wave as usize];
 
-                let amp = (sample >> volshift) as i32;
+                // shifted by 2 so that 25% does not lose precision
+                let amp = ((sample << 2) >> volshift) as i32;
 
                 if amp != self.last_amp {
                     self.blip.add_delta(time, amp - self.last_amp);
@@ -648,13 +653,15 @@ impl Sound {
                 }
             }
 
+            // channel3 is the WaveChannel, that outputs samples with a 4x
+            // increase in amplitude in order to avoid a loss of precision.
             let count3 = self.channel3.blip.read_samples(buf, false);
             for (i, v) in buf[..count3].iter().enumerate() {
                 if self.registerdata[0x15] & 0x04 == 0x04 {
-                    buf_left[i] += *v as f32 * left_vol;
+                    buf_left[i] += ((*v as f32) / 4.0) * left_vol;
                 }
                 if self.registerdata[0x15] & 0x40 == 0x40 {
-                    buf_right[i] += *v as f32 * right_vol;
+                    buf_right[i] += ((*v as f32) / 4.0) * right_vol;
                 }
             }
 
