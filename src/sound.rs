@@ -266,7 +266,7 @@ impl WaveChannel {
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF1A => {
-                self.enabled_flag = true;
+                self.enabled_flag = (v & 0x80) == 0x80;
                 self.enabled = self.enabled && self.enabled_flag;
             }
             0xFF1B => self.new_length = 256 - (v as u16),
@@ -395,6 +395,7 @@ impl NoiseChannel {
                 self.period = freq_div << (v >> 4);
             },
             0xFF23 => {
+                self.length_enabled = v & 0x40 == 0x40;
                 if v & 0x80 == 0x80 {
                     self.enabled = true;
                     self.length = self.new_length;
