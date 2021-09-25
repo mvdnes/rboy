@@ -31,5 +31,5 @@ Special thanks to
 -----------------
 
 * http://imrannazar.com/GameBoy-Emulation-in-JavaScript:-The-CPU
-* http://nocash.emubase.de/pandocs.htm
+* http://nocash.emubase.de/pandocs.htm (Available at http://bgb.bircd.org/pandocs.htm)
 * https://github.com/alexcrichton/jba (The Rust branch)
