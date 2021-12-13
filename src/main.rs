@@ -5,7 +5,7 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
-use glium::glutin::platform::desktop::EventLoopExtDesktop;
+use glium::glutin::platform::run_return::EventLoopExtRunReturn;
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
