@@ -287,8 +287,8 @@ impl WaveChannel {
                 }
             },
             0xFF30 ..= 0xFF3F => {
-                self.waveram[(a as usize - 0xFF30) / 2] = v >> 4;
-                self.waveram[(a as usize - 0xFF30) / 2 + 1] = v & 0xF;
+                self.waveram[(a as usize - 0xFF30) * 2] = v >> 4;
+                self.waveram[(a as usize - 0xFF30) * 2 + 1] = v & 0xF;
             },
             _ => (),
         }
