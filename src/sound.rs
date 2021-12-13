@@ -517,8 +517,8 @@ impl Sound {
                     | (if self.channel4.on() { 8 } else { 0 })
             }
             0xFF30 ..= 0xFF3F => {
-                (self.channel3.waveram[(a as usize - 0xFF30) / 2] << 4) |
-                self.channel3.waveram[(a as usize - 0xFF30) / 2 + 1]
+                (self.channel3.waveram[(a as usize - 0xFF30) * 2] << 4) |
+                self.channel3.waveram[(a as usize - 0xFF30) * 2 + 1]
             },
             _ => 0,
         }
