@@ -612,7 +612,7 @@ impl NoiseChannel {
                 self.shift_width = if v & 8 == 8 { 6 } else { 14 };
                 let freq_div = match v & 7 {
                     0 => 8,
-                    n => (n as u32 + 1) * 16,
+                    n => n as u32 * 16,
                 };
                 self.period = freq_div << (v >> 4);
             },
