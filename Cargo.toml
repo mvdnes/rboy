@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 blip_buf = ">=0.1.3"
-clap = { version = "2", default_features = false }
+clap = { version = "3", default_features = false, features = [ "std" ] }
 cpal = "0.13"
 glium = { version = "0.31", default_features = false, features = [ "glutin" ] }
 
