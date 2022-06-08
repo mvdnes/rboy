@@ -832,7 +832,7 @@ mod test
             let serial = |v: u8| { output.push(v); None };
             let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)), false)
             {
-                Err(message) => { panic!(message); },
+                Err(message) => { panic!("{}", message); },
                 Ok(cpu) => cpu,
             };
             let mut ticks = 0;
@@ -859,7 +859,7 @@ mod test
             let serial = |v| { output.push(v); None };
             let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)), false)
             {
-                Err(message) => { panic!(message); },
+                Err(message) => { panic!("{}", message); },
                 Ok(cpu) => cpu,
             };
             let mut ticks = 0;
