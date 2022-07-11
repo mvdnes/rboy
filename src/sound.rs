@@ -73,11 +73,11 @@ impl VolumeEnvelope {
 }
 
 struct SquareChannel {
-    enabled : bool,
+    active: bool,
+    dac_enabled: bool,
     duty : u8,
     phase : u8,
     length: u8,
-    new_length: u8,
     length_enabled : bool,
     frequency: u16,
     period: u32,
@@ -96,11 +96,11 @@ struct SquareChannel {
 impl SquareChannel {
     fn new(blip: BlipBuf, with_sweep: bool) -> SquareChannel {
         SquareChannel {
-            enabled: false,
+            active: false,
+            dac_enabled: false,
             duty: 1,
             phase: 1,
             length: 0,
-            new_length: 0,
             length_enabled: false,
             frequency: 0,
             period: 2048,
@@ -117,12 +117,8 @@ impl SquareChannel {
         }
     }
 
-    fn disable(&mut self) {
-        self.enabled = false;
-    }
-
     fn on(&self) -> bool {
-        self.enabled
+        self.active
     }
 
     fn rb(&self, a: u16) -> u8 {
@@ -161,11 +157,14 @@ impl SquareChannel {
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
-                self.new_length = 64 - (v & 0x3F);
+                self.length = 64 - (v & 0x3F);
             },
+            0xFF12 | 0xFF17 => {
+                self.dac_enabled = v & 0xF8 != 0;
+                self.active = self.active && self.dac_enabled;
+            }
             0xFF13 | 0xFF18 => {
                 self.frequency = (self.frequency & 0x0700) | (v as u16);
-                self.length = self.new_length;
                 self.calculate_period();
             },
             0xFF14 | 0xFF19 => {
@@ -173,10 +172,11 @@ impl SquareChannel {
                 self.calculate_period();
                 self.length_enabled = v & 0x40 == 0x40;
 
-                if v & 0x80 == 0x80 {
-                    self.enabled = true;
-                    self.length = self.new_length;
-
+                if self.dac_enabled && v & 0x80 == 0x80 {
+                    self.active = true;
+                    if self.length == 0 {
+                        self.length = 64;
+                    }
                     self.sweep_frequency = self.frequency;
                     if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
                         self.sweep_delay = 1;
@@ -196,7 +196,7 @@ impl SquareChannel {
 
     // This assumes no volume or sweep adjustments need to be done in the meantime
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || self.period == 0 || self.volume_envelope.volume == 0 {
+        if !self.active|| self.period == 0 || self.volume_envelope.volume == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -227,7 +227,7 @@ impl SquareChannel {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
             if self.length == 0 {
-                self.enabled = false;
+                self.active = false;
             }
         }
     }
@@ -242,7 +242,7 @@ impl SquareChannel {
             self.sweep_delay = self.sweep_period;
             self.frequency = self.sweep_frequency;
             if self.frequency == 2048 {
-                self.enabled = false;
+                self.active = false;
             }
             self.calculate_period();
 
@@ -271,10 +271,9 @@ impl SquareChannel {
 }
 
 struct WaveChannel {
-    enabled : bool,
-    enabled_flag : bool,
+    active: bool,
+    dac_enabled : bool,
     length: u16,
-    new_length: u16,
     length_enabled : bool,
     frequency: u16,
     period: u32,
@@ -289,10 +288,9 @@ struct WaveChannel {
 impl WaveChannel {
     fn new(blip: BlipBuf) -> WaveChannel {
         WaveChannel {
-            enabled: false,
-            enabled_flag: false,
+            active: false,
+            dac_enabled: false,
             length: 0,
-            new_length: 0,
             length_enabled: false,
             frequency: 0,
             period: 2048,
@@ -305,14 +303,10 @@ impl WaveChannel {
         }
     }
 
-    fn disable(&mut self) {
-        self.enabled = false;
-    }
-
     fn rb(&self, a: u16) -> u8 {
         match a {
             0xFF1A => {
-                (if self.enabled_flag { 0x80 } else { 0 }) |
+                (if self.dac_enabled { 0x80 } else { 0 }) |
                 0x7F
             },
             0xFF1B => 0xFF,
@@ -338,10 +332,10 @@ impl WaveChannel {
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF1A => {
-                self.enabled_flag = (v & 0x80) == 0x80;
-                self.enabled = self.enabled && self.enabled_flag;
+                self.dac_enabled = (v & 0x80) == 0x80;
+                self.active = self.active && self.dac_enabled;
             }
-            0xFF1B => self.new_length = 256 - (v as u16),
+            0xFF1B => self.length = 256 - (v as u16),
             0xFF1C => self.volume_shift = (v >> 5) & 0b11,
             0xFF1D => {
                 self.frequency = (self.frequency & 0x0700) | (v as u16);
@@ -351,9 +345,11 @@ impl WaveChannel {
                 self.frequency = (self.frequency & 0x00FF) | (((v & 0b111) as u16) << 8);
                 self.calculate_period();
                 self.length_enabled = v & 0x40 == 0x40;
-                if v & 0x80 == 0x80 && self.enabled_flag {
-                    self.length = self.new_length;
-                    self.enabled = true;
+                if v & 0x80 == 0x80 && self.dac_enabled {
+                    self.active = true;
+                    if self.length == 0 {
+                        self.length = 256;
+                    }
                     self.current_wave = 0;
                     self.delay = 0;
                 }
@@ -372,11 +368,11 @@ impl WaveChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled
+        self.active
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || self.period == 0 {
+        if !self.active || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -422,17 +418,17 @@ impl WaveChannel {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
             if self.length == 0 {
-                self.enabled = false;
+                self.active = false;
             }
         }
     }
 }
 
 struct NoiseChannel {
-    enabled: bool,
+    active: bool,
+    dac_enabled: bool,
     reg_ff22: u8,
     length: u8,
-    new_length: u8,
     length_enabled: bool,
     volume_envelope: VolumeEnvelope,
     period: u32,
@@ -446,10 +442,10 @@ struct NoiseChannel {
 impl NoiseChannel {
     fn new(blip: BlipBuf) -> NoiseChannel {
         NoiseChannel {
-            enabled: false,
+            active: false,
+            dac_enabled: false,
             reg_ff22: 0,
             length: 0,
-            new_length: 0,
             length_enabled: false,
             volume_envelope: VolumeEnvelope::new(),
             period: 2048,
@@ -459,10 +455,6 @@ impl NoiseChannel {
             last_amp: 0,
             blip: blip,
         }
-    }
-
-    fn disable(&mut self) {
-        self.enabled = false;
     }
 
     fn rb(&self, a: u16) -> u8 {
@@ -483,8 +475,11 @@ impl NoiseChannel {
 
     fn wb(&mut self, a: u16, v: u8) {
         match a {
-            0xFF20 => self.new_length = 64 - (v & 0x3F),
-            0xFF21 => (),
+            0xFF20 => self.length = 64 - (v & 0x3F),
+            0xFF21 => {
+                self.dac_enabled = v & 0xF8 != 0;
+                self.active = self.active && self.dac_enabled;
+            },
             0xFF22 => {
                 self.reg_ff22 = v;
                 self.shift_width = if v & 8 == 8 { 6 } else { 14 };
@@ -496,9 +491,11 @@ impl NoiseChannel {
             },
             0xFF23 => {
                 self.length_enabled = v & 0x40 == 0x40;
-                if v & 0x80 == 0x80 {
-                    self.enabled = true;
-                    self.length = self.new_length;
+                if self.dac_enabled && v & 0x80 == 0x80 {
+                    self.active = true;
+                    if self.length == 0 {
+                        self.length = 64;
+                    }
                     self.state = 0xFF;
                     self.delay = 0;
                 }
@@ -509,11 +506,11 @@ impl NoiseChannel {
     }
 
     fn on(&self) -> bool {
-        self.enabled
+        self.active
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.enabled || self.volume_envelope.volume == 0 {
+        if !self.active || self.volume_envelope.volume == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -548,7 +545,7 @@ impl NoiseChannel {
         if self.length_enabled && self.length != 0 {
             self.length -= 1;
             if self.length == 0 {
-                self.enabled = false;
+                self.active = false;
             }
         }
     }
@@ -647,10 +644,6 @@ impl Sound {
                     for i in 0xFF10..=0xFF25 {
                         self.wb(i, 0);
                     }
-                    self.channel1.disable();
-                    self.channel2.disable();
-                    self.channel3.disable();
-                    self.channel4.disable();
                 }
                 self.on = turn_on;
             }
