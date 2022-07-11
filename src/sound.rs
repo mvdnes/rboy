@@ -29,6 +29,17 @@ impl VolumeEnvelope {
         }
     }
 
+    fn rb(&self, a: u16) -> u8 {
+        match a {
+            0xFF12 | 0xFF17 | 0xFF21 => {
+                ((self.initial_volume & 0xF) << 4) |
+                if self.goes_up { 0x08 } else { 0 } |
+                (self.period & 0x7)
+            },
+            _ => unimplemented!(),
+        }
+    }
+
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF12 | 0xFF17 | 0xFF21 => {
@@ -106,8 +117,39 @@ impl SquareChannel {
         }
     }
 
+    fn disable(&mut self) {
+        self.enabled = false;
+    }
+
     fn on(&self) -> bool {
         self.enabled
+    }
+
+    fn rb(&self, a: u16) -> u8 {
+        match a {
+            0xFF10 => {
+                0x80 |
+                ((self.sweep_period & 0x7) << 4) |
+                if self.sweep_frequency_increase { 0x8 } else { 0 } |
+                (self.sweep_shift & 0x7)
+            },
+            0xFF11 | 0xFF16 => {
+                ((self.duty & 3) << 6) |
+                0x3F
+            },
+            0xFF12 | 0xFF17 => {
+                self.volume_envelope.rb(a)
+            },
+            0xFF13 | 0xFF18 => {
+                0xFF
+            }
+            0xFF14 | 0xFF19 => {
+                0x80 |
+                if self.length_enabled { 0x40 } else { 0 } |
+                0x3F
+            },
+            _ => unimplemented!(),
+        }
     }
 
     fn wb(&mut self, a: u16, v: u8) {
@@ -263,6 +305,36 @@ impl WaveChannel {
         }
     }
 
+    fn disable(&mut self) {
+        self.enabled = false;
+    }
+
+    fn rb(&self, a: u16) -> u8 {
+        match a {
+            0xFF1A => {
+                (if self.enabled_flag { 0x80 } else { 0 }) |
+                0x7F
+            },
+            0xFF1B => 0xFF,
+            0xFF1C => {
+                0x80 |
+                ((self.volume_shift & 0b11) << 5) |
+                0x1F
+            },
+            0xFF1D => 0xFF,
+            0xFF1E => {
+                0x80 |
+                if self.length_enabled { 0x40 } else { 0 } |
+                0x3F
+            },
+            0xFF30 ..= 0xFF3F => {
+                (self.waveram[(a as usize - 0xFF30) * 2] << 4) |
+                self.waveram[(a as usize - 0xFF30) * 2 + 1]
+            },
+            _ => unimplemented!(),
+        }
+    }
+
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF1A => {
@@ -358,6 +430,7 @@ impl WaveChannel {
 
 struct NoiseChannel {
     enabled: bool,
+    reg_ff22: u8,
     length: u8,
     new_length: u8,
     length_enabled: bool,
@@ -374,6 +447,7 @@ impl NoiseChannel {
     fn new(blip: BlipBuf) -> NoiseChannel {
         NoiseChannel {
             enabled: false,
+            reg_ff22: 0,
             length: 0,
             new_length: 0,
             length_enabled: false,
@@ -387,11 +461,32 @@ impl NoiseChannel {
         }
     }
 
+    fn disable(&mut self) {
+        self.enabled = false;
+    }
+
+    fn rb(&self, a: u16) -> u8 {
+        match a {
+            0xFF20 => { 0xFF },
+            0xFF21 => { self.volume_envelope.rb(a) },
+            0xFF22 => {
+                self.reg_ff22
+            },
+            0xFF23 => {
+                0x80 |
+                if self.length_enabled { 0x40 } else { 0 } |
+                0x3F
+            },
+            _ => unimplemented!(),
+        }
+    }
+
     fn wb(&mut self, a: u16, v: u8) {
         match a {
             0xFF20 => self.new_length = 64 - (v & 0x3F),
             0xFF21 => (),
             0xFF22 => {
+                self.reg_ff22 = v;
                 self.shift_width = if v & 8 == 8 { 6 } else { 14 };
                 let freq_div = match v & 7 {
                     0 => 8,
@@ -461,7 +556,6 @@ impl NoiseChannel {
 
 pub struct Sound {
     on: bool,
-    registerdata: [u8; 0x17],
     time: u32,
     prev_time: u32,
     next_time: u32,
@@ -473,6 +567,8 @@ pub struct Sound {
     channel4: NoiseChannel,
     volume_left: u8,
     volume_right: u8,
+    reg_vin_to_so: u8,
+    reg_ff25: u8,
     need_sync: bool,
     player: Box<dyn AudioPlayer>,
 }
@@ -488,7 +584,6 @@ impl Sound {
 
         Sound {
             on: false,
-            registerdata: [0; 0x17],
             time: 0,
             prev_time: 0,
             next_time: CLOCKS_PER_SECOND / 256,
@@ -500,6 +595,8 @@ impl Sound {
             channel4: NoiseChannel::new(blipbuf4),
             volume_left: 7,
             volume_right: 7,
+            reg_vin_to_so: 0x00,
+            reg_ff25: 0x00,
             need_sync: false,
             player: player,
         }
@@ -507,29 +604,32 @@ impl Sound {
 
    pub fn rb(&mut self, a: u16) -> u8 {
         self.run();
-        match a {
-            0xFF10 ..= 0xFF25 => self.registerdata[a as usize - 0xFF10],
-            0xFF26 => {
-                (self.registerdata[a as usize - 0xFF10] & 0xF0)
-                    | (if self.channel1.on() { 1 } else { 0 })
-                    | (if self.channel2.on() { 2 } else { 0 })
-                    | (if self.channel3.on() { 4 } else { 0 })
-                    | (if self.channel4.on() { 8 } else { 0 })
-            }
-            0xFF30 ..= 0xFF3F => {
-                (self.channel3.waveram[(a as usize - 0xFF30) * 2] << 4) |
-                self.channel3.waveram[(a as usize - 0xFF30) * 2 + 1]
-            },
+        let v = match a {
+            0xFF10 ..= 0xFF14 => self.channel1.rb(a),
+            0xFF15 => 0xFF,
+            0xFF16 ..= 0xFF19 => self.channel2.rb(a),
+            0xFF1A ..= 0xFF1E => self.channel3.rb(a),
+            0xFF1F => 0xFF,
+            0xFF20 ..= 0xFF23 => self.channel4.rb(a),
+            0xFF24 => ((self.volume_right & 7) << 4) | (self.volume_left & 7) | self.reg_vin_to_so,
+            0xFF25 => self.reg_ff25,
+            0xFF26 => (
+                if self.on { 0x80 } else { 0x00 } |
+                0x70 |
+                if self.channel4.on() { 0x8 } else { 0x0 } |
+                if self.channel3.on() { 0x4 } else { 0x0 } |
+                if self.channel2.on() { 0x2 } else { 0x0 } |
+                if self.channel1.on() { 0x1 } else { 0x0 }),
+            0xFF27 ..= 0xFF2F => 0xFF,
+            0xFF30 ..= 0xFF3F => self.channel3.rb(a),
             _ => 0,
-        }
+        };
+        return v;
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
         if a != 0xFF26 && !self.on { return; }
         self.run();
-        if a >= 0xFF10 && a <= 0xFF26 {
-            self.registerdata[a as usize - 0xFF10] = v;
-        }
         match a {
             0xFF10 ..= 0xFF14 => self.channel1.wb(a, v),
             0xFF16 ..= 0xFF19 => self.channel2.wb(a, v),
@@ -538,8 +638,22 @@ impl Sound {
             0xFF24 => {
                 self.volume_left = v & 0x7;
                 self.volume_right = (v >> 4) & 0x7;
+                self.reg_vin_to_so = v & 0x88;
             }
-            0xFF26 => self.on = v & 0x80 == 0x80,
+            0xFF25 => self.reg_ff25 = v,
+            0xFF26 => {
+                let turn_on = v & 0x80 == 0x80;
+                if self.on && turn_on == false {
+                    for i in 0xFF10..=0xFF25 {
+                        self.wb(i, 0);
+                    }
+                    self.channel1.disable();
+                    self.channel2.disable();
+                    self.channel3.disable();
+                    self.channel4.disable();
+                }
+                self.on = turn_on;
+            }
             0xFF30 ..= 0xFF3F => self.channel3.wb(a, v),
             _ => (),
         }
@@ -635,20 +749,20 @@ impl Sound {
 
             let count1 = self.channel1.blip.read_samples(buf, false);
             for (i, v) in buf[..count1].iter().enumerate() {
-                if self.registerdata[0x15] & 0x01 == 0x01 {
+                if self.reg_ff25 & 0x01 == 0x01 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
-                if self.registerdata[0x15] & 0x10 == 0x10 {
+                if self.reg_ff25 & 0x10 == 0x10 {
                     buf_right[i] += *v as f32 * right_vol;
                 }
             }
 
             let count2 = self.channel2.blip.read_samples(buf, false);
             for (i, v) in buf[..count2].iter().enumerate() {
-                if self.registerdata[0x15] & 0x02 == 0x02 {
+                if self.reg_ff25 & 0x02 == 0x02 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
-                if self.registerdata[0x15] & 0x20 == 0x20 {
+                if self.reg_ff25 & 0x20 == 0x20 {
                     buf_right[i] += *v as f32 * right_vol;
                 }
             }
@@ -657,20 +771,20 @@ impl Sound {
             // increase in amplitude in order to avoid a loss of precision.
             let count3 = self.channel3.blip.read_samples(buf, false);
             for (i, v) in buf[..count3].iter().enumerate() {
-                if self.registerdata[0x15] & 0x04 == 0x04 {
+                if self.reg_ff25 & 0x04 == 0x04 {
                     buf_left[i] += ((*v as f32) / 4.0) * left_vol;
                 }
-                if self.registerdata[0x15] & 0x40 == 0x40 {
+                if self.reg_ff25 & 0x40 == 0x40 {
                     buf_right[i] += ((*v as f32) / 4.0) * right_vol;
                 }
             }
 
             let count4 = self.channel4.blip.read_samples(buf, false);
             for (i, v) in buf[..count4].iter().enumerate() {
-                if self.registerdata[0x15] & 0x08 == 0x08 {
+                if self.reg_ff25 & 0x08 == 0x08 {
                     buf_left[i] += *v as f32 * left_vol;
                 }
-                if self.registerdata[0x15] & 0x80 == 0x80 {
+                if self.reg_ff25 & 0x80 == 0x80 {
                     buf_right[i] += *v as f32 * right_vol;
                 }
             }
