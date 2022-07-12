@@ -196,7 +196,7 @@ impl SquareChannel {
 
     // This assumes no volume or sweep adjustments need to be done in the meantime
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.active|| self.period == 0 || self.volume_envelope.volume == 0 {
+        if !self.active || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
@@ -510,7 +510,7 @@ impl NoiseChannel {
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
-        if !self.active || self.volume_envelope.volume == 0 {
+        if !self.active {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
                 self.last_amp = 0;
