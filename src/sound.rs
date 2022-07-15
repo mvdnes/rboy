@@ -4,6 +4,7 @@ const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
 const CLOCKS_PER_FRAME : u32 = CLOCKS_PER_SECOND / 512;
 const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
+const SWEEP_DELAY_ZERO_PERIOD : u8 = 8;
 
 pub trait AudioPlayer : Send {
     fn play(&mut self, left_channel: &[f32], right_channel: &[f32]);
@@ -143,7 +144,8 @@ struct SquareChannel {
     sweep_delay: u8,
     sweep_period: u8,
     sweep_shift: u8,
-    sweep_frequency_increase: bool,
+    sweep_negate: bool,
+    sweep_did_negate: bool,
     volume_envelope: VolumeEnvelope,
     blip: BlipBuf,
 }
@@ -166,7 +168,8 @@ impl SquareChannel {
             sweep_delay: 0,
             sweep_period: 0,
             sweep_shift: 0,
-            sweep_frequency_increase: false,
+            sweep_negate: false,
+            sweep_did_negate: false,
             volume_envelope: VolumeEnvelope::new(),
             blip: blip,
         }
@@ -181,7 +184,7 @@ impl SquareChannel {
             0xFF10 => {
                 0x80 |
                 ((self.sweep_period & 0x7) << 4) |
-                if self.sweep_frequency_increase { 0x8 } else { 0 } |
+                if self.sweep_negate { 0x8 } else { 0 } |
                 (self.sweep_shift & 0x7)
             },
             0xFF11 | 0xFF16 => {
@@ -208,7 +211,12 @@ impl SquareChannel {
             0xFF10 => {
                 self.sweep_period = (v >> 4) & 0x7;
                 self.sweep_shift = v & 0x7;
-                self.sweep_frequency_increase = v & 0x8 == 0x8;
+                let old_sweep_negate = self.sweep_negate;
+                self.sweep_negate = v & 0x8 == 0x8;
+                if old_sweep_negate && !self.sweep_negate && self.sweep_did_negate {
+                    self.active = false;
+                }
+                self.sweep_did_negate = false;
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
@@ -230,15 +238,15 @@ impl SquareChannel {
                 self.active &= self.length.is_active();
 
                 if v & 0x80 == 0x80 {
-                    self.length.trigger(frame_step);
-
                     if self.dac_enabled {
                         self.active = true;
                     }
 
+                    self.length.trigger(frame_step);
+
                     if self.has_sweep {
                         self.sweep_frequency = self.frequency;
-                        self.sweep_delay = 1;
+                        self.sweep_delay = if self.sweep_period != 0 { self.sweep_period } else { SWEEP_DELAY_ZERO_PERIOD };
 
                         self.sweep_enabled = self.sweep_period > 0 || self.sweep_shift > 0;
                         if self.sweep_shift > 0 {
@@ -294,7 +302,8 @@ impl SquareChannel {
     fn sweep_calculate_frequency(&mut self) -> u16 {
         let offset = self.sweep_frequency >> self.sweep_shift;
 
-        let newfreq = if self.sweep_frequency_increase {
+        let newfreq = if self.sweep_negate {
+            self.sweep_did_negate = true;
             self.sweep_frequency.wrapping_sub(offset)
         }
         else {
@@ -308,23 +317,29 @@ impl SquareChannel {
     }
 
     fn step_sweep(&mut self) {
-        if !self.has_sweep || self.sweep_period == 0 || !self.sweep_enabled {
-            return;
-        }
+        debug_assert!(self.has_sweep);
 
         if self.sweep_delay > 1 {
             self.sweep_delay -= 1;
         }
         else {
-            self.sweep_delay = self.sweep_period;
-
-            let newfreq = self.sweep_calculate_frequency();
-            if newfreq <= 2047 && self.sweep_shift != 0 {
-                self.sweep_frequency = newfreq;
-                self.frequency = newfreq;
-                self.calculate_period();
+            if self.sweep_period == 0 {
+                self.sweep_delay = SWEEP_DELAY_ZERO_PERIOD;
             }
-            self.sweep_calculate_frequency();
+            else {
+                self.sweep_delay = self.sweep_period;
+                if self.sweep_enabled {
+                    let newfreq = self.sweep_calculate_frequency();
+                    if newfreq <= 2047 {
+                        if self.sweep_shift != 0 {
+                            self.sweep_frequency = newfreq;
+                            self.frequency = newfreq;
+                            self.calculate_period();
+                        }
+                        self.sweep_calculate_frequency();
+                    }
+                }
+            }
         }
     }
 }
