@@ -2,6 +2,7 @@ use blip_buf::BlipBuf;
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
+const CLOCKS_PER_FRAME : u32 = CLOCKS_PER_SECOND / 512;
 const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
 
 pub trait AudioPlayer : Send {
@@ -72,13 +73,66 @@ impl VolumeEnvelope {
     }
 }
 
+struct LengthCounter {
+    enabled: bool,
+    value: u16,
+    max: u16,
+}
+
+impl LengthCounter {
+    fn new(max: u16) -> Self {
+        LengthCounter {
+            enabled: false,
+            value: 0,
+            max: max
+        }
+    }
+
+    fn is_active(&self) -> bool {
+        self.value > 0
+    }
+
+    fn extra_step(frame_step: u8) -> bool {
+        // if the last 'step' was a length step return true
+        // this is equivalent to (next) frame_step is not a length step
+        // which is true for odd steps
+        frame_step % 2 == 1
+    }
+
+    fn enable(&mut self, enable: bool, frame_step: u8) {
+        let was_enabled = self.enabled;
+        self.enabled = enable; // self.step takes the new value of enabled into account
+        if !was_enabled && LengthCounter::extra_step(frame_step) {
+            self.step();
+        }
+    }
+
+    fn set(&mut self, minus_value: u8) {
+        self.value = self.max - minus_value as u16;
+    }
+
+    fn trigger(&mut self, frame_step: u8) {
+        if self.value == 0 {
+            self.value = self.max;
+            if LengthCounter::extra_step(frame_step) {
+                self.step();
+            }
+        }
+    }
+
+    fn step(&mut self) {
+        if self.enabled && self.value > 0 {
+            self.value -= 1;
+        }
+    }
+}
+
 struct SquareChannel {
     active: bool,
     dac_enabled: bool,
     duty : u8,
     phase : u8,
-    length: u8,
-    length_enabled : bool,
+    length: LengthCounter,
     frequency: u16,
     period: u32,
     last_amp: i32,
@@ -100,8 +154,7 @@ impl SquareChannel {
             dac_enabled: false,
             duty: 1,
             phase: 1,
-            length: 0,
-            length_enabled: false,
+            length: LengthCounter::new(64),
             frequency: 0,
             period: 2048,
             last_amp: 0,
@@ -141,14 +194,14 @@ impl SquareChannel {
             }
             0xFF14 | 0xFF19 => {
                 0x80 |
-                if self.length_enabled { 0x40 } else { 0 } |
+                if self.length.enabled { 0x40 } else { 0 } |
                 0x3F
             },
             _ => unimplemented!(),
         }
     }
 
-    fn wb(&mut self, a: u16, v: u8) {
+    fn wb(&mut self, a: u16, v: u8, frame_step: u8) {
         match a {
             0xFF10 => {
                 self.sweep_period = (v >> 4) & 0x7;
@@ -157,7 +210,7 @@ impl SquareChannel {
             },
             0xFF11 | 0xFF16 => {
                 self.duty = v >> 6;
-                self.length = 64 - (v & 0x3F);
+                self.length.set(v & 0x3F);
             },
             0xFF12 | 0xFF17 => {
                 self.dac_enabled = v & 0xF8 != 0;
@@ -170,17 +223,21 @@ impl SquareChannel {
             0xFF14 | 0xFF19 => {
                 self.frequency = (self.frequency & 0x00FF) | (((v & 0b0000_0111) as u16) << 8);
                 self.calculate_period();
-                self.length_enabled = v & 0x40 == 0x40;
 
-                if self.dac_enabled && v & 0x80 == 0x80 {
-                    self.active = true;
-                    if self.length == 0 {
-                        self.length = 64;
-                    }
+                self.length.enable(v & 0x40 == 0x40, frame_step);
+                self.active &= self.length.is_active();
+
+                if v & 0x80 == 0x80 {
+                    self.length.trigger(frame_step);
+
                     self.sweep_frequency = self.frequency;
                     if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
                         self.sweep_delay = 1;
                         self.step_sweep();
+                    }
+
+                    if self.dac_enabled {
+                        self.active = true;
                     }
                 }
             },
@@ -224,12 +281,8 @@ impl SquareChannel {
     }
 
     fn step_length(&mut self) {
-        if self.length_enabled && self.length != 0 {
-            self.length -= 1;
-            if self.length == 0 {
-                self.active = false;
-            }
-        }
+        self.length.step();
+        self.active &= self.length.is_active();
     }
 
     fn step_sweep(&mut self) {
@@ -273,8 +326,7 @@ impl SquareChannel {
 struct WaveChannel {
     active: bool,
     dac_enabled : bool,
-    length: u16,
-    length_enabled : bool,
+    length: LengthCounter,
     frequency: u16,
     period: u32,
     last_amp: i32,
@@ -290,8 +342,7 @@ impl WaveChannel {
         WaveChannel {
             active: false,
             dac_enabled: false,
-            length: 0,
-            length_enabled: false,
+            length: LengthCounter::new(256),
             frequency: 0,
             period: 2048,
             last_amp: 0,
@@ -318,7 +369,7 @@ impl WaveChannel {
             0xFF1D => 0xFF,
             0xFF1E => {
                 0x80 |
-                if self.length_enabled { 0x40 } else { 0 } |
+                if self.length.enabled { 0x40 } else { 0 } |
                 0x3F
             },
             0xFF30 ..= 0xFF3F => {
@@ -329,13 +380,13 @@ impl WaveChannel {
         }
     }
 
-    fn wb(&mut self, a: u16, v: u8) {
+    fn wb(&mut self, a: u16, v: u8, frame_step: u8) {
         match a {
             0xFF1A => {
                 self.dac_enabled = (v & 0x80) == 0x80;
                 self.active = self.active && self.dac_enabled;
             }
-            0xFF1B => self.length = 256 - (v as u16),
+            0xFF1B => self.length.set(v),
             0xFF1C => self.volume_shift = (v >> 5) & 0b11,
             0xFF1D => {
                 self.frequency = (self.frequency & 0x0700) | (v as u16);
@@ -344,14 +395,19 @@ impl WaveChannel {
             0xFF1E => {
                 self.frequency = (self.frequency & 0x00FF) | (((v & 0b111) as u16) << 8);
                 self.calculate_period();
-                self.length_enabled = v & 0x40 == 0x40;
-                if v & 0x80 == 0x80 && self.dac_enabled {
-                    self.active = true;
-                    if self.length == 0 {
-                        self.length = 256;
-                    }
+
+                self.length.enable(v & 0x40 == 0x40, frame_step);
+                self.active &= self.length.is_active();
+
+                if v & 0x80 == 0x80 {
+                    self.length.trigger(frame_step);
+
                     self.current_wave = 0;
                     self.delay = 0;
+
+                    if self.dac_enabled {
+                        self.active = true;
+                    }
                 }
             },
             0xFF30 ..= 0xFF3F => {
@@ -415,12 +471,8 @@ impl WaveChannel {
     }
 
     fn step_length(&mut self) {
-        if self.length_enabled && self.length != 0 {
-            self.length -= 1;
-            if self.length == 0 {
-                self.active = false;
-            }
-        }
+        self.length.step();
+        self.active &= self.length.is_active();
     }
 }
 
@@ -428,8 +480,7 @@ struct NoiseChannel {
     active: bool,
     dac_enabled: bool,
     reg_ff22: u8,
-    length: u8,
-    length_enabled: bool,
+    length: LengthCounter,
     volume_envelope: VolumeEnvelope,
     period: u32,
     shift_width: u8,
@@ -445,8 +496,7 @@ impl NoiseChannel {
             active: false,
             dac_enabled: false,
             reg_ff22: 0,
-            length: 0,
-            length_enabled: false,
+            length: LengthCounter::new(64),
             volume_envelope: VolumeEnvelope::new(),
             period: 2048,
             shift_width: 14,
@@ -466,16 +516,16 @@ impl NoiseChannel {
             },
             0xFF23 => {
                 0x80 |
-                if self.length_enabled { 0x40 } else { 0 } |
+                if self.length.enabled { 0x40 } else { 0 } |
                 0x3F
             },
             _ => unimplemented!(),
         }
     }
 
-    fn wb(&mut self, a: u16, v: u8) {
+    fn wb(&mut self, a: u16, v: u8, frame_step: u8) {
         match a {
-            0xFF20 => self.length = 64 - (v & 0x3F),
+            0xFF20 => self.length.set(v & 0x3F),
             0xFF21 => {
                 self.dac_enabled = v & 0xF8 != 0;
                 self.active = self.active && self.dac_enabled;
@@ -490,14 +540,18 @@ impl NoiseChannel {
                 self.period = freq_div << (v >> 4);
             },
             0xFF23 => {
-                self.length_enabled = v & 0x40 == 0x40;
-                if self.dac_enabled && v & 0x80 == 0x80 {
-                    self.active = true;
-                    if self.length == 0 {
-                        self.length = 64;
-                    }
+                self.length.enable(v & 0x40 == 0x40, frame_step);
+                self.active &= self.length.is_active();
+
+                if v & 0x80 == 0x80 {
+                    self.length.trigger(frame_step);
+
                     self.state = 0xFF;
                     self.delay = 0;
+
+                    if self.dac_enabled {
+                        self.active = true;
+                    }
                 }
             },
             _ => (),
@@ -542,12 +596,8 @@ impl NoiseChannel {
     }
 
     fn step_length(&mut self) {
-        if self.length_enabled && self.length != 0 {
-            self.length -= 1;
-            if self.length == 0 {
-                self.active = false;
-            }
-        }
+        self.length.step();
+        self.active &= self.length.is_active();
     }
 }
 
@@ -556,7 +606,7 @@ pub struct Sound {
     time: u32,
     prev_time: u32,
     next_time: u32,
-    time_divider: u8,
+    frame_step: u8,
     output_period: u32,
     channel1: SquareChannel,
     channel2: SquareChannel,
@@ -583,8 +633,8 @@ impl Sound {
             on: false,
             time: 0,
             prev_time: 0,
-            next_time: CLOCKS_PER_SECOND / 256,
-            time_divider: 0,
+            next_time: CLOCKS_PER_FRAME,
+            frame_step: 0,
             output_period: output_period as u32,
             channel1: SquareChannel::new(blipbuf1, true),
             channel2: SquareChannel::new(blipbuf2, false),
@@ -628,10 +678,10 @@ impl Sound {
         if a != 0xFF26 && !self.on { return; }
         self.run();
         match a {
-            0xFF10 ..= 0xFF14 => self.channel1.wb(a, v),
-            0xFF16 ..= 0xFF19 => self.channel2.wb(a, v),
-            0xFF1A ..= 0xFF1E => self.channel3.wb(a, v),
-            0xFF20 ..= 0xFF23 => self.channel4.wb(a, v),
+            0xFF10 ..= 0xFF14 => self.channel1.wb(a, v, self.frame_step),
+            0xFF16 ..= 0xFF19 => self.channel2.wb(a, v, self.frame_step),
+            0xFF1A ..= 0xFF1E => self.channel3.wb(a, v, self.frame_step),
+            0xFF20 ..= 0xFF23 => self.channel4.wb(a, v, self.frame_step),
             0xFF24 => {
                 self.volume_left = v & 0x7;
                 self.volume_right = (v >> 4) & 0x7;
@@ -645,9 +695,12 @@ impl Sound {
                         self.wb(i, 0);
                     }
                 }
+                if !self.on && turn_on {
+                    self.frame_step = 0;
+                }
                 self.on = turn_on;
             }
-            0xFF30 ..= 0xFF3F => self.channel3.wb(a, v),
+            0xFF30 ..= 0xFF3F => self.channel3.wb(a, v, self.frame_step),
             _ => (),
         }
     }
@@ -695,23 +748,25 @@ impl Sound {
             self.channel3.run(self.prev_time, self.next_time);
             self.channel4.run(self.prev_time, self.next_time);
 
-            self.channel1.step_length();
-            self.channel2.step_length();
-            self.channel3.step_length();
-            self.channel4.step_length();
-
-            if self.time_divider == 0 {
+            if self.frame_step % 2 == 0 {
+                self.channel1.step_length();
+                self.channel2.step_length();
+                self.channel3.step_length();
+                self.channel4.step_length();
+            }
+            if self.frame_step % 4 == 2 {
+                self.channel1.step_sweep();
+            }
+            if self.frame_step == 7 {
                 self.channel1.volume_envelope.step();
                 self.channel2.volume_envelope.step();
                 self.channel4.volume_envelope.step();
             }
-            else if self.time_divider & 1 == 1 {
-                self.channel1.step_sweep();
-            }
 
-            self.time_divider = (self.time_divider + 1) % 4;
+            self.frame_step = (self.frame_step + 1) % 8;
+
             self.prev_time = self.next_time;
-            self.next_time += CLOCKS_PER_SECOND / 256;
+            self.next_time += CLOCKS_PER_FRAME;
         }
 
         if self.prev_time != self.time {
