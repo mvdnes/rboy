@@ -137,7 +137,8 @@ struct SquareChannel {
     period: u32,
     last_amp: i32,
     delay: u32,
-    has_sweep : bool,
+    has_sweep: bool,
+    sweep_enabled: bool,
     sweep_frequency: u16,
     sweep_delay: u8,
     sweep_period: u8,
@@ -160,6 +161,7 @@ impl SquareChannel {
             last_amp: 0,
             delay: 0,
             has_sweep: with_sweep,
+            sweep_enabled: false,
             sweep_frequency: 0,
             sweep_delay: 0,
             sweep_period: 0,
@@ -230,14 +232,18 @@ impl SquareChannel {
                 if v & 0x80 == 0x80 {
                     self.length.trigger(frame_step);
 
-                    self.sweep_frequency = self.frequency;
-                    if self.has_sweep && self.sweep_period > 0 && self.sweep_shift > 0 {
-                        self.sweep_delay = 1;
-                        self.step_sweep();
-                    }
-
                     if self.dac_enabled {
                         self.active = true;
+                    }
+
+                    if self.has_sweep {
+                        self.sweep_frequency = self.frequency;
+                        self.sweep_delay = 1;
+
+                        self.sweep_enabled = self.sweep_period > 0 || self.sweep_shift > 0;
+                        if self.sweep_shift > 0 {
+                            self.sweep_calculate_frequency();
+                        }
                     }
                 }
             },
@@ -247,7 +253,7 @@ impl SquareChannel {
     }
 
     fn calculate_period(&mut self) {
-        if self.frequency > 2048 { self.period = 0; }
+        if self.frequency > 2047 { self.period = 0; }
         else { self.period = (2048 - self.frequency as u32) * 4; }
     }
 
@@ -285,40 +291,40 @@ impl SquareChannel {
         self.active &= self.length.is_active();
     }
 
+    fn sweep_calculate_frequency(&mut self) -> u16 {
+        let offset = self.sweep_frequency >> self.sweep_shift;
+
+        let newfreq = if self.sweep_frequency_increase {
+            self.sweep_frequency.wrapping_sub(offset)
+        }
+        else {
+            self.sweep_frequency.wrapping_add(offset)
+        };
+
+        if newfreq > 2047 {
+            self.active = false;
+        }
+        return newfreq;
+    }
+
     fn step_sweep(&mut self) {
-        if !self.has_sweep || self.sweep_period == 0 { return; }
+        if !self.has_sweep || self.sweep_period == 0 || !self.sweep_enabled {
+            return;
+        }
 
         if self.sweep_delay > 1 {
             self.sweep_delay -= 1;
         }
         else {
             self.sweep_delay = self.sweep_period;
-            self.frequency = self.sweep_frequency;
-            if self.frequency == 2048 {
-                self.active = false;
-            }
-            self.calculate_period();
 
-            let offset = self.sweep_frequency >> self.sweep_shift;
-
-            if self.sweep_frequency_increase {
-                // F ~ (2048 - f)
-                // Increase in frequency means subtracting the offset
-                if self.sweep_frequency <= offset {
-                    self.sweep_frequency = 0;
-                }
-                else {
-                    self.sweep_frequency -= offset;
-                }
+            let newfreq = self.sweep_calculate_frequency();
+            if newfreq <= 2047 && self.sweep_shift != 0 {
+                self.sweep_frequency = newfreq;
+                self.frequency = newfreq;
+                self.calculate_period();
             }
-            else {
-                if self.sweep_frequency >= 2048 - offset {
-                    self.sweep_frequency = 2048;
-                }
-                else {
-                    self.sweep_frequency += offset;
-                }
-            }
+            self.sweep_calculate_frequency();
         }
     }
 }
