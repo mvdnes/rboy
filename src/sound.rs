@@ -6,6 +6,10 @@ const CLOCKS_PER_FRAME : u32 = CLOCKS_PER_SECOND / 512;
 const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::MAX_FRAME
 const SWEEP_DELAY_ZERO_PERIOD : u8 = 8;
 
+// Additional delay on trigger of the wave channel (channel 3). In other emulators it is 6, but we
+// only pass tests when the value is 4 or 5. Needs investigation.
+const WAVE_INITIAL_DELAY : u32 = 4;
+
 pub trait AudioPlayer : Send {
     fn play(&mut self, left_channel: &[f32], right_channel: &[f32]);
     fn samples_rate(&self) -> u32;
@@ -353,7 +357,7 @@ struct WaveChannel {
     last_amp: i32,
     delay: u32,
     volume_shift: u8,
-    waveram: [u8; 32],
+    waveram: [u8; 16],
     current_wave: u8,
     blip: BlipBuf,
 }
@@ -369,7 +373,7 @@ impl WaveChannel {
             last_amp: 0,
             delay: 0,
             volume_shift: 0,
-            waveram: [0; 32],
+            waveram: [0; 16],
             current_wave: 0,
             blip: blip,
         }
@@ -394,8 +398,12 @@ impl WaveChannel {
                 0x3F
             },
             0xFF30 ..= 0xFF3F => {
-                (self.waveram[(a as usize - 0xFF30) * 2] << 4) |
-                self.waveram[(a as usize - 0xFF30) * 2 + 1]
+                if !self.active {
+                    self.waveram[a as usize - 0xFF30]
+                }
+                else {
+                    self.waveram[self.current_wave as usize >> 1]
+                }
             },
             _ => unimplemented!(),
         }
@@ -424,7 +432,7 @@ impl WaveChannel {
                     self.length.trigger(frame_step);
 
                     self.current_wave = 0;
-                    self.delay = 0;
+                    self.delay = self.period + WAVE_INITIAL_DELAY;
 
                     if self.dac_enabled {
                         self.active = true;
@@ -432,8 +440,9 @@ impl WaveChannel {
                 }
             },
             0xFF30 ..= 0xFF3F => {
-                self.waveram[(a as usize - 0xFF30) * 2] = v >> 4;
-                self.waveram[(a as usize - 0xFF30) * 2 + 1] = v & 0xF;
+                if !self.active {
+                    self.waveram[a as usize - 0xFF30] = v;
+                }
             },
             _ => (),
         }
@@ -472,7 +481,8 @@ impl WaveChannel {
             };
 
             while time < end_time {
-                let sample = self.waveram[self.current_wave as usize];
+                let wavebyte = self.waveram[self.current_wave as usize >> 1];
+                let sample = if self.current_wave % 2 == 0 { wavebyte >> 4 } else { wavebyte & 0xF };
 
                 // shifted by 2 so that 25% does not lose precision
                 let amp = ((sample << 2) >> volshift) as i32;
