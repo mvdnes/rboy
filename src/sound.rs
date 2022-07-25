@@ -668,6 +668,7 @@ pub struct Sound {
     reg_vin_to_so: u8,
     reg_ff25: u8,
     need_sync: bool,
+    dmg_mode: bool,
     player: Box<dyn AudioPlayer>,
 }
 
@@ -704,6 +705,7 @@ impl Sound {
             reg_vin_to_so: 0x00,
             reg_ff25: 0x00,
             need_sync: false,
+            dmg_mode: dmg_mode,
             player: player,
         }
     }
@@ -734,7 +736,22 @@ impl Sound {
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
-        if a != 0xFF26 && !self.on { return; }
+        if !self.on {
+            // Allow writes to the length register when in DMG mode
+            if self.dmg_mode {
+                match a {
+                    0xFF11 => self.channel1.wb(a, v & 0x3F, self.frame_step),
+                    0xFF16 => self.channel2.wb(a, v & 0x3F, self.frame_step),
+                    0xFF1B => self.channel3.wb(a, v, self.frame_step),
+                    0xFF20 => self.channel4.wb(a, v & 0x3F, self.frame_step),
+                    _ => (),
+                }
+            }
+            // Only allow further writes to the control register
+            if a != 0xFF26 {
+                return;
+            }
+        }
         self.run();
         match a {
             0xFF10 ..= 0xFF14 => self.channel1.wb(a, v, self.frame_step),
@@ -750,11 +767,13 @@ impl Sound {
             0xFF26 => {
                 let turn_on = v & 0x80 == 0x80;
                 if self.on && turn_on == false {
+                    // Reset all registers to 0 when turning off
                     for i in 0xFF10..=0xFF25 {
                         self.wb(i, 0);
                     }
                 }
                 if !self.on && turn_on {
+                    // Reset frame step when turning on
                     self.frame_step = 0;
                 }
                 self.on = turn_on;
