@@ -443,6 +443,9 @@ impl WaveChannel {
                 if !self.active {
                     self.waveram[a as usize - 0xFF30] = v;
                 }
+                else {
+                    self.waveram[self.current_wave as usize >> 1] = v;
+                }
             },
             _ => (),
         }
