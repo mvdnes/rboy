@@ -1,4 +1,5 @@
 use crate::cpu::CPU;
+use crate::gbmode::GbMode;
 use crate::keypad::KeypadKey;
 use crate::printer::GbPrinter;
 use crate::sound;
@@ -60,7 +61,14 @@ impl Device {
     }
 
     pub fn enable_audio(&mut self, player: Box<dyn sound::AudioPlayer>) {
-        self.cpu.mmu.sound = Some(sound::Sound::new(player));
+        match self.cpu.mmu.gbmode {
+            GbMode::Classic => {
+                self.cpu.mmu.sound = Some(sound::Sound::new_dmg(player));
+            },
+            GbMode::Color | GbMode::ColorAsClassic => {
+                self.cpu.mmu.sound = Some(sound::Sound::new_cgb(player));
+            },
+        };
     }
 
     pub fn sync_audio(&mut self) {

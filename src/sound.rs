@@ -359,11 +359,13 @@ struct WaveChannel {
     volume_shift: u8,
     waveram: [u8; 16],
     current_wave: u8,
+    dmg_mode: bool,
+    sample_recently_accessed: bool,
     blip: BlipBuf,
 }
 
 impl WaveChannel {
-    fn new(blip: BlipBuf) -> WaveChannel {
+    fn new(blip: BlipBuf, dmg_mode: bool) -> WaveChannel {
         WaveChannel {
             active: false,
             dac_enabled: false,
@@ -375,6 +377,8 @@ impl WaveChannel {
             volume_shift: 0,
             waveram: [0; 16],
             current_wave: 0,
+            dmg_mode: dmg_mode,
+            sample_recently_accessed: false,
             blip: blip,
         }
     }
@@ -402,7 +406,12 @@ impl WaveChannel {
                     self.waveram[a as usize - 0xFF30]
                 }
                 else {
-                    self.waveram[self.current_wave as usize >> 1]
+                    if !self.dmg_mode || self.sample_recently_accessed {
+                        self.waveram[self.current_wave as usize >> 1]
+                    }
+                    else {
+                        0xFF
+                    }
                 }
             },
             _ => unimplemented!(),
@@ -444,7 +453,9 @@ impl WaveChannel {
                     self.waveram[a as usize - 0xFF30] = v;
                 }
                 else {
-                    self.waveram[self.current_wave as usize >> 1] = v;
+                    if !self.dmg_mode || self.sample_recently_accessed {
+                        self.waveram[self.current_wave as usize >> 1] = v;
+                    }
                 }
             },
             _ => (),
@@ -461,6 +472,7 @@ impl WaveChannel {
     }
 
     fn run(&mut self, start_time: u32, end_time: u32) {
+        self.sample_recently_accessed = false;
         if !self.active || self.period == 0 {
             if self.last_amp != 0 {
                 self.blip.add_delta(start_time, -self.last_amp);
@@ -495,6 +507,11 @@ impl WaveChannel {
                     self.last_amp = amp;
                 }
 
+                if time >= end_time - 2 {
+                    // Mark the wave sample as recently accessed.
+                    // The DMG only allows a wave sample to be read at this point in time.
+                    self.sample_recently_accessed = true;
+                }
                 time += self.period;
                 self.current_wave = (self.current_wave + 1) % 32;
             }
@@ -655,7 +672,15 @@ pub struct Sound {
 }
 
 impl Sound {
-    pub fn new(player: Box<dyn AudioPlayer>) -> Sound {
+    pub fn new_dmg(player: Box<dyn AudioPlayer>) -> Sound {
+        Sound::new_internal(player, true)
+    }
+
+    pub fn new_cgb(player: Box<dyn AudioPlayer>) -> Sound {
+        Sound::new_internal(player, false)
+    }
+
+    fn new_internal(player: Box<dyn AudioPlayer>, dmg_mode: bool) -> Sound {
         let blipbuf1 = create_blipbuf(player.samples_rate());
         let blipbuf2 = create_blipbuf(player.samples_rate());
         let blipbuf3 = create_blipbuf(player.samples_rate());
@@ -672,7 +697,7 @@ impl Sound {
             output_period: output_period as u32,
             channel1: SquareChannel::new(blipbuf1, true),
             channel2: SquareChannel::new(blipbuf2, false),
-            channel3: WaveChannel::new(blipbuf3),
+            channel3: WaveChannel::new(blipbuf3, dmg_mode),
             channel4: NoiseChannel::new(blipbuf4),
             volume_left: 7,
             volume_right: 7,
