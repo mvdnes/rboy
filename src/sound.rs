@@ -7,7 +7,7 @@ const OUTPUT_SAMPLE_COUNT : usize = 2000; // this should be less than blip_buf::
 const SWEEP_DELAY_ZERO_PERIOD : u8 = 8;
 
 // Additional delay on trigger of the wave channel (channel 3). In other emulators it is 6, but we
-// only pass tests when the value is 4 or 5. Needs investigation.
+// need 4 since we run the wave after delay == 0, instead of at delay == 0
 const WAVE_INITIAL_DELAY : u32 = 4;
 
 pub trait AudioPlayer : Send {
@@ -438,6 +438,8 @@ impl WaveChannel {
                 self.active &= self.length.is_active();
 
                 if v & 0x80 == 0x80 {
+                    self.dmg_maybe_corrupt_waveram();
+
                     self.length.trigger(frame_step);
 
                     self.current_wave = 0;
@@ -524,6 +526,30 @@ impl WaveChannel {
     fn step_length(&mut self) {
         self.length.step();
         self.active &= self.length.is_active();
+    }
+
+    fn dmg_maybe_corrupt_waveram(&mut self) {
+        // Corrupt when in dmg_mode, the channel is active, and
+        // when delay == 0. Delay == 0 means that the next cycle will
+        // run the sample, and thus the corruption occurs.
+        // Since the corruption occurs after this code, we need to
+        // increase current_wave by one as well.
+        if !self.dmg_mode || !self.active || self.delay != 0 {
+            return;
+        }
+
+        let byteindex = ((self.current_wave + 1) % 32) as usize >> 1;
+
+        if byteindex < 4 {
+            self.waveram[0] = self.waveram[byteindex];
+        }
+        else {
+            let blockstart = byteindex & 0b1100;
+            self.waveram[0] = self.waveram[blockstart];
+            self.waveram[1] = self.waveram[blockstart + 1];
+            self.waveram[2] = self.waveram[blockstart + 2];
+            self.waveram[3] = self.waveram[blockstart + 3];
+        }
     }
 }
 
