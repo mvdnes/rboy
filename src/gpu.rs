@@ -34,6 +34,8 @@ pub struct GPU {
     scx: u8,
     winy: u8,
     winx: u8,
+    wy_trigger: bool,
+    wy_pos: i32,
     palbr: u8,
     pal0r: u8,
     pal1r: u8,
@@ -80,6 +82,8 @@ impl GPU {
             scx: 0,
             winy: 0,
             winx: 0,
+            wy_trigger: false,
+            wy_pos: -1,
             palbr: 0,
             pal0r: 0,
             pal1r: 1,
@@ -159,12 +163,20 @@ impl GPU {
                 self.hblanking = true;
                 self.m0_inte
             },
-            1 => {
+            1 => { // Vertical blank
+                self.wy_trigger = false;
                 self.interrupt |= 0x01;
                 self.updated = true;
                 self.m1_inte
             },
             2 => self.m2_inte,
+            3 => {
+                if self.win_on && self.wy_trigger == false && self.line == self.winy {
+                    self.wy_trigger = true;
+                    self.wy_pos = -1;
+                }
+                false
+            }
             _ => false,
         } {
             self.interrupt |= 0x02;
@@ -251,7 +263,13 @@ impl GPU {
                 self.sprite_size = if v & 0x04 == 0x04 { 16 } else { 8 };
                 self.sprite_on = v & 0x02 == 0x02;
                 self.lcdc0 = v & 0x01 == 0x01;
-                if orig_lcd_on && !self.lcd_on { self.modeclock = 0; self.line = 0; self.mode = 0; self.clear_screen(); }
+                if orig_lcd_on && !self.lcd_on {
+                    self.modeclock = 0;
+                    self.line = 0;
+                    self.mode = 0;
+                    self.wy_trigger = false;
+                    self.clear_screen();
+                }
                 if !orig_lcd_on && self.lcd_on { self.change_mode(2); self.modeclock = 4; }
             },
             0xFF41 => {
@@ -358,9 +376,14 @@ impl GPU {
     fn draw_bg(&mut self) {
         let drawbg = self.gbmode == GbMode::Color || self.lcdc0;
 
-        let winy =
-            if !self.win_on || (self.gbmode != GbMode::Classic && !self.lcdc0) { -1 }
-            else { self.line as i32 - self.winy as i32 };
+        let wx_trigger = self.winx <= 166;
+        let winy = if self.win_on && self.wy_trigger && wx_trigger {
+            self.wy_pos += 1;
+            self.wy_pos
+        }
+        else {
+            -1
+        };
 
         if winy < 0 && drawbg == false {
             return;
