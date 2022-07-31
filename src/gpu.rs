@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::gbmode::GbMode;
 
 const VRAM_SIZE: usize = 0x4000;
@@ -446,13 +447,33 @@ impl GPU {
     fn draw_sprites(&mut self) {
         if !self.sprite_on { return }
 
-        // TODO: limit of 10 sprites per line
+        let line = self.line as i32;
+        let sprite_size = self.sprite_size as i32;
 
+        let mut sprites_to_draw = [(0, 0, 0); 10];
+        let mut sidx = 0;
         for index in 0 .. 40 {
-            let i = 39 - index;
-            let spriteaddr = 0xFE00 + (i as u16) * 4;
+            let spriteaddr = 0xFE00 + (index as u16) * 4;
             let spritey = self.rb(spriteaddr + 0) as u16 as i32 - 16;
+            if line < spritey || line >= spritey + sprite_size { continue }
             let spritex = self.rb(spriteaddr + 1) as u16 as i32 - 8;
+            sprites_to_draw[sidx] = (spritex, spritey, index);
+            sidx += 1;
+            if sidx >= 10 {
+                break;
+            }
+        }
+        if self.gbmode == GbMode::Color {
+            sprites_to_draw[..sidx].sort_unstable_by(cgb_sprite_order);
+        }
+        else {
+            sprites_to_draw[..sidx].sort_unstable_by(dmg_sprite_order);
+        }
+
+        for &(spritex, spritey, i) in &sprites_to_draw[..sidx] {
+            if spritex < -7 || spritex >= (SCREEN_W as i32) { continue }
+
+            let spriteaddr = 0xFE00 + (i as u16) * 4;
             let tilenum = (self.rb(spriteaddr + 2) & (if self.sprite_size == 16 { 0xFE } else { 0xFF })) as u16;
             let flags = self.rb(spriteaddr + 3) as usize;
             let usepal1: bool = flags & (1 << 4) != 0;
@@ -461,12 +482,6 @@ impl GPU {
             let belowbg: bool = flags & (1 << 7) != 0;
             let c_palnr = flags & 0x07;
             let c_vram1: bool = flags & (1 << 3) != 0;
-
-            let line = self.line as i32;
-            let sprite_size = self.sprite_size as i32;
-
-            if line < spritey || line >= spritey + sprite_size { continue }
-            if spritex < -7 || spritex >= (SCREEN_W as i32) { continue }
 
             let tiley: u16 = if yflip {
                 (sprite_size - 1 - (line - spritey)) as u16
@@ -509,4 +524,19 @@ impl GPU {
     pub fn may_hdma(&self) -> bool {
         return self.hblanking;
     }
+}
+
+// Functions to determine the order of sprites. Input is a tuple x-coord, OAM position
+// These function ensures that sprites with a higher priority are 'larger'
+fn dmg_sprite_order(a: &(i32, i32, u8), b: &(i32, i32, u8)) -> Ordering {
+    // DMG order: prioritize on x-coord, and then by OAM position.
+    if a.0 != b.0 {
+        return b.0.cmp(&a.0);
+    }
+    return b.2.cmp(&a.2);
+}
+
+fn cgb_sprite_order(a: &(i32, i32, u8), b: &(i32, i32, u8)) -> Ordering {
+    // CGB order: only prioritize based on OAM position.
+    return b.2.cmp(&a.2);
 }
