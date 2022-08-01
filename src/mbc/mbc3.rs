@@ -13,6 +13,7 @@ pub struct MBC3 {
     ram_on: bool,
     savepath: Option<path::PathBuf>,
     rtc_ram: [u8; 5],
+    rtc_ram_latch: [u8; 5],
     rtc_lock: bool,
     rtc_zero: Option<u64>,
 }
@@ -41,6 +42,7 @@ impl MBC3 {
             ram_on: false,
             savepath: svpath,
             rtc_ram: [0u8; 5],
+            rtc_ram_latch: [0u8; 5],
             rtc_lock: false,
             rtc_zero: rtc,
         };
@@ -69,12 +71,19 @@ impl MBC3 {
         }
     }
 
+    fn latch_rtc_reg(&mut self) {
+        self.calc_rtc_reg();
+        self.rtc_ram_latch.clone_from_slice(&self.rtc_ram);
+    }
+
     fn calc_rtc_reg(&mut self) {
+        // Do not modify regs when halted
+        if self.rtc_ram[4] & 0x40 == 0x40 { return }
+
         let tzero = match self.rtc_zero {
             Some(t) => time::UNIX_EPOCH + time::Duration::from_secs(t),
             None => return,
         };
-        if self.rtc_ram[4] & 0x40 == 0x40 { return }
 
         let difftime = match time::SystemTime::now().duration_since(tzero) {
             Ok(n) => { n.as_secs() },
@@ -139,7 +148,7 @@ impl MBC for MBC3 {
         if self.rambank <= 3 {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
         } else {
-            self.rtc_ram[self.rambank - 0x08]
+            self.rtc_ram_latch[self.rambank - 0x08]
         }
     }
     fn writerom(&mut self, a: u16, v: u8) {
@@ -152,7 +161,7 @@ impl MBC for MBC3 {
             0x6000 ..= 0x7FFF => match v {
                 0 => self.rtc_lock = false,
                 1 => {
-                    if !self.rtc_lock { self.calc_rtc_reg(); };
+                    if !self.rtc_lock { self.latch_rtc_reg(); };
                     self.rtc_lock = true;
                 },
                 _ => {},
@@ -165,6 +174,7 @@ impl MBC for MBC3 {
         if self.rambank <= 3 {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
         } else {
+            self.calc_rtc_reg();
             self.rtc_ram[self.rambank - 0x8] = v;
             self.calc_rtc_zero();
         }
