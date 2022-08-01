@@ -40,6 +40,19 @@ pub struct MMU<'a> {
     speed_switch_req: bool,
 }
 
+fn fill_random(slice: &mut [u8], start: u32) {
+    // Simple LCG to generate (non-cryptographic) random values
+    // Each distinct invocation should use a different start value
+    const A : u32 = 1103515245;
+    const C : u32 = 12345;
+
+    let mut x = start;
+    for v in slice.iter_mut() {
+        x = x.wrapping_mul(A).wrapping_add(C);
+        *v = ((x >> 23) & 0xFF) as u8;
+    }
+}
+
 impl<'a> MMU<'a> {
     pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<MMU<'a>> {
         let mmu_mbc = mbc::get_mbc(path::PathBuf::from(romname), skip_checksum)?;
@@ -68,6 +81,7 @@ impl<'a> MMU<'a> {
             hdma_status: DMAType::NoDMA,
             hdma_len: 0xFF,
         };
+        fill_random(&mut res.wram, 42);
         if res.rb(0x0143) == 0xC0 {
             return Err("This game does not work in Classic mode");
         }
@@ -102,6 +116,7 @@ impl<'a> MMU<'a> {
             hdma_status: DMAType::NoDMA,
             hdma_len: 0xFF,
         };
+        fill_random(&mut res.wram, 42);
         res.determine_mode();
         res.set_initial();
         Ok(res)
@@ -190,7 +205,8 @@ impl<'a> MMU<'a> {
             0xFF01 ..= 0xFF02 => self.serial.rb(address),
             0xFF04 ..= 0xFF07 => self.timer.rb(address),
             0xFF0F => self.intf,
-            0xFF10 ..= 0xFF3F => self.sound.as_mut().map_or(0, |s| s.rb(address)),
+            0xFF10 ..= 0xFF3F => self.sound.as_mut().map_or(0xFF, |s| s.rb(address)),
+            0xFF4D | 0xFF51 ..= 0xFF55 | 0xFF70 if self.gbmode == GbMode::Classic => { 0xFF },
             0xFF4D => (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
             0xFF40 ..= 0xFF4F => self.gpu.rb(address),
             0xFF51 ..= 0xFF55 => self.hdma_read(address),
@@ -198,7 +214,7 @@ impl<'a> MMU<'a> {
             0xFF70 => self.wrambank as u8,
             0xFF80 ..= 0xFFFE => self.zram[address as usize & 0x007F],
             0xFFFF => self.inte,
-            _ => 0,
+            _ => 0xFF,
         }
     }
 

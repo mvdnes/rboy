@@ -60,7 +60,7 @@ impl<'a> CPU<'a> {
 
     fn fetchbyte(&mut self) -> u8 {
         let b = self.mmu.rb(self.reg.pc);
-        self.reg.pc += 1;
+        self.reg.pc = self.reg.pc.wrapping_add(1);
         b
     }
 

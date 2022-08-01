@@ -215,6 +215,7 @@ impl GPU {
             0xFF49 => self.pal1r,
             0xFF4A => self.winy,
             0xFF4B => self.winx,
+            0xFF4F ..= 0xFF6B if self.gbmode == GbMode::Classic => { 0xFF },
             0xFF4F => self.vrambank as u8,
             0xFF68 => { self.cbgpal_ind | (if self.cbgpal_inc { 0x80 } else { 0 }) },
             0xFF69 => {
@@ -236,7 +237,7 @@ impl GPU {
                     ((self.csprit[palnum][colnum][1] & 0x18) >> 3) | (self.csprit[palnum][colnum][2] << 2)
                 }
             },
-            _ => panic!("GPU does not handle read {:04X}", a),
+            _ => 0xFF,
         }
     }
 

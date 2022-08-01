@@ -740,10 +740,8 @@ impl Sound {
         self.run();
         let v = match a {
             0xFF10 ..= 0xFF14 => self.channel1.rb(a),
-            0xFF15 => 0xFF,
             0xFF16 ..= 0xFF19 => self.channel2.rb(a),
             0xFF1A ..= 0xFF1E => self.channel3.rb(a),
-            0xFF1F => 0xFF,
             0xFF20 ..= 0xFF23 => self.channel4.rb(a),
             0xFF24 => ((self.volume_right & 7) << 4) | (self.volume_left & 7) | self.reg_vin_to_so,
             0xFF25 => self.reg_ff25,
@@ -754,9 +752,8 @@ impl Sound {
                 if self.channel3.on() { 0x4 } else { 0x0 } |
                 if self.channel2.on() { 0x2 } else { 0x0 } |
                 if self.channel1.on() { 0x1 } else { 0x0 }),
-            0xFF27 ..= 0xFF2F => 0xFF,
             0xFF30 ..= 0xFF3F => self.channel3.rb(a),
-            _ => 0,
+            _ => 0xFF,
         };
         return v;
     }
