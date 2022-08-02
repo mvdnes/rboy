@@ -836,7 +836,7 @@ mod test
                 Ok(cpu) => cpu,
             };
             let mut ticks = 0;
-            while ticks < 63802933 * 2
+            while ticks < 63802933 * 4
             {
                 ticks += c.do_cycle();
             }
