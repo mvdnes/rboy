@@ -44,6 +44,36 @@ fn create_window_builder(romname: &str)-> glium::glutin::window::WindowBuilder {
             .with_title("RBoy - ".to_owned() + romname);
 }
 
+#[derive(Debug)]
+struct ArgParseError {
+    message: String,
+}
+
+impl ArgParseError {
+    fn new<T: Into<String>>(message: T) -> Self {
+        ArgParseError {
+            message: message.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for ArgParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl std::error::Error for ArgParseError {}
+
+fn parse_scale_var(arg: &str) -> Result<u32, ArgParseError> {
+    match arg.parse::<u32>() {
+        Err(e) => Err(ArgParseError::new(format!("Could not parse scale: {}", e))),
+        Ok(s) if s < 1 => Err(ArgParseError::new("Scale must be at least 1")),
+        Ok(s) if s > 8 => Err(ArgParseError::new("Scale may be at most 8")),
+        Ok(s) => Ok(s),
+    }
+}
+
 fn main() {
     let exit_status = real_main();
     if exit_status != EXITCODE_SUCCESS {
@@ -62,43 +92,41 @@ fn real_main() -> i32 {
         .arg(clap::Arg::new("serial")
              .help("Prints the data from the serial port to stdout")
              .short('s')
-             .long("serial"))
+             .long("serial")
+             .action(clap::ArgAction::SetTrue))
         .arg(clap::Arg::new("printer")
              .help("Emulates a gameboy printer")
              .short('p')
-             .long("printer"))
+             .long("printer")
+             .action(clap::ArgAction::SetTrue))
         .arg(clap::Arg::new("classic")
              .help("Forces the emulator to run in classic Gameboy mode")
              .short('c')
-             .long("classic"))
+             .long("classic")
+             .action(clap::ArgAction::SetTrue))
         .arg(clap::Arg::new("scale")
              .help("Sets the scale of the interface. Default: 2")
              .short('x')
              .long("scale")
-             .validator(|s|
-                 match s.parse::<u32>() {
-                     Err(e) => Err(format!("Could not parse scale: {}", e)),
-                     Ok(s) if s < 1 => Err("Scale must be at least 1".to_owned()),
-                     Ok(s) if s > 8 => Err("Scale may be at most 8".to_owned()),
-                     Ok(..) => Ok(()),
-                 })
-             .takes_value(true))
+             .value_parser(parse_scale_var))
         .arg(clap::Arg::new("audio")
              .help("Enables audio")
              .short('a')
-             .long("audio"))
+             .long("audio")
+             .action(clap::ArgAction::SetTrue))
         .arg(clap::Arg::new("skip-checksum")
              .help("Skips verification of the cartridge checksum")
-             .long("skip-checksum"))
+             .long("skip-checksum")
+             .action(clap::ArgAction::SetTrue))
         .get_matches();
 
-    let opt_serial = matches.is_present("serial");
-    let opt_printer = matches.is_present("printer");
-    let opt_classic = matches.is_present("classic");
-    let opt_audio = matches.is_present("audio");
-    let opt_skip_checksum = matches.is_present("skip-checksum");
-    let filename = matches.value_of("filename").unwrap();
-    let scale = matches.value_of("scale").unwrap_or("2").parse::<u32>().unwrap();
+    let opt_serial = matches.get_one::<bool>("serial").copied().unwrap();
+    let opt_printer = matches.get_one::<bool>("printer").copied().unwrap();
+    let opt_classic = matches.get_one::<bool>("classic").copied().unwrap();
+    let opt_audio = matches.get_one::<bool>("audio").copied().unwrap();
+    let opt_skip_checksum = matches.get_one::<bool>("skip-checksum").copied().unwrap();
+    let filename = matches.get_one::<String>("filename").unwrap();
+    let scale = matches.get_one::<u32>("scale").copied().unwrap_or(2);
 
     let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer, opt_skip_checksum);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
