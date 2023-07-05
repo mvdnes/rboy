@@ -118,8 +118,13 @@ fn real_main() -> i32 {
              .help("Skips verification of the cartridge checksum")
              .long("skip-checksum")
              .action(clap::ArgAction::SetTrue))
+        .arg(clap::Arg::new("test-mode")
+             .help("Starts the emulator in a special test mode")
+             .long("test-mode")
+             .action(clap::ArgAction::SetTrue))
         .get_matches();
 
+    let test_mode = matches.get_one::<bool>("test-mode").copied().unwrap();
     let opt_serial = matches.get_one::<bool>("serial").copied().unwrap();
     let opt_printer = matches.get_one::<bool>("printer").copied().unwrap();
     let opt_classic = matches.get_one::<bool>("classic").copied().unwrap();
@@ -128,9 +133,14 @@ fn real_main() -> i32 {
     let filename = matches.get_one::<String>("filename").unwrap();
     let scale = matches.get_one::<u32>("scale").copied().unwrap_or(2);
 
+    if test_mode {
+        return run_test_mode(filename, opt_classic, opt_skip_checksum);
+    }
+
     let cpu = construct_cpu(filename, opt_classic, opt_serial, opt_printer, opt_skip_checksum);
     if cpu.is_none() { return EXITCODE_CPULOADFAILS; }
     let mut cpu = cpu.unwrap();
+
     let mut cpal_audio_stream = None;
     if opt_audio {
         let player = CpalPlayer::get();
@@ -468,5 +478,39 @@ impl rboy::AudioPlayer for CpalPlayer {
 
     fn underflowed(&self) -> bool {
         (*self.buffer.lock().unwrap()).len() == 0
+    }
+}
+
+struct NullAudioPlayer {}
+
+impl rboy::AudioPlayer for NullAudioPlayer {
+    fn play(&mut self, _buf_left: &[f32], _buf_right: &[f32]) {
+        // Do nothing
+    }
+
+    fn samples_rate(&self) -> u32 {
+        44100
+    }
+
+    fn underflowed(&self) -> bool {
+        false
+    }
+}
+
+fn run_test_mode(filename: &str, classic_mode: bool, skip_checksum: bool) -> i32 {
+    let opt_cpu = match classic_mode {
+        true => Device::new(filename, skip_checksum),
+        false => Device::new_cgb(filename, skip_checksum),
+    };
+    let mut cpu = match opt_cpu {
+        Err(errmsg) => { warn(errmsg); return EXITCODE_CPULOADFAILS; },
+        Ok(cpu) => cpu,
+    };
+
+    cpu.set_stdout(true);
+    cpu.enable_audio(Box::new(NullAudioPlayer {}));
+
+    loop {
+        cpu.do_cycle();
     }
 }
