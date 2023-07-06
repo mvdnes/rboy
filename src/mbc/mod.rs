@@ -53,12 +53,25 @@ pub fn get_mbc(file: path::PathBuf, skip_checksum: bool) -> StrResult<Box<dyn MB
 }
 
 fn ram_size(v: u8) -> usize {
+    ram_banks(v) * 0x2000
+}
+
+fn ram_banks(v: u8) -> usize {
     match v {
-        1 => 0x800,
-        2 => 0x2000,
-        3 => 0x8000,
-        4 => 0x20000,
+        2 => 1,
+        3 => 4,
+        4 => 16,
+        5 => 8,
         _ => 0,
+    }
+}
+
+fn rom_banks(v: u8) -> usize {
+    if v <= 8 {
+        2 << v
+    }
+    else {
+        0
     }
 }
 
