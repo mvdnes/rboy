@@ -1,4 +1,4 @@
-use crate::mbc::{MBC, ram_size};
+use crate::mbc::{MBC, ram_banks, rom_banks};
 use crate::StrResult;
 
 use std::fs::File;
@@ -12,6 +12,8 @@ pub struct MBC5 {
     rambank: usize,
     ram_on: bool,
     savepath: Option<path::PathBuf>,
+    rombanks: usize,
+    rambanks: usize,
 }
 
 impl MBC5 {
@@ -21,10 +23,12 @@ impl MBC5 {
             0x1B | 0x1E => Some(file.with_extension("gbsave")),
             _ => None,
         };
-        let ramsize = match subtype {
-            0x1A | 0x1B | 0x1D | 0x1E => ram_size(data[0x149]),
+        let rambanks = match subtype {
+            0x1A | 0x1B | 0x1D | 0x1E => ram_banks(data[0x149]),
             _ => 0,
         };
+        let ramsize = 0x2000 * rambanks;
+        let rombanks = rom_banks(data[0x148]);
 
         let mut res = MBC5 {
             rom: data,
@@ -33,6 +37,8 @@ impl MBC5 {
             rambank: 0,
             ram_on: false,
             savepath: svpath,
+            rombanks: rombanks,
+            rambanks: rambanks,
         };
         res.loadram().map(|_| res)
     }
@@ -76,10 +82,10 @@ impl MBC for MBC5 {
     }
     fn writerom(&mut self, a: u16, v: u8) {
         match a {
-            0x0000 ..= 0x1FFF => self.ram_on = v == 0x0A,
-            0x2000 ..= 0x2FFF => self.rombank = (self.rombank & 0x100) | (v as usize),
-            0x3000 ..= 0x3FFF => self.rombank = (self.rombank & 0x0FF) | (((v & 0x1) as usize) << 8),
-            0x4000 ..= 0x5FFF => self.rambank = (v & 0x0F) as usize,
+            0x0000 ..= 0x1FFF => self.ram_on = v & 0x0F == 0x0A,
+            0x2000 ..= 0x2FFF => self.rombank = ((self.rombank & 0x100) | (v as usize)) % self.rombanks,
+            0x3000 ..= 0x3FFF => self.rombank = ((self.rombank & 0x0FF) | (((v & 0x1) as usize) << 8)) % self.rombanks,
+            0x4000 ..= 0x5FFF => self.rambank = ((v & 0x0F) as usize) % self.rambanks,
             0x6000 ..= 0x7FFF => { /* ? */ },
             _ => panic!("Could not write to {:04X} (MBC5)", a),
         }
