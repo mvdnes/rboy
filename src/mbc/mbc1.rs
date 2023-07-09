@@ -117,6 +117,9 @@ impl MBC for MBC1 {
     fn writeram(&mut self, a: u16, v: u8) {
         if !self.ram_on { return }
         let rambank = if self.banking_mode == 1 { self.rambank } else { 0 };
-        self.ram[(rambank * 0x2000) | ((a & 0x1FFF) as usize)] = v;
+        let address = (rambank * 0x2000) | ((a & 0x1FFF) as usize);
+        if address < self.ram.len() {
+            self.ram[address] = v;
+        }
     }
 }
