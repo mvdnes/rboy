@@ -106,7 +106,7 @@ impl<'a> CPU<'a> {
     }
 
     fn pushstack(&mut self, value: u16) {
-        self.reg.sp -= 2;
+        self.reg.sp = self.reg.sp.wrapping_sub(2);
         self.mmu.ww(self.reg.sp, value);
     }
 
