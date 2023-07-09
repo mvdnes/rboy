@@ -16,8 +16,9 @@ pub struct CPU<'a> {
 impl<'a> CPU<'a> {
     pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
         let cpu_mmu = MMU::new(romname, serial_callback, skip_checksum)?;
+        let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
-            reg: Registers::new(),
+            reg: registers,
             halted: false,
             ime: true,
             setdi: 0,
@@ -28,8 +29,9 @@ impl<'a> CPU<'a> {
 
     pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
         let cpu_mmu = MMU::new_cgb(romname, serial_callback, skip_checksum)?;
+        let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
-            reg: Registers::new_cgb(),
+            reg: registers,
             halted: false,
             ime: true,
             setdi: 0,
