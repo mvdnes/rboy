@@ -1,6 +1,7 @@
 #![crate_name = "rboy"]
 
 use rboy::device::Device;
+use std::io::{self, Read};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -293,9 +294,8 @@ fn recalculate_screen(display: &glium::Display,
     target.finish().unwrap();
 }
 
-fn warn(message: &'static str) {
-    use std::io::Write;
-    let _ = write!(&mut std::io::stderr(), "{}\n", message);
+fn warn(message: &str) {
+    eprintln!("{}", message);
 }
 
 fn construct_cpu(filename: &str, classic_mode: bool, output_serial: bool, output_printer: bool, skip_checksum: bool) -> Option<Box<Device>> {
@@ -510,7 +510,49 @@ fn run_test_mode(filename: &str, classic_mode: bool, skip_checksum: bool) -> i32
     cpu.set_stdout(true);
     cpu.enable_audio(Box::new(NullAudioPlayer {}));
 
+    // from masonforest, https://stackoverflow.com/a/55201400 (CC BY-SA 4.0)
+    let stdin_channel = spawn_stdin_channel();
     loop {
-        cpu.do_cycle();
+        match stdin_channel.try_recv() {
+            Ok(stdin_byte) => {
+                match stdin_byte {
+                    b'q' => break,
+                    b's' => {
+                        let data = cpu.get_gpu_data().to_vec();
+                        print_screenshot(data);
+                    },
+                    v => {
+                        eprintln!("MSG:Unknown stdinvalue {}", v);
+                    },
+                }
+            },
+            Err(TryRecvError::Empty) => {},
+            Err(TryRecvError::Disconnected) => break,
+        }
+        for _ in 0..1000 {
+            cpu.do_cycle();
+        }
     }
+    EXITCODE_SUCCESS
+}
+
+fn spawn_stdin_channel() -> Receiver<u8> {
+    let (tx, rx) = mpsc::channel::<u8>();
+    thread::spawn(move || loop {
+        let mut buffer = [0];
+        match io::stdin().read(&mut buffer) {
+            Ok(1) => tx.send(buffer[0]).unwrap(),
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {},
+            _ => break,
+        };
+    });
+    rx
+}
+
+fn print_screenshot(data: Vec<u8>) {
+    eprint!("SCREENSHOT:");
+    for b in data {
+        eprint!("{:02x}", b);
+    };
+    eprintln!();
 }
