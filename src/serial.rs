@@ -21,7 +21,7 @@ impl<'a> Serial<'a>
             0xFF01 => self.data = v,
             0xFF02 => {
                 self.control = v;
-                if v == 0x81 {
+                if v & 0x81 == 0x81 {
                     match (self.callback)(self.data) {
                         Some(v) => {
                             self.data = v;
@@ -38,7 +38,7 @@ impl<'a> Serial<'a>
     pub fn rb(&self, a: u16) -> u8 {
         match a {
             0xFF01 => self.data,
-            0xFF02 => self.control,
+            0xFF02 => self.control | 0b01111110,
             _ => panic!("Serial does not handle address {:4X} (read)", a),
         }
     }

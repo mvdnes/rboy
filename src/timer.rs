@@ -29,6 +29,7 @@ impl Timer {
             0xFF05 => self.counter,
             0xFF06 => self.modulo,
             0xFF07 => {
+                0xF8 |
                 (if self.enabled { 0x4 } else { 0 }) |
                 (match self.step { 16 => 1, 64 => 2, 256 => 3, _ => 0 })
             }

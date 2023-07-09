@@ -198,6 +198,7 @@ impl GPU {
                 (if self.lcdc0 { 0x01 } else { 0 })
             },
             0xFF41 => {
+                0x80 |
                 (if self.lyc_inte { 0x40 } else { 0 }) |
                 (if self.m2_inte { 0x20 } else { 0 }) |
                 (if self.m1_inte { 0x10 } else { 0 }) |
@@ -215,6 +216,8 @@ impl GPU {
             0xFF49 => self.pal1r,
             0xFF4A => self.winy,
             0xFF4B => self.winx,
+            0xFF4C => 0xFF,
+            0xFF4E => 0xFF,
             0xFF4F ..= 0xFF6B if self.gbmode == GbMode::Classic => { 0xFF },
             0xFF4F => self.vrambank as u8,
             0xFF68 => { self.cbgpal_ind | (if self.cbgpal_inc { 0x80 } else { 0 }) },
@@ -289,6 +292,8 @@ impl GPU {
             0xFF49 => { self.pal1r = v; self.update_pal(); },
             0xFF4A => self.winy = v,
             0xFF4B => self.winx = v,
+            0xFF4C => {},
+            0xFF4E => {},
             0xFF4F => self.vrambank = (v & 0x01) as usize,
             0xFF68 => { self.cbgpal_ind = v & 0x3F; self.cbgpal_inc = v & 0x80 == 0x80; },
             0xFF69 => {
