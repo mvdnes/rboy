@@ -218,9 +218,9 @@ impl GPU {
             0xFF4B => self.winx,
             0xFF4C => 0xFF,
             0xFF4E => 0xFF,
-            0xFF4F ..= 0xFF6B if self.gbmode == GbMode::Classic => { 0xFF },
-            0xFF4F => self.vrambank as u8,
-            0xFF68 => { self.cbgpal_ind | (if self.cbgpal_inc { 0x80 } else { 0 }) },
+            0xFF4F ..= 0xFF6B if self.gbmode != GbMode::Color => { 0xFF },
+            0xFF4F => self.vrambank as u8 | 0xFE,
+            0xFF68 => { 0x40 | self.cbgpal_ind | (if self.cbgpal_inc { 0x80 } else { 0 }) },
             0xFF69 => {
                 let palnum = (self.cbgpal_ind >> 3) as usize;
                 let colnum = ((self.cbgpal_ind >> 1) & 0x3) as usize;
@@ -230,7 +230,7 @@ impl GPU {
                     ((self.cbgpal[palnum][colnum][1] & 0x18) >> 3) | (self.cbgpal[palnum][colnum][2] << 2)
                 }
             },
-            0xFF6A => { self.csprit_ind | (if self.csprit_inc { 0x80 } else { 0 }) },
+            0xFF6A => { 0x40 | self.csprit_ind | (if self.csprit_inc { 0x80 } else { 0 }) },
             0xFF6B => {
                 let palnum = (self.csprit_ind >> 3) as usize;
                 let colnum = ((self.csprit_ind >> 1) & 0x3) as usize;
@@ -294,6 +294,7 @@ impl GPU {
             0xFF4B => self.winx = v,
             0xFF4C => {},
             0xFF4E => {},
+            0xFF4F ..= 0xFF6B if self.gbmode != GbMode::Color => {},
             0xFF4F => self.vrambank = (v & 0x01) as usize,
             0xFF68 => { self.cbgpal_ind = v & 0x3F; self.cbgpal_inc = v & 0x80 == 0x80; },
             0xFF69 => {

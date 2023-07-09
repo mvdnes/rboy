@@ -38,6 +38,7 @@ pub struct MMU<'a> {
     pub gbmode: GbMode,
     gbspeed: GbSpeed,
     speed_switch_req: bool,
+    undocumented_cgb_regs: [u8; 3],  // 0xFF72, 0xFF73, 0xFF75
 }
 
 fn fill_random(slice: &mut [u8], start: u32) {
@@ -80,6 +81,7 @@ impl<'a> MMU<'a> {
             hdma_dst: 0,
             hdma_status: DMAType::NoDMA,
             hdma_len: 0xFF,
+            undocumented_cgb_regs: [0; 3],
         };
         fill_random(&mut res.wram, 42);
         if res.rb(0x0143) == 0xC0 {
@@ -115,6 +117,7 @@ impl<'a> MMU<'a> {
             hdma_dst: 0,
             hdma_status: DMAType::NoDMA,
             hdma_len: 0xFF,
+            undocumented_cgb_regs: [0; 3],
         };
         fill_random(&mut res.wram, 42);
         res.determine_mode();
@@ -206,12 +209,16 @@ impl<'a> MMU<'a> {
             0xFF04 ..= 0xFF07 => self.timer.rb(address),
             0xFF0F => self.intf | 0b11100000,
             0xFF10 ..= 0xFF3F => self.sound.as_mut().map_or(0xFF, |s| s.rb(address)),
-            0xFF4D | 0xFF4F | 0xFF51 ..= 0xFF55 | 0xFF6C | 0xFF70 if self.gbmode == GbMode::Classic => { 0xFF },
-            0xFF4D => (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
+            0xFF4D | 0xFF4F | 0xFF51 ..= 0xFF55 | 0xFF6C | 0xFF70 if self.gbmode != GbMode::Color => { 0xFF },
+            0xFF72 ..= 0xFF73 | 0xFF75 ..= 0xFF77 if self.gbmode == GbMode::Classic => { 0xFF },
+            0xFF4D => 0b01111110 | (if self.gbspeed == GbSpeed::Double { 0x80 } else { 0 }) | (if self.speed_switch_req { 1 } else { 0 }),
             0xFF40 ..= 0xFF4F => self.gpu.rb(address),
             0xFF51 ..= 0xFF55 => self.hdma_read(address),
             0xFF68 ..= 0xFF6B => self.gpu.rb(address),
             0xFF70 => self.wrambank as u8,
+            0xFF72 ..= 0xFF73 => self.undocumented_cgb_regs[address as usize - 0xFF72],
+            0xFF75 => self.undocumented_cgb_regs[2] | 0b10001111,
+            0xFF76 ..= 0xFF77 => 0x00,  // CGB PCM registers. Not yet implemented.
             0xFF80 ..= 0xFFFE => self.zram[address as usize & 0x007F],
             0xFFFF => self.inte,
             _ => 0xFF,
@@ -235,13 +242,16 @@ impl<'a> MMU<'a> {
             0xFF04 ..= 0xFF07 => self.timer.wb(address, value),
             0xFF10 ..= 0xFF3F => self.sound.as_mut().map_or((), |s| s.wb(address, value)),
             0xFF46 => self.oamdma(value),
-            0xFF4D | 0xFF4F | 0xFF51 ..= 0xFF55 | 0xFF6C | 0xFF70 if self.gbmode == GbMode::Classic => {},
+            0xFF4D | 0xFF4F | 0xFF51 ..= 0xFF55 | 0xFF6C | 0xFF70 | 0xFF76 ..= 0xFF77 if self.gbmode != GbMode::Color => {},
+            0xFF72 ..= 0xFF73 | 0xFF75 ..= 0xFF77 if self.gbmode == GbMode::Classic => {},
             0xFF4D => if value & 0x1 == 0x1 { self.speed_switch_req = true; },
             0xFF40 ..= 0xFF4F => self.gpu.wb(address, value),
             0xFF51 ..= 0xFF55 => self.hdma_write(address, value),
             0xFF68 ..= 0xFF6B => self.gpu.wb(address, value),
             0xFF0F => self.intf = value,
             0xFF70 => { self.wrambank = match value & 0x7 { 0 => 1, n => n as usize }; },
+            0xFF72 ..= 0xFF73 => self.undocumented_cgb_regs[address as usize - 0xFF72] = value,
+            0xFF75 => self.undocumented_cgb_regs[2] = value,
             0xFF80 ..= 0xFFFE => self.zram[address as usize & 0x007F] = value,
             0xFFFF => self.inte = value,
             _ => {},
