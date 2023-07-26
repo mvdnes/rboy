@@ -1,4 +1,4 @@
-use crate::mbc::{MBC, ram_size};
+use crate::mbc::{MBC, ram_banks};
 use crate::StrResult;
 
 use std::path;
@@ -10,11 +10,12 @@ pub struct MBC3 {
     ram: Vec<u8>,
     rombank: usize,
     rambank: usize,
+    rambanks: usize,
+    selectrtc: bool,
     ram_on: bool,
     savepath: Option<path::PathBuf>,
     rtc_ram: [u8; 5],
     rtc_ram_latch: [u8; 5],
-    rtc_lock: bool,
     rtc_zero: Option<u64>,
 }
 
@@ -25,10 +26,11 @@ impl MBC3 {
             0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
             _ => None,
         };
-        let ramsize = match subtype {
-            0x10 | 0x12 | 0x13 => ram_size(data[0x149]),
+        let rambanks = match subtype {
+            0x10 | 0x12 | 0x13 => ram_banks(data[0x149]),
             _ => 0,
         };
+        let ramsize = rambanks * 0x2000;
         let rtc = match subtype {
             0x0F | 0x10 => Some(0),
             _ => None,
@@ -39,11 +41,12 @@ impl MBC3 {
             ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
             rombank: 1,
             rambank: 0,
+            rambanks: rambanks,
+            selectrtc: false,
             ram_on: false,
             savepath: svpath,
             rtc_ram: [0u8; 5],
             rtc_ram_latch: [0u8; 5],
-            rtc_lock: false,
             rtc_zero: rtc,
         };
         res.loadram().map(|_| res)
@@ -85,6 +88,11 @@ impl MBC3 {
             None => return,
         };
 
+        if self.compute_difftime() == self.rtc_zero {
+            // No time has passed. Do not alter registers
+            return;
+        }
+
         let difftime = match time::SystemTime::now().duration_since(tzero) {
             Ok(n) => { n.as_secs() },
             _ => { 0 },
@@ -101,8 +109,8 @@ impl MBC3 {
         }
     }
 
-    fn calc_rtc_zero(&mut self) {
-        if self.rtc_zero.is_none() { return }
+    fn compute_difftime(&self) -> Option<u64> {
+        if self.rtc_zero.is_none() { return None; }
         let mut difftime = match time::SystemTime::now().duration_since(time::UNIX_EPOCH) {
             Ok(t) => t.as_secs(),
             Err(_) => panic!("System clock is set to a time before the unix epoch (1970-01-01)"),
@@ -112,7 +120,11 @@ impl MBC3 {
         difftime -= (self.rtc_ram[2] as u64) * 3600;
         let days = ((self.rtc_ram[4] as u64 & 0x1) << 8) | (self.rtc_ram[3] as u64);
         difftime -= days * 3600 * 24;
-        self.rtc_zero = Some(difftime);
+        Some(difftime)
+    }
+
+    fn calc_rtc_zero(&mut self) {
+        self.rtc_zero = self.compute_difftime();
     }
 }
 
@@ -141,41 +153,45 @@ impl MBC for MBC3 {
     fn readrom(&self, a: u16) -> u8 {
         let idx = if a < 0x4000 { a as usize }
         else { self.rombank * 0x4000 | ((a as usize) & 0x3FFF) };
-        *self.rom.get(idx).unwrap_or(&0)
+        *self.rom.get(idx).unwrap_or(&0xFF)
     }
     fn readram(&self, a: u16) -> u8 {
-        if !self.ram_on { return 0 }
-        if self.rambank <= 3 {
+        if !self.ram_on { return 0xFF }
+        if !self.selectrtc && self.rambank < self.rambanks {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
+        } else if self.selectrtc && self.rambank < 5 {
+            self.rtc_ram_latch[self.rambank]
         } else {
-            self.rtc_ram_latch[self.rambank - 0x08]
+            0xFF
         }
     }
     fn writerom(&mut self, a: u16, v: u8) {
         match a {
-            0x0000 ..= 0x1FFF => self.ram_on = v == 0x0A,
+            0x0000 ..= 0x1FFF => self.ram_on = (v & 0x0F) == 0x0A,
             0x2000 ..= 0x3FFF => {
                 self.rombank = match v & 0x7F { 0 => 1, n => n as usize }
             },
-            0x4000 ..= 0x5FFF => self.rambank = v as usize,
-            0x6000 ..= 0x7FFF => match v {
-                0 => self.rtc_lock = false,
-                1 => {
-                    if !self.rtc_lock { self.latch_rtc_reg(); };
-                    self.rtc_lock = true;
-                },
-                _ => {},
+            0x4000 ..= 0x5FFF => {
+                self.selectrtc = v & 0x8 == 0x8;
+                self.rambank = (v & 0x7) as usize;
             },
+            0x6000 ..= 0x7FFF => self.latch_rtc_reg(),
             _ => panic!("Could not write to {:04X} (MBC3)", a),
         }
     }
     fn writeram(&mut self, a: u16, v: u8) {
-        if self.ram_on == false { return }
-        if self.rambank <= 3 {
+        if !self.ram_on { return }
+        if !self.selectrtc && self.rambank < self.rambanks {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
-        } else {
+        } else if self.selectrtc && self.rambank < 5 {
             self.calc_rtc_reg();
-            self.rtc_ram[self.rambank - 0x8] = v;
+            let vmask = match self.rambank {
+                0 | 1 => 0x3F,
+                2 => 0x1F,
+                4 => 0xC1,
+                _ => 0xFF,
+            };
+            self.rtc_ram[self.rambank] = v & vmask;
             self.calc_rtc_zero();
         }
     }

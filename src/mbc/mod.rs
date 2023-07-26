@@ -54,12 +54,13 @@ pub fn get_mbc(file: path::PathBuf, skip_checksum: bool) -> StrResult<Box<dyn MB
     }
 }
 
-fn ram_size(v: u8) -> usize {
-    ram_banks(v) * 0x2000
-}
-
 fn ram_banks(v: u8) -> usize {
     match v {
+        1 =>
+            // "Listed in various unofficial docs as 2 KiB. However, a 2 KiB RAM chip was never
+            // used in a cartridge. The source of this value is unknown."
+            // Needed by some test roms. As we only deal in whole banks, just make it 1 8KiB bank.
+            1,
         2 => 1,
         3 => 4,
         4 => 16,
