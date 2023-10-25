@@ -188,7 +188,7 @@ impl<'a> MMU<'a> {
         self.intf |= self.gpu.interrupt;
         self.gpu.interrupt = 0;
 
-        self.sound.as_mut().map_or((), |s| s.do_cycle(gputicks));
+        let _ = self.sound.as_mut().map_or((), |s| s.do_cycle(gputicks));
 
         self.intf |= self.serial.interrupt;
         self.serial.interrupt = 0;
