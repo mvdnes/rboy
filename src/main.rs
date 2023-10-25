@@ -6,6 +6,7 @@ use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
+use cpal::{Sample, FromSample};
 use glium::glutin::platform::run_return::EventLoopExtRunReturn;
 
 const EXITCODE_SUCCESS : i32 = 0;
@@ -436,9 +437,17 @@ impl CpalPlayer {
         };
 
         let stream = match sample_format {
-            cpal::SampleFormat::F32 => device.build_output_stream(&config, move|data: &mut [f32], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn),
-            cpal::SampleFormat::U16 => device.build_output_stream(&config, move|data: &mut [u16], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn),
-            cpal::SampleFormat::I16 => device.build_output_stream(&config, move|data: &mut [i16], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn),
+            cpal::SampleFormat::I8 => device.build_output_stream(&config, move|data: &mut [i8], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::I16 => device.build_output_stream(&config, move|data: &mut [i16], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::I32 => device.build_output_stream(&config, move|data: &mut [i32], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::I64 => device.build_output_stream(&config, move|data: &mut [i64], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::U8 => device.build_output_stream(&config, move|data: &mut [u8], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::U16 => device.build_output_stream(&config, move|data: &mut [u16], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::U32 => device.build_output_stream(&config, move|data: &mut [u32], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::U64 => device.build_output_stream(&config, move|data: &mut [u64], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::F32 => device.build_output_stream(&config, move|data: &mut [f32], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            cpal::SampleFormat::F64 => device.build_output_stream(&config, move|data: &mut [f64], _callback_info: &cpal::OutputCallbackInfo| cpal_thread(data, &stream_buffer), err_fn, None),
+            sf => panic!("Unsupported sample format {}", sf),
         }.unwrap();
 
         stream.play().unwrap();
@@ -447,12 +456,12 @@ impl CpalPlayer {
     }
 }
 
-fn cpal_thread<T: cpal::Sample>(outbuffer: &mut[T], audio_buffer: &Arc<Mutex<Vec<(f32, f32)>>>) {
+fn cpal_thread<T: Sample + FromSample<f32>>(outbuffer: &mut[T], audio_buffer: &Arc<Mutex<Vec<(f32, f32)>>>) {
     let mut inbuffer = audio_buffer.lock().unwrap();
     let outlen =  ::std::cmp::min(outbuffer.len() / 2, inbuffer.len());
     for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
-        outbuffer[i*2] = cpal::Sample::from(&in_l);
-        outbuffer[i*2+1] = cpal::Sample::from(&in_r);
+        outbuffer[i*2] = T::from_sample(in_l);
+        outbuffer[i*2+1] = T::from_sample(in_r);
     }
 }
 
