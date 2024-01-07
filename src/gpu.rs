@@ -285,7 +285,10 @@ impl GPU {
             0xFF42 => self.scy = v,
             0xFF43 => self.scx = v,
             0xFF44 => {}, // Read-only
-            0xFF45 => self.lyc = v,
+            0xFF45 => {
+                self.lyc = v;
+                self.check_interrupt_lyc();
+            },
             0xFF46 => panic!("0xFF46 should be handled by MMU"),
             0xFF47 => { self.palbr = v; self.update_pal(); },
             0xFF48 => { self.pal0r = v; self.update_pal(); },
