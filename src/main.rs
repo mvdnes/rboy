@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use cpal::traits::{HostTrait, DeviceTrait, StreamTrait};
 use cpal::{Sample, FromSample};
-use glium::glutin::platform::run_return::EventLoopExtRunReturn;
+use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
 
 const EXITCODE_SUCCESS : i32 = 0;
 const EXITCODE_CPULOADFAILS : i32 = 2;
@@ -25,25 +25,17 @@ enum GBEvent {
 }
 
 #[cfg(target_os = "windows")]
-fn create_window_builder(romname: &str)-> glium::glutin::window::WindowBuilder{
-    use glium::glutin::platform::windows::WindowBuilderExtWindows;
-    return glium::glutin::window::WindowBuilder::new()
+fn create_window_builder(romname: &str)-> winit::window::WindowBuilder{
+    use winit::platform::windows::WindowBuilderExtWindows;
+    return winit::window::WindowBuilder::new()
         .with_drag_and_drop(false)
-        .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
-            rboy::SCREEN_W as u32,
-            rboy::SCREEN_H as u32,
-        )))
         .with_title("RBoy - ".to_owned() + romname);
 }
 
 #[cfg(not(target_os = "windows"))]
-fn create_window_builder(romname: &str)-> glium::glutin::window::WindowBuilder {
-    return glium::glutin::window::WindowBuilder::new()
-            .with_inner_size(glium::glutin::dpi::LogicalSize::<u32>::from((
-                rboy::SCREEN_W as u32,
-                rboy::SCREEN_H as u32,
-            )))
-            .with_title("RBoy - ".to_owned() + romname);
+fn create_window_builder(romname: &str)-> winit::window::WindowBuilder {
+    return winit::window::WindowBuilder::new()
+        .with_title("RBoy - ".to_owned() + romname);
 }
 
 #[derive(Debug)]
@@ -162,11 +154,10 @@ fn real_main() -> i32 {
     let (sender1, receiver1) = mpsc::channel();
     let (sender2, receiver2) = mpsc::sync_channel(1);
 
-    let mut eventloop = glium::glutin::event_loop::EventLoop::new();
+    let mut event_loop = winit::event_loop::EventLoop::new().unwrap();
     let window_builder = create_window_builder(&romname);
-    let context_builder = glium::glutin::ContextBuilder::new();
-    let display = glium::backend::glutin::Display::new(window_builder, context_builder, &eventloop).unwrap();
-    set_window_size(display.gl_window().window(), scale);
+    let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new().set_window_builder(window_builder).build(&event_loop);
+    set_window_size(&window, scale);
 
     let mut texture = glium::texture::texture2d::Texture2d::empty_with_format(
             &display,
@@ -180,78 +171,80 @@ fn real_main() -> i32 {
 
     let cputhread = thread::spawn(move|| run_cpu(cpu, sender2, receiver1));
 
-    eventloop.run_return(move |ev, _evtarget, controlflow| {
-        use glium::glutin::event::{Event, WindowEvent, KeyboardInput};
-        use glium::glutin::event::ElementState::{Pressed, Released};
-        use glium::glutin::event::VirtualKeyCode;
+    event_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+    'evloop: loop {
+        let timeout = Some(std::time::Duration::ZERO);
+        let status = event_loop.pump_events(timeout, |ev, elwt| {
+            use winit::event::{Event, WindowEvent};
+            use winit::event::ElementState::{Pressed, Released};
+            use winit::keyboard::{Key, NamedKey};
 
-        let mut stop = false;
-        match ev {
-            Event::WindowEvent { event, .. } => match event {
-                WindowEvent::CloseRequested
-                    => stop = true,
-                WindowEvent::KeyboardInput { input, .. } => match input {
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Escape), .. }
-                        => stop = true,
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::Key1), .. }
-                        => set_window_size(display.gl_window().window(), 1),
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::R), .. }
-                        => set_window_size(display.gl_window().window(), scale),
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                        => { let _ = sender1.send(GBEvent::SpeedUp); },
-                    KeyboardInput { state: Released, virtual_keycode: Some(VirtualKeyCode::LShift), .. }
-                        => { let _ = sender1.send(GBEvent::SpeedDown); },
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(VirtualKeyCode::T), .. }
-                        => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
-                    KeyboardInput { state: Pressed, virtual_keycode: Some(glutinkey), .. } => {
-                        if let Some(key) = glutin_to_keypad(glutinkey) {
-                            let _ = sender1.send(GBEvent::KeyDown(key));
-                        }
-                    },
-                    KeyboardInput { state: Released, virtual_keycode: Some(glutinkey), .. } => {
-                        if let Some(key) = glutin_to_keypad(glutinkey) {
-                            let _ = sender1.send(GBEvent::KeyUp(key));
-                        }
+            match ev {
+                Event::WindowEvent { event, .. } => match event {
+                    WindowEvent::CloseRequested
+                        => elwt.exit(),
+                    WindowEvent::KeyboardInput { event: keyevent, .. } => match (keyevent.state, keyevent.logical_key.as_ref()) {
+                        (Pressed, Key::Named(NamedKey::Escape))
+                            => elwt.exit(),
+                        (Pressed, Key::Character("1"))
+                            => set_window_size(&window, 1),
+                        (Pressed, Key::Character("r" | "R"))
+                            => set_window_size(&window, scale),
+                        (Pressed, Key::Named(NamedKey::Shift))
+                            => { let _ = sender1.send(GBEvent::SpeedUp); },
+                        (Released, Key::Named(NamedKey::Shift))
+                            => { let _ = sender1.send(GBEvent::SpeedDown); },
+                        (Pressed, Key::Character("t" | "T"))
+                            => { renderoptions.linear_interpolation = !renderoptions.linear_interpolation; }
+                        (Pressed, winitkey) => {
+                            if let Some(key) = winit_to_keypad(winitkey) {
+                                let _ = sender1.send(GBEvent::KeyDown(key));
+                            }
+                        },
+                        (Released, winitkey) => {
+                            if let Some(key) = winit_to_keypad(winitkey) {
+                                let _ = sender1.send(GBEvent::KeyUp(key));
+                            }
+                        },
                     },
                     _ => (),
                 },
                 _ => (),
-            },
-            Event::MainEventsCleared => {
-                match receiver2.recv() {
-                    Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
-                    Err(..) => stop = true, // Remote end has hung-up
-                }
-            },
-            _ => (),
+            }
+        });
+
+        if let PumpStatus::Exit(_) = status {
+            break 'evloop;
         }
-        if stop == true {
-            *controlflow = glium::glutin::event_loop::ControlFlow::Exit;
+        match receiver2.recv() {
+            Ok(data) => recalculate_screen(&display, &mut texture, &*data, &renderoptions),
+            Err(..) => break 'evloop, // Remote end has hung-up
         }
-    });
+    }
 
     drop(cpal_audio_stream);
+    drop(receiver2); // Stop CPU thread by disconnecting
     let _ = cputhread.join();
 
     EXITCODE_SUCCESS
 }
 
-fn glutin_to_keypad(key: glium::glutin::event::VirtualKeyCode) -> Option<rboy::KeypadKey> {
-    use glium::glutin::event::VirtualKeyCode;
+fn winit_to_keypad(key: winit::keyboard::Key<&str>) -> Option<rboy::KeypadKey> {
+    use winit::keyboard::{Key, NamedKey};
     match key {
-        VirtualKeyCode::Z => Some(rboy::KeypadKey::A),
-        VirtualKeyCode::X => Some(rboy::KeypadKey::B),
-        VirtualKeyCode::Up => Some(rboy::KeypadKey::Up),
-        VirtualKeyCode::Down => Some(rboy::KeypadKey::Down),
-        VirtualKeyCode::Left => Some(rboy::KeypadKey::Left),
-        VirtualKeyCode::Right => Some(rboy::KeypadKey::Right),
-        VirtualKeyCode::Space => Some(rboy::KeypadKey::Select),
-        VirtualKeyCode::Return => Some(rboy::KeypadKey::Start),
+        Key::Character("Z" | "z") => Some(rboy::KeypadKey::A),
+        Key::Character("X" | "x") => Some(rboy::KeypadKey::B),
+        Key::Named(NamedKey::ArrowUp) => Some(rboy::KeypadKey::Up),
+        Key::Named(NamedKey::ArrowDown) => Some(rboy::KeypadKey::Down),
+        Key::Named(NamedKey::ArrowLeft) => Some(rboy::KeypadKey::Left),
+        Key::Named(NamedKey::ArrowRight) => Some(rboy::KeypadKey::Right),
+        Key::Named(NamedKey::Space) => Some(rboy::KeypadKey::Select),
+        Key::Named(NamedKey::Enter) => Some(rboy::KeypadKey::Start),
         _ => None,
     }
 }
 
-fn recalculate_screen(display: &glium::Display,
+fn recalculate_screen<T: glium::glutin::surface::SurfaceTypeTrait + glium::glutin::surface::ResizeableSurface + 'static>(display: &glium::Display<T>,
                       texture: &mut glium::texture::texture2d::Texture2d,
                       datavec: &[u8],
                       renderoptions: &RenderOptions)
@@ -372,15 +365,11 @@ fn timer_periodic(ms: u64) -> Receiver<()> {
     rx
 }
 
-fn set_window_size(window: &glium::glutin::window::Window, scale: u32) {
-    use glium::glutin::dpi::{LogicalSize, PhysicalSize};
-
-    let dpi = window.scale_factor();
-
-    let physical_size = PhysicalSize::<u32>::from((rboy::SCREEN_W as u32 * scale, rboy::SCREEN_H as u32 * scale));
-    let logical_size = LogicalSize::<u32>::from_physical(physical_size, dpi);
-
-    window.set_inner_size(logical_size);
+fn set_window_size(window: &winit::window::Window, scale: u32) {
+    let _ = window.request_inner_size(winit::dpi::LogicalSize::<u32>::from((
+            rboy::SCREEN_W as u32 * scale,
+            rboy::SCREEN_H as u32 * scale,
+        )));
 }
 
 struct CpalPlayer {
