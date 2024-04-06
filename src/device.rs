@@ -2,6 +2,7 @@ use crate::cpu::CPU;
 use crate::gbmode::GbMode;
 use crate::keypad::KeypadKey;
 use crate::printer::GbPrinter;
+use crate::mbc;
 use crate::sound;
 use crate::StrResult;
 
@@ -20,11 +21,13 @@ fn stdoutprinter(v: u8) -> Option<u8> {
 
 impl Device {
     pub fn new(romname: &str, skip_checksum: bool) -> StrResult<Device> {
-        CPU::new(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
+        let cart = mbc::FileBackedMBC::new(romname.into(), skip_checksum)?;
+        CPU::new(Box::new(cart), None).map(|cpu| Device { cpu: cpu })
     }
 
     pub fn new_cgb(romname: &str, skip_checksum: bool) -> StrResult<Device> {
-        CPU::new_cgb(romname, None, skip_checksum).map(|cpu| Device { cpu: cpu })
+        let cart = mbc::FileBackedMBC::new(romname.into(), skip_checksum)?;
+        CPU::new_cgb(Box::new(cart), None).map(|cpu| Device { cpu: cpu })
     }
 
     pub fn do_cycle(&mut self) -> u32 {

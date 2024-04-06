@@ -1,6 +1,3 @@
-use std::io::prelude::*;
-use std::{path, fs, io};
-
 use crate::mbc::{MBC, rom_banks};
 use crate::StrResult;
 
@@ -9,55 +6,28 @@ pub struct MBC2 {
     ram: Vec<u8>,
     ram_on: bool,
     rombank: usize,
-    savepath: Option<path::PathBuf>,
+    has_battery: bool,
     rombanks: usize,
 }
 
 impl MBC2 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC2> {
-        let svpath = match data[0x147] {
-            0x05 => None,
-            0x06 => Some(file.with_extension("gbsave")),
-            _ => None,
+    pub fn new(data: Vec<u8>) -> StrResult<MBC2> {
+        let has_battery = match data[0x147] {
+            0x06 => true,
+            _ => false,
         };
         let rombanks = rom_banks(data[0x148]);
 
-        let mut res = MBC2 {
+        let res = MBC2 {
             rom: data,
             ram: vec![0; 512],
             ram_on: false,
             rombank: 1,
-            savepath: svpath,
+            has_battery: has_battery,
             rombanks: rombanks,
         };
-        res.loadram().map(|_| res)
-    }
 
-    fn loadram(&mut self) -> StrResult<()> {
-        match self.savepath {
-            None => Ok(()),
-            Some(ref savepath) => {
-                let mut data = vec![];
-                match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
-                {
-                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-                    Err(_) => Err("Could not open save file"),
-                    Ok(..) => { self.ram = data; Ok(()) },
-                }
-            },
-        }
-    }
-}
-
-impl Drop for MBC2 {
-    fn drop(&mut self) {
-        match self.savepath {
-            None => {},
-            Some(ref path) =>
-            {
-                let _ = fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram));
-            },
-        };
+        Ok(res)
     }
 }
 
@@ -97,5 +67,23 @@ impl MBC for MBC2 {
     fn writeram(&mut self, a: u16, v: u8) {
         if !self.ram_on { return }
         self.ram[(a as usize) & 0x1FF] = v | 0xF0;
+    }
+
+    fn is_battery_backed(&self) -> bool {
+        self.has_battery
+    }
+
+    fn loadram(&mut self, ramdata: &[u8]) -> StrResult<()> {
+        if ramdata.len() != self.ram.len() {
+            return Err("Loaded RAM has incorrect length");
+        }
+
+        self.ram = ramdata.to_vec();
+
+        Ok(())
+    }
+
+    fn dumpram(&self) -> Vec<u8> {
+        self.ram.to_vec()
     }
 }

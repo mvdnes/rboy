@@ -2,6 +2,7 @@ use crate::register::CpuFlag::{C, N, H, Z};
 use crate::register::Registers;
 use crate::serial::SerialCallback;
 use crate::mmu::MMU;
+use crate::mbc;
 use crate::StrResult;
 
 pub struct CPU<'a> {
@@ -14,8 +15,8 @@ pub struct CPU<'a> {
 }
 
 impl<'a> CPU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
-        let cpu_mmu = MMU::new(romname, serial_callback, skip_checksum)?;
+    pub fn new(cart: Box<dyn mbc::MBC+'static>, serial_callback: Option<SerialCallback<'a>>) -> StrResult<CPU<'a>> {
+        let cpu_mmu = MMU::new(cart, serial_callback)?;
         let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
             reg: registers,
@@ -27,8 +28,8 @@ impl<'a> CPU<'a> {
         })
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<CPU<'a>> {
-        let cpu_mmu = MMU::new_cgb(romname, serial_callback, skip_checksum)?;
+    pub fn new_cgb(cart: Box<dyn mbc::MBC+'static>, serial_callback: Option<SerialCallback<'a>>) -> StrResult<CPU<'a>> {
+        let cpu_mmu = MMU::new_cgb(cart, serial_callback)?;
         let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
             reg: registers,
@@ -818,6 +819,7 @@ impl<'a> CPU<'a> {
 mod test
 {
     use super::CPU;
+    use crate::mbc;
 
     const CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
     const CPU_SERIAL: &'static [u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
@@ -832,7 +834,8 @@ mod test
 
         {
             let serial = |v: u8| { output.push(v); None };
-            let mut c = match CPU::new(CPUINSTRS, Some(Box::new(serial)), false)
+            let cart = mbc::FileBackedMBC::new(CPUINSTRS.into(), false).unwrap();
+            let mut c = match CPU::new(Box::new(cart), Some(Box::new(serial)))
             {
                 Err(message) => { panic!("{}", message); },
                 Ok(cpu) => cpu,
@@ -859,7 +862,8 @@ mod test
 
         {
             let serial = |v| { output.push(v); None };
-            let mut c = match CPU::new_cgb(CPUINSTRS, Some(Box::new(serial)), false)
+            let cart = mbc::FileBackedMBC::new(CPUINSTRS.into(), false).unwrap();
+            let mut c = match CPU::new_cgb(Box::new(cart), Some(Box::new(serial)))
             {
                 Err(message) => { panic!("{}", message); },
                 Ok(cpu) => cpu,

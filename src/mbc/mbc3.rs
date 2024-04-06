@@ -1,9 +1,9 @@
 use crate::mbc::{MBC, ram_banks};
 use crate::StrResult;
 
-use std::path;
 use std::io::prelude::*;
-use std::{io, fs, time};
+use std::time;
+use std::convert::TryInto;
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -13,18 +13,18 @@ pub struct MBC3 {
     rambanks: usize,
     selectrtc: bool,
     ram_on: bool,
-    savepath: Option<path::PathBuf>,
+    has_battery: bool,
     rtc_ram: [u8; 5],
     rtc_ram_latch: [u8; 5],
     rtc_zero: Option<u64>,
 }
 
 impl MBC3 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC3> {
+    pub fn new(data: Vec<u8>) -> StrResult<MBC3> {
         let subtype = data[0x147];
-        let svpath = match subtype {
-            0x0F | 0x10 | 0x13 => Some(file.with_extension("gbsave")),
-            _ => None,
+        let has_battery = match subtype {
+            0x0F | 0x10 | 0x13 => true,
+            _ => false,
         };
         let rambanks = match subtype {
             0x10 | 0x12 | 0x13 => ram_banks(data[0x149]),
@@ -36,7 +36,7 @@ impl MBC3 {
             _ => None,
         };
 
-        let mut res = MBC3 {
+        let res = MBC3 {
             rom: data,
             ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
             rombank: 1,
@@ -44,34 +44,13 @@ impl MBC3 {
             rambanks: rambanks,
             selectrtc: false,
             ram_on: false,
-            savepath: svpath,
+            has_battery: has_battery,
             rtc_ram: [0u8; 5],
             rtc_ram_latch: [0u8; 5],
             rtc_zero: rtc,
         };
-        res.loadram().map(|_| res)
-    }
 
-    fn loadram(&mut self) -> StrResult<()> {
-        match self.savepath {
-            None => Ok(()),
-            Some(ref savepath) => {
-                let mut file = match fs::File::open(savepath) {
-                    Ok(f) => f,
-                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
-                    Err(..) => return Err("Could not read existing save file"),
-                };
-                let mut rtc_bytes = [0; 8];
-                file.read_exact(&mut rtc_bytes).map_err(|_| "Could not read RTC")?;
-                let rtc = u64::from_be_bytes(rtc_bytes);
-                if self.rtc_zero.is_some() { self.rtc_zero = Some(rtc); }
-                let mut data = vec![];
-                match file.read_to_end(&mut data) {
-                    Err(..) => Err("Could not read ROM"),
-                    Ok(..) => { self.ram = data; Ok(()) },
-                }
-            },
-        }
+        Ok(res)
     }
 
     fn latch_rtc_reg(&mut self) {
@@ -128,27 +107,6 @@ impl MBC3 {
     }
 }
 
-impl Drop for MBC3 {
-    fn drop(&mut self) {
-        match self.savepath {
-            None => {},
-            Some(ref path) => {
-                let mut file = match fs::File::create(path) {
-                    Ok(f) => f,
-                    Err(..) => return,
-                };
-                let rtc = match self.rtc_zero {
-                    Some(t) => t,
-                    None => 0,
-                };
-                let mut ok = true;
-                if ok { let rtc_bytes = rtc.to_be_bytes(); ok = file.write_all(&rtc_bytes).is_ok(); };
-                if ok { let _ = file.write_all(&*self.ram); };
-            },
-        };
-    }
-}
-
 impl MBC for MBC3 {
     fn readrom(&self, a: u16) -> u8 {
         let idx = if a < 0x4000 { a as usize }
@@ -195,4 +153,38 @@ impl MBC for MBC3 {
             self.calc_rtc_zero();
         }
     }
+
+    fn is_battery_backed(&self) -> bool {
+        self.has_battery
+    }
+
+    fn loadram(&mut self, ramdata: &[u8]) -> StrResult<()> {
+        if ramdata.len() != 8 + self.ram.len() {
+            return Err("Loaded ram is too small");
+        }
+
+        let (int_bytes, rest) = ramdata.split_at(8);
+        let rtc = u64::from_be_bytes(int_bytes.try_into().unwrap());
+        if self.rtc_zero.is_some() {
+            self.rtc_zero = Some(rtc);
+        }
+        self.ram = rest.to_vec();
+        Ok(())
+    }
+
+    fn dumpram(&self) -> Vec<u8> {
+        let rtc = match self.rtc_zero {
+            Some(t) => t,
+            None => 0,
+        };
+
+        let mut file = vec![];
+
+        let mut ok = true;
+        if ok { let rtc_bytes = rtc.to_be_bytes(); ok = file.write_all(&rtc_bytes).is_ok(); };
+        if ok { let _ = file.write_all(&*self.ram); };
+
+        file
+    }
+
 }

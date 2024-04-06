@@ -6,7 +6,6 @@ use crate::sound::Sound;
 use crate::gbmode::{GbMode, GbSpeed};
 use crate::StrResult;
 use crate::mbc;
-use std::path;
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
@@ -55,8 +54,7 @@ fn fill_random(slice: &mut [u8], start: u32) {
 }
 
 impl<'a> MMU<'a> {
-    pub fn new(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<MMU<'a>> {
-        let mmu_mbc = mbc::get_mbc(path::PathBuf::from(romname), skip_checksum)?;
+    pub fn new(cart: Box<dyn mbc::MBC+'static>, serial_callback: Option<SerialCallback<'a>>) -> StrResult<MMU<'a>> {
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -73,7 +71,7 @@ impl<'a> MMU<'a> {
             keypad: Keypad::new(),
             gpu: GPU::new(),
             sound: None,
-            mbc: mmu_mbc,
+            mbc: cart,
             gbmode: GbMode::Classic,
             gbspeed: GbSpeed::Single,
             speed_switch_req: false,
@@ -91,8 +89,7 @@ impl<'a> MMU<'a> {
         Ok(res)
     }
 
-    pub fn new_cgb(romname: &str, serial_callback: Option<SerialCallback<'a>>, skip_checksum: bool) -> StrResult<MMU<'a>> {
-        let mmu_mbc = mbc::get_mbc(path::PathBuf::from(romname), skip_checksum)?;
+    pub fn new_cgb(cart: Box<dyn mbc::MBC+'static>, serial_callback: Option<SerialCallback<'a>>) -> StrResult<MMU<'a>> {
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -109,7 +106,7 @@ impl<'a> MMU<'a> {
             keypad: Keypad::new(),
             gpu: GPU::new_cgb(),
             sound: None,
-            mbc: mmu_mbc,
+            mbc: cart,
             gbmode: GbMode::Color,
             gbspeed: GbSpeed::Single,
             speed_switch_req: false,

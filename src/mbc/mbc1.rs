@@ -1,6 +1,3 @@
-use std::io::prelude::*;
-use std::{path, fs, io};
-
 use crate::mbc::{MBC, ram_banks, rom_banks};
 use crate::StrResult;
 
@@ -11,60 +8,34 @@ pub struct MBC1 {
     banking_mode: u8,
     rombank: usize,
     rambank: usize,
-    savepath: Option<path::PathBuf>,
+    has_battery: bool,
     rombanks: usize,
     rambanks: usize,
 }
 
 impl MBC1 {
-    pub fn new(data: Vec<u8>, file: path::PathBuf) -> StrResult<MBC1> {
-        let (svpath, rambanks) = match data[0x147] {
-            0x02 => (None, ram_banks(data[0x149])),
-            0x03 => (Some(file.with_extension("gbsave")), ram_banks(data[0x149])),
-            _ => (None, 0),
+    pub fn new(data: Vec<u8>) -> StrResult<MBC1> {
+        let (has_battery, rambanks) = match data[0x147] {
+            0x02 => (false, ram_banks(data[0x149])),
+            0x03 => (true, ram_banks(data[0x149])),
+            _ => (false, 0),
         };
         let rombanks = rom_banks(data[0x148]);
         let ramsize = rambanks * 0x2000;
 
-        let mut res = MBC1 {
+        let res = MBC1 {
             rom: data,
             ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
             ram_on: false,
             banking_mode: 0,
             rombank: 1,
             rambank: 0,
-            savepath: svpath,
+            has_battery: has_battery,
             rombanks: rombanks,
             rambanks: rambanks,
         };
-        res.loadram().map(|_| res)
-    }
 
-    fn loadram(&mut self) -> StrResult<()> {
-        match self.savepath {
-            None => Ok(()),
-            Some(ref savepath) => {
-                let mut data = vec![];
-                match fs::File::open(savepath).and_then(|mut f| f.read_to_end(&mut data))
-                {
-                    Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
-                    Err(_) => Err("Could not open save file"),
-                    Ok(..) => { self.ram = data; Ok(()) },
-                }
-            },
-        }
-    }
-}
-
-impl Drop for MBC1 {
-    fn drop(&mut self) {
-        match self.savepath {
-            None => {},
-            Some(ref path) =>
-            {
-                let _ = fs::File::create(path).and_then(|mut f| f.write_all(&*self.ram));
-            },
-        };
+        Ok(res)
     }
 }
 
@@ -121,5 +92,23 @@ impl MBC for MBC1 {
         if address < self.ram.len() {
             self.ram[address] = v;
         }
+    }
+
+    fn is_battery_backed(&self) -> bool {
+        self.has_battery
+    }
+
+    fn loadram(&mut self, ramdata: &[u8]) -> StrResult<()> {
+        if ramdata.len() != self.ram.len() {
+            return Err("Loaded RAM has incorrect length");
+        }
+
+        self.ram = ramdata.to_vec();
+
+        Ok(())
+    }
+
+    fn dumpram(&self) -> Vec<u8> {
+        self.ram.to_vec()
     }
 }
