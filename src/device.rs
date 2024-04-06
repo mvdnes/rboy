@@ -30,6 +30,16 @@ impl Device {
         CPU::new_cgb(Box::new(cart), None).map(|cpu| Device { cpu: cpu })
     }
 
+    pub fn new_from_buffer(romdata: Vec<u8>, skip_checksum: bool) -> StrResult<Device> {
+        let cart = mbc::get_mbc(romdata, skip_checksum)?;
+        CPU::new(cart, None).map(|cpu| Device { cpu: cpu })
+    }
+
+    pub fn new_cgb_from_buffer(romdata: Vec<u8>, skip_checksum: bool) -> StrResult<Device> {
+        let cart = mbc::get_mbc(romdata, skip_checksum)?;
+        CPU::new_cgb(cart, None).map(|cpu| Device { cpu: cpu })
+    }
+
     pub fn do_cycle(&mut self) -> u32 {
         self.cpu.do_cycle()
     }
@@ -90,5 +100,17 @@ impl Device {
 
     pub fn romname(&self) -> String {
         self.cpu.mmu.mbc.romname()
+    }
+
+    pub fn loadram(&mut self, ramdata: &[u8]) -> StrResult<()> {
+        self.cpu.mmu.mbc.loadram(ramdata)
+    }
+
+    pub fn dumpram(&self) -> Vec<u8> {
+        self.cpu.mmu.mbc.dumpram()
+    }
+
+    pub fn ram_is_battery_backed(&self) -> bool {
+        self.cpu.mmu.mbc.is_battery_backed()
     }
 }
