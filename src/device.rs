@@ -113,4 +113,7 @@ impl Device {
     pub fn ram_is_battery_backed(&self) -> bool {
         self.cpu.mmu.mbc.is_battery_backed()
     }
+    pub fn check_and_reset_ram_updated(&mut self) -> bool {
+        self.cpu.mmu.mbc.check_and_reset_ram_updated()
+    }
 }

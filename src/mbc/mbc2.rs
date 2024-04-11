@@ -5,6 +5,7 @@ pub struct MBC2 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     ram_on: bool,
+    ram_updated:bool,
     rombank: usize,
     has_battery: bool,
     rombanks: usize,
@@ -22,6 +23,7 @@ impl MBC2 {
             rom: data,
             ram: vec![0; 512],
             ram_on: false,
+            ram_updated: false,
             rombank: 1,
             has_battery: has_battery,
             rombanks: rombanks,
@@ -67,6 +69,7 @@ impl MBC for MBC2 {
     fn writeram(&mut self, a: u16, v: u8) {
         if !self.ram_on { return }
         self.ram[(a as usize) & 0x1FF] = v | 0xF0;
+        self.ram_updated = true;
     }
 
     fn is_battery_backed(&self) -> bool {
@@ -86,4 +89,9 @@ impl MBC for MBC2 {
     fn dumpram(&self) -> Vec<u8> {
         self.ram.to_vec()
     }
-}
+    
+    fn check_and_reset_ram_updated(&mut self) -> bool {
+        let result = self.ram_updated;
+        self.ram_updated = false;
+        result
+    }}
