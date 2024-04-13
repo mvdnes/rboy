@@ -190,7 +190,7 @@ impl MBC for MBC3 {
 
         file
     }
-    
+
     fn check_and_reset_ram_updated(&mut self) -> bool {
         let result = self.ram_updated;
         self.ram_updated = false;

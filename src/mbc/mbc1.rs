@@ -114,7 +114,7 @@ impl MBC for MBC1 {
     fn dumpram(&self) -> Vec<u8> {
         self.ram.to_vec()
     }
-    
+
     fn check_and_reset_ram_updated(&mut self) -> bool {
         let result = self.ram_updated;
         self.ram_updated = false;
