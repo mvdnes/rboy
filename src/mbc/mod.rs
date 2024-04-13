@@ -15,6 +15,7 @@ pub trait MBC : Send {
     fn readram(&self, a: u16) -> u8;
     fn writerom(&mut self, a: u16, v: u8);
     fn writeram(&mut self, a: u16, v: u8);
+    fn check_and_reset_ram_updated(&mut self) -> bool;
 
     fn is_battery_backed(&self) -> bool;
     fn loadram(&mut self, ramdata: &[u8]) -> StrResult<()>;
@@ -116,6 +117,10 @@ impl MBC for FileBackedMBC {
 
     fn dumpram(&self) -> Vec<u8> {
         self.mbc.dumpram()
+    }
+
+    fn check_and_reset_ram_updated(&mut self) -> bool {
+        self.mbc.check_and_reset_ram_updated()
     }
 }
 

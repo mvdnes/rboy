@@ -5,6 +5,7 @@ pub struct MBC1 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     ram_on: bool,
+    ram_updated:bool,
     banking_mode: u8,
     rombank: usize,
     rambank: usize,
@@ -30,6 +31,7 @@ impl MBC1 {
             banking_mode: 0,
             rombank: 1,
             rambank: 0,
+            ram_updated: false,
             has_battery: has_battery,
             rombanks: rombanks,
             rambanks: rambanks,
@@ -91,6 +93,7 @@ impl MBC for MBC1 {
         let address = (rambank * 0x2000) | ((a & 0x1FFF) as usize);
         if address < self.ram.len() {
             self.ram[address] = v;
+            self.ram_updated = true;
         }
     }
 
@@ -110,5 +113,11 @@ impl MBC for MBC1 {
 
     fn dumpram(&self) -> Vec<u8> {
         self.ram.to_vec()
+    }
+
+    fn check_and_reset_ram_updated(&mut self) -> bool {
+        let result = self.ram_updated;
+        self.ram_updated = false;
+        result
     }
 }

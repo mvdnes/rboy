@@ -13,6 +13,7 @@ pub struct MBC3 {
     rambanks: usize,
     selectrtc: bool,
     ram_on: bool,
+    ram_updated: bool,
     has_battery: bool,
     rtc_ram: [u8; 5],
     rtc_ram_latch: [u8; 5],
@@ -44,6 +45,7 @@ impl MBC3 {
             rambanks: rambanks,
             selectrtc: false,
             ram_on: false,
+            ram_updated: false,
             has_battery: has_battery,
             rtc_ram: [0u8; 5],
             rtc_ram_latch: [0u8; 5],
@@ -141,6 +143,7 @@ impl MBC for MBC3 {
         if !self.ram_on { return }
         if !self.selectrtc && self.rambank < self.rambanks {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
+            self.ram_updated = true;
         } else if self.selectrtc && self.rambank < 5 {
             self.calc_rtc_reg();
             let vmask = match self.rambank {
@@ -151,6 +154,7 @@ impl MBC for MBC3 {
             };
             self.rtc_ram[self.rambank] = v & vmask;
             self.calc_rtc_zero();
+            self.ram_updated = true;
         }
     }
 
@@ -187,4 +191,9 @@ impl MBC for MBC3 {
         file
     }
 
+    fn check_and_reset_ram_updated(&mut self) -> bool {
+        let result = self.ram_updated;
+        self.ram_updated = false;
+        result
+    }
 }

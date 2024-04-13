@@ -20,4 +20,5 @@ impl MBC for MBC0 {
     fn is_battery_backed(&self) -> bool { false }
     fn loadram(&mut self, _ramdata: &[u8]) -> StrResult<()> { Ok(()) }
     fn dumpram(&self) -> Vec<u8> { Vec::new() }
+    fn check_and_reset_ram_updated(&mut self) -> bool { false }
 }

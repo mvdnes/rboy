@@ -7,6 +7,7 @@ pub struct MBC5 {
     rombank: usize,
     rambank: usize,
     ram_on: bool,
+    ram_updated:bool,
     has_battery: bool,
     rombanks: usize,
     rambanks: usize,
@@ -31,6 +32,7 @@ impl MBC5 {
             ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
             rombank: 1,
             rambank: 0,
+            ram_updated: false,
             ram_on: false,
             has_battery: has_battery,
             rombanks: rombanks,
@@ -64,6 +66,7 @@ impl MBC for MBC5 {
     fn writeram(&mut self, a: u16, v: u8) {
         if self.ram_on == false { return }
         self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
+        self.ram_updated = true;
     }
 
     fn is_battery_backed(&self) -> bool {
@@ -82,5 +85,11 @@ impl MBC for MBC5 {
 
     fn dumpram(&self) -> Vec<u8> {
         self.ram.to_vec()
+    }
+
+    fn check_and_reset_ram_updated(&mut self) -> bool {
+        let result = self.ram_updated;
+        self.ram_updated = false;
+        result
     }
 }
