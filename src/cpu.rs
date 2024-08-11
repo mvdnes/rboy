@@ -705,7 +705,7 @@ impl<'a> CPU<'a> {
     fn alu_add16(&mut self, b: u16) {
         let a = self.reg.hl();
         let r = a.wrapping_add(b);
-        self.reg.flag(H, (a & 0x07FF) + (b & 0x07FF) > 0x07FF);
+        self.reg.flag(H, (a & 0x0FFF) + (b & 0x0FFF) > 0x0FFF);
         self.reg.flag(N, false);
         self.reg.flag(C, a > 0xFFFF - b);
         self.reg.sethl(r);
