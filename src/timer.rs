@@ -16,7 +16,7 @@ impl Timer {
             counter: 0,
             modulo: 0,
             enabled: false,
-            step: 256,
+            step: 1024, //256 * 4
             internalcnt: 0,
             internaldiv: 0,
             interrupt: 0,
@@ -31,7 +31,7 @@ impl Timer {
             0xFF07 => {
                 0xF8 |
                 (if self.enabled { 0x4 } else { 0 }) |
-                (match self.step { 16 => 1, 64 => 2, 256 => 3, _ => 0 })
+                (match self.step {  16 => 1, 64 => 2, 256 => 3, _ => 0 }) //4*4, 16*4, 64*4, 256*4
             }
             _ => panic!("Timer does not handler read {:4X}", a),
         }
@@ -52,9 +52,9 @@ impl Timer {
 
     pub fn do_cycle(&mut self, ticks: u32) {
         self.internaldiv += ticks;
-        while self.internaldiv >= 256 {
+        while self.internaldiv >= 1024 { //256*4
             self.divider = self.divider.wrapping_add(1);
-            self.internaldiv -= 256;
+            self.internaldiv -= 1024;
         }
 
         if self.enabled {
