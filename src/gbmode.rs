@@ -7,6 +7,6 @@ pub enum GbMode {
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum GbSpeed {
-    Single,
-    Double,
+    Single = 1,
+    Double = 2,
 }
