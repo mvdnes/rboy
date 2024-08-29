@@ -166,10 +166,7 @@ impl<'a> MMU<'a> {
     }
 
     pub fn do_cycle(&mut self, ticks: u32) -> u32 {
-        let cpudivider = match self.gbspeed {
-            GbSpeed::Single => 1,
-            GbSpeed::Double => 2,
-        };
+        let cpudivider = self.gbspeed as u32;
         let vramticks = self.perform_vramdma();
         let gputicks = ticks / cpudivider + vramticks;
         let cputicks = ticks + vramticks * cpudivider;
