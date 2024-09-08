@@ -16,7 +16,7 @@ impl Timer {
             counter: 0,
             modulo: 0,
             enabled: false,
-            step: 256,
+            step: 1024,
             internalcnt: 0,
             internaldiv: 0,
             interrupt: 0,
