@@ -957,7 +957,9 @@ impl Sound {
 }
 
 fn create_blipbuf(samples_rate: u32) -> BlipBuf {
-    let mut blipbuf = BlipBuf::new(samples_rate);
+    // Create a BlipBuf which can hold OUTPUT_SAMPLE_COUNT + 1 samples.
+    // Not sure why the +1 is needed. May need to correct the constant instead.
+    let mut blipbuf = BlipBuf::new((OUTPUT_SAMPLE_COUNT + 1) as u32);
     blipbuf.set_rates(CLOCKS_PER_SECOND as f64, samples_rate as f64);
     blipbuf
 }
