@@ -1,0 +1,8 @@
+[package]
+name = "librboy"
+version = "0.2.0"
+authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
+edition = "2018"
+
+[dependencies]
+blip_buf = ">=0.1.3"

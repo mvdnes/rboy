@@ -1,6 +1,6 @@
 #![crate_name = "rboy"]
 
-use rboy::device::Device;
+use librboy::device::Device;
 use std::io::{self, Read};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
 use std::sync::{Arc, Mutex};
@@ -18,8 +18,8 @@ struct RenderOptions {
 }
 
 enum GBEvent {
-    KeyUp(rboy::KeypadKey),
-    KeyDown(rboy::KeypadKey),
+    KeyUp(librboy::KeypadKey),
+    KeyDown(librboy::KeypadKey),
     SpeedUp,
     SpeedDown,
 }
@@ -140,7 +140,7 @@ fn real_main() -> i32 {
         let player = CpalPlayer::get();
         match player {
             Some((v, s)) => {
-                cpu.enable_audio(Box::new(v) as Box<dyn rboy::AudioPlayer>);
+                cpu.enable_audio(Box::new(v) as Box<dyn librboy::AudioPlayer>);
                 cpal_audio_stream = Some(s);
             },
             None => {
@@ -163,8 +163,8 @@ fn real_main() -> i32 {
             &display,
             glium::texture::UncompressedFloatFormat::U8U8U8,
             glium::texture::MipmapsOption::NoMipmap,
-            rboy::SCREEN_W as u32,
-            rboy::SCREEN_H as u32)
+            librboy::SCREEN_W as u32,
+            librboy::SCREEN_H as u32)
         .unwrap();
 
     let mut renderoptions = <RenderOptions as Default>::default();
@@ -229,17 +229,17 @@ fn real_main() -> i32 {
     EXITCODE_SUCCESS
 }
 
-fn winit_to_keypad(key: winit::keyboard::Key<&str>) -> Option<rboy::KeypadKey> {
+fn winit_to_keypad(key: winit::keyboard::Key<&str>) -> Option<librboy::KeypadKey> {
     use winit::keyboard::{Key, NamedKey};
     match key {
-        Key::Character("Z" | "z") => Some(rboy::KeypadKey::A),
-        Key::Character("X" | "x") => Some(rboy::KeypadKey::B),
-        Key::Named(NamedKey::ArrowUp) => Some(rboy::KeypadKey::Up),
-        Key::Named(NamedKey::ArrowDown) => Some(rboy::KeypadKey::Down),
-        Key::Named(NamedKey::ArrowLeft) => Some(rboy::KeypadKey::Left),
-        Key::Named(NamedKey::ArrowRight) => Some(rboy::KeypadKey::Right),
-        Key::Named(NamedKey::Space) => Some(rboy::KeypadKey::Select),
-        Key::Named(NamedKey::Enter) => Some(rboy::KeypadKey::Start),
+        Key::Character("Z" | "z") => Some(librboy::KeypadKey::A),
+        Key::Character("X" | "x") => Some(librboy::KeypadKey::B),
+        Key::Named(NamedKey::ArrowUp) => Some(librboy::KeypadKey::Up),
+        Key::Named(NamedKey::ArrowDown) => Some(librboy::KeypadKey::Down),
+        Key::Named(NamedKey::ArrowLeft) => Some(librboy::KeypadKey::Left),
+        Key::Named(NamedKey::ArrowRight) => Some(librboy::KeypadKey::Right),
+        Key::Named(NamedKey::Space) => Some(librboy::KeypadKey::Select),
+        Key::Named(NamedKey::Enter) => Some(librboy::KeypadKey::Start),
         _ => None,
     }
 }
@@ -260,16 +260,16 @@ fn recalculate_screen<T: glium::glutin::surface::SurfaceTypeTrait + glium::gluti
 
     let rawimage2d = glium::texture::RawImage2d {
         data: std::borrow::Cow::Borrowed(datavec),
-        width: rboy::SCREEN_W as u32,
-        height: rboy::SCREEN_H as u32,
+        width: librboy::SCREEN_W as u32,
+        height: librboy::SCREEN_H as u32,
         format: glium::texture::ClientFormat::U8U8U8,
     };
     texture.write(
         glium::Rect {
             left: 0,
             bottom: 0,
-            width: rboy::SCREEN_W as u32,
-            height: rboy::SCREEN_H as u32
+            width: librboy::SCREEN_W as u32,
+            height: librboy::SCREEN_H as u32
         },
         rawimage2d);
 
@@ -367,8 +367,8 @@ fn timer_periodic(ms: u64) -> Receiver<()> {
 
 fn set_window_size(window: &winit::window::Window, scale: u32) {
     let _ = window.request_inner_size(winit::dpi::LogicalSize::<u32>::from((
-            rboy::SCREEN_W as u32 * scale,
-            rboy::SCREEN_H as u32 * scale,
+            librboy::SCREEN_W as u32 * scale,
+            librboy::SCREEN_H as u32 * scale,
         )));
 }
 
@@ -454,7 +454,7 @@ fn cpal_thread<T: Sample + FromSample<f32>>(outbuffer: &mut[T], audio_buffer: &A
     }
 }
 
-impl rboy::AudioPlayer for CpalPlayer {
+impl librboy::AudioPlayer for CpalPlayer {
     fn play(&mut self, buf_left: &[f32], buf_right: &[f32]) {
         debug_assert!(buf_left.len() == buf_right.len());
 
@@ -481,7 +481,7 @@ impl rboy::AudioPlayer for CpalPlayer {
 
 struct NullAudioPlayer {}
 
-impl rboy::AudioPlayer for NullAudioPlayer {
+impl librboy::AudioPlayer for NullAudioPlayer {
     fn play(&mut self, _buf_left: &[f32], _buf_right: &[f32]) {
         // Do nothing
     }
