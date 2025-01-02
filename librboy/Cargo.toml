@@ -1,8 +1,14 @@
 [package]
 name = "librboy"
 version = "0.2.0"
-authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
+authors = ["mvdnes <git@mathijs.vd-nes.nl>"]
 edition = "2018"
 
 [dependencies]
-blip_buf = ">=0.1.3"
+blip_buf = { version = ">=0.1.3", optional = true }
+blip_buf_rust = { git = "https://github.com/greenfox1505/blip_buf-rs", branch = "rust_impl", optional = true, package = "blip_buf" }
+
+[features]
+default = ["libc"]
+libc = ["dep:blip_buf"]
+rust = ["dep:blip_buf_rust"]

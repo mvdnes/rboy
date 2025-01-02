@@ -1,4 +1,7 @@
+#[cfg(feature = "libc")]
 use blip_buf::BlipBuf;
+#[cfg(feature = "rust")]
+use blip_buf_rust::BlipBuf;
 
 const WAVE_PATTERN : [[i32; 8]; 4] = [[-1,-1,-1,-1,1,-1,-1,-1],[-1,-1,-1,-1,1,1,-1,-1],[-1,-1,1,1,1,1,-1,-1],[1,1,1,1,-1,-1,1,1]];
 const CLOCKS_PER_SECOND : u32 = 1 << 22;
