@@ -6,10 +6,10 @@ A Gameboy Color Emulator written in Rust
 ## QuickStart
 
 You can clone this repository and build it using either the `make` command or
-`cargo build --release`. Running the emulator can be done either via `cargo run --release`, or by
-running the generated binary found in `target/release`. You can copy the executable named `rboy` or
-`rboy.exe` to some sort of binary directory such as `~/.local/bin/` in linux or something under the
-`PATH` in windows.
+`cargo build --release --features=gui`. Running the emulator can be done either via
+`cargo run --release --features=gui`, or by running the generated binary found in `target/release`.
+You can copy the executable named `rboy` or `rboy.exe` to some sort of binary directory such as
+`~/.local/bin/` in linux or something under the `PATH` in windows.
 
 Then you can explore the ability of the emulator by `rboy --help`. Which outputs 
 

@@ -1,20 +1,24 @@
 [package]
 name = "rboy"
-version = "0.1.0"
+version = "0.2.0"
 authors = [ "mvdnes <git@mathijs.vd-nes.nl>" ]
 edition = "2018"
 
 [dependencies]
 blip_buf = ">=0.1.3"
-clap = "4"
-cpal = "0.15"
-glium = "0.34"
-winit = "0.29"
+clap = { version = "4", optional = true }
+cpal = { version = "0.15", optional = true }
+glium = { version = "0.34", optional = true }
+winit = { version = "0.29", optional = true }
+
+[features]
+gui = [ "clap", "cpal", "glium", "winit" ]
 
 [[bin]]
 name = "rboy"
 test = false
 doc = false
+required-features = [ "gui" ]
 
 [profile.release]
 lto = true
