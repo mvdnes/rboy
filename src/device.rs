@@ -3,6 +3,7 @@ use crate::gbmode::GbMode;
 use crate::keypad::KeypadKey;
 use crate::printer::GbPrinter;
 use crate::mbc;
+use crate::serial;
 use crate::sound;
 use crate::StrResult;
 
@@ -61,6 +62,14 @@ impl Device {
         };
 
         self.cpu.mmu.serial.set_callback(Box::new(printfun));
+    }
+
+    pub fn set_serial_callback(&mut self,cb: serial::SerialCallback<'static>){
+        self.cpu.mmu.serial.set_callback(cb);
+    }
+
+    pub fn unset_serial_callback(&mut self){
+        self.cpu.mmu.serial.unset_callback();
     }
 
     pub fn check_and_reset_gpu_updated(&mut self) -> bool {
