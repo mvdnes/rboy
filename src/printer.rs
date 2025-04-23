@@ -1,13 +1,25 @@
+use crate::serial::SerialCallback;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct GbPrinter {
     status: u8,
     state: u32,
+    #[serde(with = "serde_arrays")]
     data: [u8; 0x280 * 9],
+    #[serde(with = "serde_arrays")]
     packet: [u8; 0x400],
     count: usize,
     datacount: usize,
     datasize: usize,
     result: u8,
     printcount: u8,
+}
+
+impl SerialCallback for GbPrinter {
+    fn call(&mut self, v: u8) -> Option<u8> {
+        Some(self.send(v))
+    }
 }
 
 impl GbPrinter {

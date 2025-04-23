@@ -131,9 +131,17 @@ fn real_main() -> i32 {
                 .long("test-mode")
                 .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            clap::Arg::new("state-path")
+                .help("Starts the emulator from a saved state file at the specified path")
+                .long("load-state"),
+        )
         .get_matches();
 
     let test_mode = matches.get_one::<bool>("test-mode").copied().unwrap();
+    let opt_reload: Option<String> = matches
+        .get_one::<String>("state-path")
+        .map(|s| s.to_string());
     let opt_serial = matches.get_one::<bool>("serial").copied().unwrap();
     let opt_printer = matches.get_one::<bool>("printer").copied().unwrap();
     let opt_classic = matches.get_one::<bool>("classic").copied().unwrap();
@@ -146,24 +154,33 @@ fn real_main() -> i32 {
         return run_test_mode(filename, opt_classic, opt_skip_checksum);
     }
 
-    let cpu = construct_cpu(
-        filename,
-        opt_classic,
-        opt_serial,
-        opt_printer,
-        opt_skip_checksum,
-    );
+    let mut is_new_start = true;
+    let cpu = opt_reload
+        .as_ref()
+        .filter(|path| std::path::Path::new(path).exists())
+        .and_then(|path| {
+            is_new_start = false;
+            Device::load_state(path)
+        })
+        .or_else(|| construct_cpu(filename, opt_classic, opt_skip_checksum, opt_reload.clone()));
+
     if cpu.is_none() {
         return EXITCODE_CPULOADFAILS;
     }
     let mut cpu = cpu.unwrap();
+
+    if opt_printer {
+        cpu.attach_printer();
+    } else {
+        cpu.set_stdout(opt_serial);
+    }
 
     let mut cpal_audio_stream = None;
     if opt_audio {
         let player = CpalPlayer::get();
         match player {
             Some((v, s)) => {
-                cpu.enable_audio(Box::new(v) as Box<dyn rboy::AudioPlayer>);
+                cpu.enable_audio(Box::new(v) as Box<dyn rboy::AudioPlayer>, !is_new_start);
                 cpal_audio_stream = Some(s);
             }
             None => {
@@ -327,27 +344,20 @@ fn warn(message: &str) {
 fn construct_cpu(
     filename: &str,
     classic_mode: bool,
-    output_serial: bool,
-    output_printer: bool,
     skip_checksum: bool,
+    reload_mode: Option<String>,
 ) -> Option<Box<Device>> {
     let opt_c = match classic_mode {
-        true => Device::new(filename, skip_checksum),
-        false => Device::new_cgb(filename, skip_checksum),
+        true => Device::new(filename, skip_checksum, reload_mode),
+        false => Device::new_cgb(filename, skip_checksum, reload_mode),
     };
-    let mut c = match opt_c {
+    let c = match opt_c {
         Ok(cpu) => cpu,
         Err(message) => {
             warn(message);
             return None;
         }
     };
-
-    if output_printer {
-        c.attach_printer();
-    } else {
-        c.set_stdout(output_serial);
-    }
 
     Some(Box::new(c))
 }
@@ -612,8 +622,8 @@ impl rboy::AudioPlayer for NullAudioPlayer {
 
 fn run_test_mode(filename: &str, classic_mode: bool, skip_checksum: bool) -> i32 {
     let opt_cpu = match classic_mode {
-        true => Device::new(filename, skip_checksum),
-        false => Device::new_cgb(filename, skip_checksum),
+        true => Device::new(filename, skip_checksum, None),
+        false => Device::new_cgb(filename, skip_checksum, None),
     };
     let mut cpu = match opt_cpu {
         Err(errmsg) => {
@@ -624,7 +634,7 @@ fn run_test_mode(filename: &str, classic_mode: bool, skip_checksum: bool) -> i32
     };
 
     cpu.set_stdout(true);
-    cpu.enable_audio(Box::new(NullAudioPlayer {}));
+    cpu.enable_audio(Box::new(NullAudioPlayer {}), false);
 
     // from masonforest, https://stackoverflow.com/a/55201400 (CC BY-SA 4.0)
     let stdin_channel = spawn_stdin_channel();

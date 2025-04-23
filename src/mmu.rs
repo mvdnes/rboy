@@ -6,27 +6,32 @@ use crate::serial::{Serial, SerialCallback};
 use crate::sound::Sound;
 use crate::timer::Timer;
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
 
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Serialize, Deserialize)]
 enum DMAType {
     NoDMA,
     GDMA,
     HDMA,
 }
 
-pub struct MMU<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct MMU {
+    #[serde(with = "serde_arrays")]
     wram: [u8; WRAM_SIZE],
+    #[serde(with = "serde_arrays")]
     zram: [u8; ZRAM_SIZE],
     hdma: [u8; 4],
     pub inte: u8,
     pub intf: u8,
-    pub serial: Serial<'a>,
+    pub serial: Serial,
     pub timer: Timer,
     pub keypad: Keypad,
     pub gpu: GPU,
+    #[serde(skip)]
     pub sound: Option<Sound>,
     hdma_status: DMAType,
     hdma_src: u16,
@@ -53,11 +58,11 @@ fn fill_random(slice: &mut [u8], start: u32) {
     }
 }
 
-impl<'a> MMU<'a> {
+impl MMU {
     pub fn new(
         cart: Box<dyn mbc::MBC + 'static>,
-        serial_callback: Option<SerialCallback<'a>>,
-    ) -> StrResult<MMU<'a>> {
+        serial_callback: Option<Box<dyn SerialCallback>>,
+    ) -> StrResult<MMU> {
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),
@@ -94,8 +99,8 @@ impl<'a> MMU<'a> {
 
     pub fn new_cgb(
         cart: Box<dyn mbc::MBC + 'static>,
-        serial_callback: Option<SerialCallback<'a>>,
-    ) -> StrResult<MMU<'a>> {
+        serial_callback: Option<Box<dyn SerialCallback>>,
+    ) -> StrResult<MMU> {
         let serial = match serial_callback {
             Some(cb) => Serial::new_with_callback(cb),
             None => Serial::new(),

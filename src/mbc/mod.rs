@@ -1,4 +1,5 @@
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
@@ -10,6 +11,7 @@ mod mbc2;
 mod mbc3;
 mod mbc5;
 
+#[typetag::serde(tag = "type")]
 pub trait MBC: Send {
     fn readrom(&self, a: u16) -> u8;
     fn readram(&self, a: u16) -> u8;
@@ -60,6 +62,7 @@ pub fn get_mbc(data: Vec<u8>, skip_checksum: bool) -> StrResult<Box<dyn MBC + 's
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct FileBackedMBC {
     rampath: path::PathBuf,
     mbc: Box<dyn MBC>,
@@ -96,6 +99,7 @@ impl FileBackedMBC {
 }
 
 // Implement MBC for FileBackedMBC such that the MMU can use this transparently
+#[typetag::serde]
 impl MBC for FileBackedMBC {
     fn readrom(&self, a: u16) -> u8 {
         self.mbc.readrom(a)

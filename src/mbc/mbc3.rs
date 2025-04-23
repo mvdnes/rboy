@@ -1,10 +1,12 @@
 use crate::mbc::{ram_banks, MBC};
 use crate::StrResult;
 
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::io::prelude::*;
 use std::time;
 
+#[derive(Serialize, Deserialize)]
 pub struct MBC3 {
     rom: Vec<u8>,
     ram: Vec<u8>,
@@ -113,6 +115,7 @@ impl MBC3 {
     }
 }
 
+#[typetag::serde]
 impl MBC for MBC3 {
     fn readrom(&self, a: u16) -> u8 {
         let idx = if a < 0x4000 {

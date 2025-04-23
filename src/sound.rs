@@ -685,6 +685,10 @@ impl Sound {
         Sound::new_internal(player, false)
     }
 
+    pub fn set_on(&mut self) {
+        self.on = true;
+    }
+
     fn new_internal(player: Box<dyn AudioPlayer>, dmg_mode: bool) -> Sound {
         let blipbuf1 = create_blipbuf(player.samples_rate());
         let blipbuf2 = create_blipbuf(player.samples_rate());

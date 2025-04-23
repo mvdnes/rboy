@@ -1,22 +1,24 @@
-pub type SerialCallback<'a> = Box<dyn FnMut(u8) -> Option<u8> + Send + 'a>;
+use serde::{Deserialize, Serialize};
 
-fn noop(_: u8) -> Option<u8> {
-    None
+pub trait SerialCallback: Send + Sync {
+    fn call(&mut self, value: u8) -> Option<u8>;
 }
 
-pub struct Serial<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct Serial {
     data: u8,
     control: u8,
-    callback: SerialCallback<'a>,
+    #[serde(skip)]
+    callback: Option<Box<dyn SerialCallback>>,
     pub interrupt: u8,
 }
 
-impl<'a> Serial<'a> {
-    pub fn new_with_callback(cb: SerialCallback<'a>) -> Serial<'a> {
+impl Serial {
+    pub fn new_with_callback(cb: Box<dyn SerialCallback>) -> Serial {
         Serial {
             data: 0,
             control: 0,
-            callback: cb,
+            callback: Some(cb),
             interrupt: 0,
         }
     }
@@ -27,12 +29,11 @@ impl<'a> Serial<'a> {
             0xFF02 => {
                 self.control = v;
                 if v & 0x81 == 0x81 {
-                    match (self.callback)(self.data) {
-                        Some(v) => {
-                            self.data = v;
-                            self.interrupt = 0x8
+                    if let Some(callback) = &mut self.callback {
+                        if let Some(result) = callback.call(self.data) {
+                            self.data = result;
+                            self.interrupt = 0x8;
                         }
-                        None => {}
                     }
                 }
             }
@@ -48,21 +49,21 @@ impl<'a> Serial<'a> {
         }
     }
 
-    pub fn set_callback(&mut self, cb: SerialCallback<'static>) {
-        self.callback = cb;
+    pub fn set_callback(&mut self, cb: Box<dyn SerialCallback>) {
+        self.callback = Some(cb);
     }
 
     pub fn unset_callback(&mut self) {
-        self.callback = Box::new(noop);
+        self.callback = None;
     }
 }
 
-impl Serial<'static> {
-    pub fn new() -> Serial<'static> {
+impl Serial {
+    pub fn new() -> Serial {
         Serial {
             data: 0,
             control: 0,
-            callback: Box::new(noop),
+            callback: None,
             interrupt: 0,
         }
     }

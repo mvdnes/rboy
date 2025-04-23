@@ -4,21 +4,23 @@ use crate::register::CpuFlag::{C, H, N, Z};
 use crate::register::Registers;
 use crate::serial::SerialCallback;
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
 
-pub struct CPU<'a> {
+#[derive(Serialize, Deserialize)]
+pub struct CPU {
     reg: Registers,
-    pub mmu: MMU<'a>,
+    pub mmu: MMU,
     halted: bool,
     ime: bool,
     setdi: u32,
     setei: u32,
 }
 
-impl<'a> CPU<'a> {
+impl CPU {
     pub fn new(
         cart: Box<dyn mbc::MBC + 'static>,
-        serial_callback: Option<SerialCallback<'a>>,
-    ) -> StrResult<CPU<'a>> {
+        serial_callback: Option<Box<dyn SerialCallback>>,
+    ) -> StrResult<CPU> {
         let cpu_mmu = MMU::new(cart, serial_callback)?;
         let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
@@ -33,8 +35,8 @@ impl<'a> CPU<'a> {
 
     pub fn new_cgb(
         cart: Box<dyn mbc::MBC + 'static>,
-        serial_callback: Option<SerialCallback<'a>>,
-    ) -> StrResult<CPU<'a>> {
+        serial_callback: Option<Box<dyn SerialCallback>>,
+    ) -> StrResult<CPU> {
         let cpu_mmu = MMU::new_cgb(cart, serial_callback)?;
         let registers = Registers::new(cpu_mmu.gbmode);
         Ok(CPU {
@@ -2526,24 +2528,58 @@ impl<'a> CPU<'a> {
 mod test {
     use super::CPU;
     use crate::mbc;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+    use std::sync::{Arc, Mutex};
 
     const CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
     const CPU_SERIAL: &'static [u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
     const GPU_CLASSIC_CHECKSUM: u32 = 3112234583;
     const GPU_COLOR_CHECKSUM: u32 = 938267576;
 
+    #[derive(Serialize, Deserialize)]
+    struct Serial {
+        output: Vec<u8>,
+    }
+    impl Serialize for SerialWrapper {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            let inner = self.0.lock().map_err(serde::ser::Error::custom)?;
+            inner.serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for SerialWrapper {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let inner = Serial::deserialize(deserializer)?;
+            Ok(SerialWrapper(Arc::new(Mutex::new(inner))))
+        }
+    }
+
+    struct SerialWrapper(Arc<Mutex<Serial>>);
+
+    impl crate::serial::SerialCallback for SerialWrapper {
+        fn call(&mut self, v: u8) -> Option<u8> {
+            self.0.lock().unwrap().output.push(v);
+            None
+        }
+    }
+
     #[test]
     fn cpu_instrs_classic() {
         let mut sum_classic = 0_u32;
-        let mut output = Vec::new();
+        let serial = Arc::new(Mutex::new(Serial { output: Vec::new() }));
 
         {
-            let serial = |v: u8| {
-                output.push(v);
-                None
-            };
             let cart = mbc::FileBackedMBC::new(CPUINSTRS.into(), false).unwrap();
-            let mut c = match CPU::new(Box::new(cart), Some(Box::new(serial))) {
+            let mut c = match CPU::new(
+                Box::new(cart),
+                Some(Box::new(SerialWrapper(serial.clone()))),
+            ) {
                 Err(message) => {
                     panic!("{}", message);
                 }
@@ -2560,7 +2596,7 @@ mod test {
         }
 
         assert!(
-            &*output == CPU_SERIAL,
+            &*serial.lock().unwrap().output == CPU_SERIAL,
             "Serial did not output the expected result"
         );
         assert!(
@@ -2572,15 +2608,15 @@ mod test {
     #[test]
     fn cpu_instrs_color() {
         let mut sum_color = 0_u32;
-        let mut output = Vec::new();
+
+        let serial = Arc::new(Mutex::new(Serial { output: Vec::new() }));
 
         {
-            let serial = |v| {
-                output.push(v);
-                None
-            };
             let cart = mbc::FileBackedMBC::new(CPUINSTRS.into(), false).unwrap();
-            let mut c = match CPU::new_cgb(Box::new(cart), Some(Box::new(serial))) {
+            let mut c = match CPU::new_cgb(
+                Box::new(cart),
+                Some(Box::new(SerialWrapper(serial.clone()))),
+            ) {
                 Err(message) => {
                     panic!("{}", message);
                 }
@@ -2597,7 +2633,7 @@ mod test {
         }
 
         assert!(
-            &*output == CPU_SERIAL,
+            &*serial.lock().unwrap().output == CPU_SERIAL,
             "Serial did not output the expected result"
         );
         assert!(

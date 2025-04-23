@@ -1,6 +1,8 @@
 use crate::mbc::{ram_banks, rom_banks, MBC};
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct MBC5 {
     rom: Vec<u8>,
     ram: Vec<u8>,
@@ -43,6 +45,7 @@ impl MBC5 {
     }
 }
 
+#[typetag::serde]
 impl MBC for MBC5 {
     fn readrom(&self, a: u16) -> u8 {
         let idx = if a < 0x4000 {
