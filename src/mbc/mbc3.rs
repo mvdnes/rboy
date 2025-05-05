@@ -1,9 +1,9 @@
-use crate::mbc::{MBC, ram_banks};
+use crate::mbc::{ram_banks, MBC};
 use crate::StrResult;
 
+use std::convert::TryInto;
 use std::io::prelude::*;
 use std::time;
-use std::convert::TryInto;
 
 pub struct MBC3 {
     rom: Vec<u8>,
@@ -62,7 +62,9 @@ impl MBC3 {
 
     fn calc_rtc_reg(&mut self) {
         // Do not modify regs when halted
-        if self.rtc_ram[4] & 0x40 == 0x40 { return }
+        if self.rtc_ram[4] & 0x40 == 0x40 {
+            return;
+        }
 
         let tzero = match self.rtc_zero {
             Some(t) => time::UNIX_EPOCH + time::Duration::from_secs(t),
@@ -75,13 +77,13 @@ impl MBC3 {
         }
 
         let difftime = match time::SystemTime::now().duration_since(tzero) {
-            Ok(n) => { n.as_secs() },
-            _ => { 0 },
+            Ok(n) => n.as_secs(),
+            _ => 0,
         };
         self.rtc_ram[0] = (difftime % 60) as u8;
         self.rtc_ram[1] = ((difftime / 60) % 60) as u8;
         self.rtc_ram[2] = ((difftime / 3600) % 24) as u8;
-        let days = difftime / (3600*24);
+        let days = difftime / (3600 * 24);
         self.rtc_ram[3] = days as u8;
         self.rtc_ram[4] = (self.rtc_ram[4] & 0xFE) | (((days >> 8) & 0x01) as u8);
         if days >= 512 {
@@ -91,7 +93,9 @@ impl MBC3 {
     }
 
     fn compute_difftime(&self) -> Option<u64> {
-        if self.rtc_zero.is_none() { return None; }
+        if self.rtc_zero.is_none() {
+            return None;
+        }
         let mut difftime = match time::SystemTime::now().duration_since(time::UNIX_EPOCH) {
             Ok(t) => t.as_secs(),
             Err(_) => panic!("System clock is set to a time before the unix epoch (1970-01-01)"),
@@ -111,12 +115,17 @@ impl MBC3 {
 
 impl MBC for MBC3 {
     fn readrom(&self, a: u16) -> u8 {
-        let idx = if a < 0x4000 { a as usize }
-        else { self.rombank * 0x4000 | ((a as usize) & 0x3FFF) };
+        let idx = if a < 0x4000 {
+            a as usize
+        } else {
+            self.rombank * 0x4000 | ((a as usize) & 0x3FFF)
+        };
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
     fn readram(&self, a: u16) -> u8 {
-        if !self.ram_on { return 0xFF }
+        if !self.ram_on {
+            return 0xFF;
+        }
         if !self.selectrtc && self.rambank < self.rambanks {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
         } else if self.selectrtc && self.rambank < 5 {
@@ -127,20 +136,25 @@ impl MBC for MBC3 {
     }
     fn writerom(&mut self, a: u16, v: u8) {
         match a {
-            0x0000 ..= 0x1FFF => self.ram_on = (v & 0x0F) == 0x0A,
-            0x2000 ..= 0x3FFF => {
-                self.rombank = match v & 0x7F { 0 => 1, n => n as usize }
-            },
-            0x4000 ..= 0x5FFF => {
+            0x0000..=0x1FFF => self.ram_on = (v & 0x0F) == 0x0A,
+            0x2000..=0x3FFF => {
+                self.rombank = match v & 0x7F {
+                    0 => 1,
+                    n => n as usize,
+                }
+            }
+            0x4000..=0x5FFF => {
                 self.selectrtc = v & 0x8 == 0x8;
                 self.rambank = (v & 0x7) as usize;
-            },
-            0x6000 ..= 0x7FFF => self.latch_rtc_reg(),
+            }
+            0x6000..=0x7FFF => self.latch_rtc_reg(),
             _ => panic!("Could not write to {:04X} (MBC3)", a),
         }
     }
     fn writeram(&mut self, a: u16, v: u8) {
-        if !self.ram_on { return }
+        if !self.ram_on {
+            return;
+        }
         if !self.selectrtc && self.rambank < self.rambanks {
             self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
             self.ram_updated = true;
@@ -185,8 +199,13 @@ impl MBC for MBC3 {
         let mut file = vec![];
 
         let mut ok = true;
-        if ok { let rtc_bytes = rtc.to_be_bytes(); ok = file.write_all(&rtc_bytes).is_ok(); };
-        if ok { let _ = file.write_all(&*self.ram); };
+        if ok {
+            let rtc_bytes = rtc.to_be_bytes();
+            ok = file.write_all(&rtc_bytes).is_ok();
+        };
+        if ok {
+            let _ = file.write_all(&*self.ram);
+        };
 
         file
     }

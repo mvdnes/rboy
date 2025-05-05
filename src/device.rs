@@ -1,8 +1,8 @@
 use crate::cpu::CPU;
 use crate::gbmode::GbMode;
 use crate::keypad::KeypadKey;
-use crate::printer::GbPrinter;
 use crate::mbc;
+use crate::printer::GbPrinter;
 use crate::serial;
 use crate::sound;
 use crate::StrResult;
@@ -48,8 +48,7 @@ impl Device {
     pub fn set_stdout(&mut self, output: bool) {
         if output {
             self.cpu.mmu.serial.set_callback(Box::new(stdoutprinter));
-        }
-        else {
+        } else {
             self.cpu.mmu.serial.unset_callback();
         }
     }
@@ -57,18 +56,16 @@ impl Device {
     pub fn attach_printer(&mut self) {
         let mut printer = GbPrinter::new();
 
-        let printfun = move |v: u8| -> Option<u8> {
-            Some(printer.send(v))
-        };
+        let printfun = move |v: u8| -> Option<u8> { Some(printer.send(v)) };
 
         self.cpu.mmu.serial.set_callback(Box::new(printfun));
     }
 
-    pub fn set_serial_callback(&mut self,cb: serial::SerialCallback<'static>){
+    pub fn set_serial_callback(&mut self, cb: serial::SerialCallback<'static>) {
         self.cpu.mmu.serial.set_callback(cb);
     }
 
-    pub fn unset_serial_callback(&mut self){
+    pub fn unset_serial_callback(&mut self) {
         self.cpu.mmu.serial.unset_callback();
     }
 
@@ -86,10 +83,10 @@ impl Device {
         match self.cpu.mmu.gbmode {
             GbMode::Classic => {
                 self.cpu.mmu.sound = Some(sound::Sound::new_dmg(player));
-            },
+            }
             GbMode::Color | GbMode::ColorAsClassic => {
                 self.cpu.mmu.sound = Some(sound::Sound::new_cgb(player));
-            },
+            }
         };
     }
 
