@@ -1,7 +1,8 @@
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
+use std::fs::{self, File};
 use std::io;
 use std::io::prelude::*;
-use std::fs::{self, File};
 use std::path;
 
 mod mbc0;
@@ -10,7 +11,8 @@ mod mbc2;
 mod mbc3;
 mod mbc5;
 
-pub trait MBC : Send {
+#[typetag::serde(tag = "type")]
+pub trait MBC: Send {
     fn readrom(&self, a: u16) -> u8;
     fn readram(&self, a: u16) -> u8;
     fn writerom(&mut self, a: u16, v: u8);
@@ -22,8 +24,8 @@ pub trait MBC : Send {
     fn dumpram(&self) -> Vec<u8>;
 
     fn romname(&self) -> String {
-        const TITLE_START : u16 = 0x134;
-        const CGB_FLAG : u16 = 0x143;
+        const TITLE_START: u16 = 0x134;
+        const CGB_FLAG: u16 = 0x143;
 
         let title_size = match self.readrom(CGB_FLAG) & 0x80 {
             0x80 => 11,
@@ -43,21 +45,24 @@ pub trait MBC : Send {
     }
 }
 
-pub fn get_mbc(data: Vec<u8>, skip_checksum: bool) -> StrResult<Box<dyn MBC+'static>> {
-    if data.len() < 0x150 { return Err("Rom size to small"); }
+pub fn get_mbc(data: Vec<u8>, skip_checksum: bool) -> StrResult<Box<dyn MBC + 'static>> {
+    if data.len() < 0x150 {
+        return Err("Rom size to small");
+    }
     if !skip_checksum {
         check_checksum(&data)?;
     }
     match data[0x147] {
         0x00 => mbc0::MBC0::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
-        0x01 ..= 0x03 => mbc1::MBC1::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
-        0x05 ..= 0x06 => mbc2::MBC2::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
-        0x0F ..= 0x13 => mbc3::MBC3::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
-        0x19 ..= 0x1E => mbc5::MBC5::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
-        _ => { Err("Unsupported MBC type") },
+        0x01..=0x03 => mbc1::MBC1::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
+        0x05..=0x06 => mbc2::MBC2::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
+        0x0F..=0x13 => mbc3::MBC3::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
+        0x19..=0x1E => mbc5::MBC5::new(data).map(|v| Box::new(v) as Box<dyn MBC>),
+        _ => Err("Unsupported MBC type"),
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct FileBackedMBC {
     rampath: path::PathBuf,
     mbc: Box<dyn MBC>,
@@ -66,7 +71,9 @@ pub struct FileBackedMBC {
 impl FileBackedMBC {
     pub fn new(rompath: path::PathBuf, skip_checksum: bool) -> StrResult<FileBackedMBC> {
         let mut data = vec![];
-        File::open(&rompath).and_then(|mut f| f.read_to_end(&mut data)).map_err(|_| "Could not read ROM")?;
+        File::open(&rompath)
+            .and_then(|mut f| f.read_to_end(&mut data))
+            .map_err(|_| "Could not read ROM")?;
         let mut mbc = get_mbc(data, skip_checksum)?;
 
         let rampath = rompath.with_extension("gbsave");
@@ -77,10 +84,12 @@ impl FileBackedMBC {
                     let mut ramdata: Vec<u8> = vec![];
                     match file.read_to_end(&mut ramdata) {
                         Err(..) => return Err("Error while reading existing save file"),
-                        Ok(..) => { mbc.loadram(&ramdata)?; },
+                        Ok(..) => {
+                            mbc.loadram(&ramdata)?;
+                        }
                     }
-                },
-                Err(ref e) if e.kind() == io::ErrorKind::NotFound => {},
+                }
+                Err(ref e) if e.kind() == io::ErrorKind::NotFound => {}
                 Err(_) => return Err("Error loading existing save file"),
             }
         }
@@ -90,6 +99,7 @@ impl FileBackedMBC {
 }
 
 // Implement MBC for FileBackedMBC such that the MMU can use this transparently
+#[typetag::serde]
 impl MBC for FileBackedMBC {
     fn readrom(&self, a: u16) -> u8 {
         self.mbc.readrom(a)
@@ -124,7 +134,6 @@ impl MBC for FileBackedMBC {
     }
 }
 
-
 impl Drop for FileBackedMBC {
     fn drop(&mut self) {
         if self.mbc.is_battery_backed() {
@@ -141,10 +150,12 @@ impl Drop for FileBackedMBC {
 fn ram_banks(v: u8) -> usize {
     match v {
         1 =>
-            // "Listed in various unofficial docs as 2 KiB. However, a 2 KiB RAM chip was never
-            // used in a cartridge. The source of this value is unknown."
-            // Needed by some test roms. As we only deal in whole banks, just make it 1 8KiB bank.
-            1,
+        // "Listed in various unofficial docs as 2 KiB. However, a 2 KiB RAM chip was never
+        // used in a cartridge. The source of this value is unknown."
+        // Needed by some test roms. As we only deal in whole banks, just make it 1 8KiB bank.
+        {
+            1
+        }
         2 => 1,
         3 => 4,
         4 => 16,
@@ -156,19 +167,17 @@ fn ram_banks(v: u8) -> usize {
 fn rom_banks(v: u8) -> usize {
     if v <= 8 {
         2 << v
-    }
-    else {
+    } else {
         0
     }
 }
 
 fn check_checksum(data: &[u8]) -> StrResult<()> {
     let mut value: u8 = 0;
-    for i in 0x134 .. 0x14D {
+    for i in 0x134..0x14D {
         value = value.wrapping_sub(data[i]).wrapping_sub(1);
     }
-    match data[0x14D] == value
-    {
+    match data[0x14D] == value {
         true => Ok(()),
         false => Err("Cartridge checksum is invalid"),
     }

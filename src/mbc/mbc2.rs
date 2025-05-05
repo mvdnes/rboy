@@ -1,11 +1,13 @@
-use crate::mbc::{MBC, rom_banks};
+use crate::mbc::{rom_banks, MBC};
 use crate::StrResult;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct MBC2 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     ram_on: bool,
-    ram_updated:bool,
+    ram_updated: bool,
     rombank: usize,
     has_battery: bool,
     rombanks: usize,
@@ -33,41 +35,40 @@ impl MBC2 {
     }
 }
 
+#[typetag::serde]
 impl MBC for MBC2 {
     fn readrom(&self, a: u16) -> u8 {
-        let bank = if a < 0x4000 {
-            0
-        }
-        else {
-            self.rombank
-        };
+        let bank = if a < 0x4000 { 0 } else { self.rombank };
         let idx = bank * 0x4000 | ((a as usize) & 0x3FFF);
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
     fn readram(&self, a: u16) -> u8 {
-        if !self.ram_on { return 0xFF }
+        if !self.ram_on {
+            return 0xFF;
+        }
         self.ram[(a as usize) & 0x1FF] | 0xF0
     }
 
     fn writerom(&mut self, a: u16, v: u8) {
         match a {
-            0x0000 ..= 0x3FFF => {
+            0x0000..=0x3FFF => {
                 if a & 0x100 == 0 {
                     self.ram_on = v & 0xF == 0xA;
-                }
-                else {
+                } else {
                     self.rombank = match (v as usize) & 0x0F {
                         0 => 1,
                         n => n,
                     } % self.rombanks;
                 }
-            },
-            _ => {},
+            }
+            _ => {}
         }
     }
 
     fn writeram(&mut self, a: u16, v: u8) {
-        if !self.ram_on { return }
+        if !self.ram_on {
+            return;
+        }
         self.ram[(a as usize) & 0x1FF] = v | 0xF0;
         self.ram_updated = true;
     }
