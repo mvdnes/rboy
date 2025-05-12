@@ -1,8 +1,8 @@
 #![crate_name = "rboy"]
-#![crate_type = "lib" ]
+#![crate_type = "lib"]
 
+pub use crate::gpu::{SCREEN_H, SCREEN_W};
 pub use crate::keypad::KeypadKey;
-pub use crate::gpu::{SCREEN_W, SCREEN_H};
 pub use crate::sound::AudioPlayer;
 
 pub mod device;
