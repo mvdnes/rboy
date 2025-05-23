@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-pub trait SerialCallback: Send + Sync {
+pub trait SerialCallback: Send {
     fn call(&mut self, value: u8) -> Option<u8>;
 }
 
