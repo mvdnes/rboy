@@ -11,6 +11,10 @@ pub struct CPU {
     reg: Registers,
     pub mmu: MMU,
     halted: bool,
+    /// Accurate emulation means emulating that when interrupts are set, IME is off, and HALT is
+    /// called, the PC fails to increment on the next byte instruction.
+    /// https://github.com/geaz/emu-gameboy/blob/master/docs/The%20Cycle-Accurate%20Game%20Boy%20Docs.pdf
+    halt_bug: bool,
     ime: bool,
     setdi: u32,
     setei: u32,
@@ -26,6 +30,7 @@ impl CPU {
         Ok(CPU {
             reg: registers,
             halted: false,
+            halt_bug: false,
             ime: true,
             setdi: 0,
             setei: 0,
@@ -42,6 +47,7 @@ impl CPU {
         Ok(CPU {
             reg: registers,
             halted: false,
+            halt_bug: false,
             ime: true,
             setdi: 0,
             setei: 0,
@@ -62,7 +68,7 @@ impl CPU {
         };
 
         if self.halted {
-            // Emulate an noop instruction
+            // Emulate a noop instruction
             1
         } else {
             self.call()
@@ -71,7 +77,11 @@ impl CPU {
 
     fn fetchbyte(&mut self) -> u8 {
         let b = self.mmu.rb(self.reg.pc);
-        self.reg.pc = self.reg.pc.wrapping_add(1);
+        if self.halt_bug {
+            self.halt_bug = false;
+        } else {
+            self.reg.pc = self.reg.pc.wrapping_add(1);
+        }
         b
     }
 
@@ -105,7 +115,7 @@ impl CPU {
             return 0;
         }
 
-        let triggered = self.mmu.inte & self.mmu.intf;
+        let triggered = self.mmu.inte & self.mmu.intf & 0x1F;
         if triggered == 0 {
             return 0;
         }
@@ -125,7 +135,7 @@ impl CPU {
         self.pushstack(pc);
         self.reg.pc = 0x0040 | ((n as u16) << 3);
 
-        return 4;
+        4
     }
 
     fn pushstack(&mut self, value: u16) {
@@ -640,6 +650,7 @@ impl CPU {
             }
             0x76 => {
                 self.halted = true;
+                self.halt_bug = self.mmu.intf & self.mmu.inte & 0x1F != 0;
                 1
             }
             0x77 => {
