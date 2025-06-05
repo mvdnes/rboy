@@ -721,7 +721,7 @@ impl Sound {
 
     pub fn rb(&mut self, a: u16) -> u8 {
         self.run();
-        let v = match a {
+        match a {
             0xFF10..=0xFF14 => self.channel1.rb(a),
             0xFF16..=0xFF19 => self.channel2.rb(a),
             0xFF1A..=0xFF1E => self.channel3.rb(a),
@@ -737,9 +737,12 @@ impl Sound {
                     | if self.channel1.on() { 0x1 } else { 0x0 })
             }
             0xFF30..=0xFF3F => self.channel3.rb(a),
+            0xFF76 => (((self.channel1.last_amp as u32 & 0xF0000000) | 
+                (self.channel2.last_amp as u32 & 0xF0000000) >> 4) >> 28) as u8,
+            0xFF77 => (((self.channel3.last_amp as u32 & 0xF0000000) |
+                (self.channel4.last_amp as u32 & 0xF0000000) >> 4) >> 28) as u8,
             _ => 0xFF,
-        };
-        return v;
+        }
     }
 
     pub fn wb(&mut self, a: u16, v: u8) {
