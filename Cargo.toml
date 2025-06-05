@@ -17,6 +17,8 @@ ciborium = "0.2.2"
 
 [features]
 gui = [ "clap", "cpal", "glium", "winit" ]
+audio = []
+test = []
 
 [[bin]]
 name = "rboy"
