@@ -16,15 +16,15 @@ typetag = "0.2.20"
 ciborium = "0.2.2"
 
 [features]
-gui = [ "clap", "cpal", "glium", "winit" ]
-audio = []
+gui = [ "clap", "glium", "winit" ]
+audio = [ "cpal" ]
 test = []
 
 [[bin]]
 name = "rboy"
 test = false
 doc = false
-required-features = [ "gui" ]
+required-features = [ "gui", "audio" ]
 
 [profile.release]
 lto = true
