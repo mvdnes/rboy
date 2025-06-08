@@ -62,6 +62,7 @@ pub struct GPU {
     pub interrupt: u8,
     pub gbmode: GbMode,
     hblanking: bool,
+    first_frame: bool,
 }
 
 impl GPU {
@@ -110,6 +111,7 @@ impl GPU {
             csprit: [[[0u8; 3]; 4]; 8],
             vrambank: 0,
             hblanking: false,
+            first_frame: false,
         }
     }
 
@@ -183,6 +185,7 @@ impl GPU {
                 self.wy_trigger = false;
                 self.interrupt |= 0x01;
                 self.updated = true;
+                self.first_frame = false;
                 self.m1_inte
             }
             2 => self.m2_inte,
@@ -293,6 +296,7 @@ impl GPU {
                     self.line = 0;
                     self.mode = 0;
                     self.wy_trigger = false;
+                    self.first_frame = true;
                     self.clear_screen();
                 }
                 if !orig_lcd_on && self.lcd_on {
@@ -401,6 +405,11 @@ impl GPU {
     }
 
     fn renderscan(&mut self) {
+        if self.first_frame {
+            // The first frame from when lcd_on is set should not be drawn.
+            return;
+        }
+
         for x in 0..SCREEN_W {
             self.setcolor(x, 255);
             self.bgprio[x] = PrioType::Normal;
