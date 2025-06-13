@@ -180,4 +180,17 @@ impl Device {
     pub fn check_and_reset_ram_updated(&mut self) -> bool {
         self.cpu.mmu.mbc.check_and_reset_ram_updated()
     }
+
+    pub fn read_byte(&mut self,address:u16) -> u8 {
+        self.cpu.read_byte(address)
+    }
+    pub fn write_byte(&mut self,address:u16,byte:u8) {
+        self.cpu.write_byte(address,byte)
+    }
+    pub fn read_wide(&mut self,address:u16) -> u16 {
+        self.cpu.read_wide(address)
+    }
+    pub fn write_wide(&mut self,address:u16,byte:u16) {
+        self.cpu.write_wide(address,byte)
+    }
 }
