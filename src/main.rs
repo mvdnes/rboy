@@ -1,10 +1,13 @@
 #![crate_name = "rboy"]
 
+#[cfg(feature = "audio")] 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(feature = "audio")]
 use cpal::{FromSample, Sample};
 use rboy::device::Device;
 use std::io::{self, Read};
 use std::sync::mpsc::{self, Receiver, SyncSender, TryRecvError, TrySendError};
+#[cfg(feature = "audio")]
 use std::sync::{Arc, Mutex};
 use std::thread;
 use winit::platform::pump_events::{EventLoopExtPumpEvents, PumpStatus};
@@ -34,7 +37,7 @@ fn create_window_builder(romname: &str) -> winit::window::WindowBuilder {
 
 #[cfg(not(target_os = "windows"))]
 fn create_window_builder(romname: &str) -> winit::window::WindowBuilder {
-    return winit::window::WindowBuilder::new().with_title("RBoy - ".to_owned() + romname);
+    winit::window::WindowBuilder::new().with_title("RBoy - ".to_owned() + romname)
 }
 
 #[derive(Debug)]
@@ -113,22 +116,9 @@ fn real_main() -> i32 {
                 .value_parser(parse_scale_var),
         )
         .arg(
-            clap::Arg::new("audio")
-                .help("Enables audio")
-                .short('a')
-                .long("audio")
-                .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
             clap::Arg::new("skip-checksum")
                 .help("Skips verification of the cartridge checksum")
                 .long("skip-checksum")
-                .action(clap::ArgAction::SetTrue),
-        )
-        .arg(
-            clap::Arg::new("test-mode")
-                .help("Starts the emulator in a special test mode")
-                .long("test-mode")
                 .action(clap::ArgAction::SetTrue),
         )
         .arg(
@@ -138,18 +128,17 @@ fn real_main() -> i32 {
         )
         .get_matches();
 
-    let test_mode = matches.get_one::<bool>("test-mode").copied().unwrap();
     let opt_reload: Option<String> = matches
         .get_one::<String>("state-path")
         .map(|s| s.to_string());
     let opt_serial = matches.get_one::<bool>("serial").copied().unwrap();
     let opt_printer = matches.get_one::<bool>("printer").copied().unwrap();
     let opt_classic = matches.get_one::<bool>("classic").copied().unwrap();
-    let opt_audio = matches.get_one::<bool>("audio").copied().unwrap();
     let opt_skip_checksum = matches.get_one::<bool>("skip-checksum").copied().unwrap();
     let filename = matches.get_one::<String>("filename").unwrap();
     let scale = matches.get_one::<u32>("scale").copied().unwrap_or(2);
 
+    #[cfg(feature = "test")]
     if test_mode {
         return run_test_mode(filename, opt_classic, opt_skip_checksum);
     }
@@ -175,8 +164,9 @@ fn real_main() -> i32 {
         cpu.set_stdout(opt_serial);
     }
 
-    let mut cpal_audio_stream = None;
-    if opt_audio {
+    #[cfg(feature = "audio")]
+    {
+        let mut cpal_audio_stream: Option<cpal::Stream> = None;
         let player = CpalPlayer::get();
         match player {
             Some((v, s)) => {
@@ -267,6 +257,7 @@ fn real_main() -> i32 {
         }
     }
 
+    #[cfg(feature = "audio")]
     drop(cpal_audio_stream);
     drop(receiver2); // Stop CPU thread by disconnecting
     let _ = cputhread.join();
@@ -405,9 +396,9 @@ fn run_cpu(mut cpu: Box<Device>, sender: SyncSender<Vec<u8>>, receiver: Receiver
 }
 
 fn timer_periodic(ms: u64) -> Receiver<()> {
-    let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    std::thread::spawn(move || loop {
-        std::thread::sleep(std::time::Duration::from_millis(ms));
+    let (tx, rx) = mpsc::sync_channel(1);
+    thread::spawn(move || loop {
+        thread::sleep(std::time::Duration::from_millis(ms));
         if tx.send(()).is_err() {
             break;
         }
@@ -422,11 +413,13 @@ fn set_window_size(window: &winit::window::Window, scale: u32) {
     )));
 }
 
+#[cfg(feature = "audio")]
 struct CpalPlayer {
     buffer: Arc<Mutex<Vec<(f32, f32)>>>,
     sample_rate: u32,
 }
 
+#[cfg(feature = "audio")]
 impl CpalPlayer {
     fn get() -> Option<(CpalPlayer, cpal::Stream)> {
         let device = match cpal::default_host().default_output_device() {
@@ -567,18 +560,20 @@ impl CpalPlayer {
     }
 }
 
+#[cfg(feature = "audio")]
 fn cpal_thread<T: Sample + FromSample<f32>>(
     outbuffer: &mut [T],
     audio_buffer: &Arc<Mutex<Vec<(f32, f32)>>>,
 ) {
     let mut inbuffer = audio_buffer.lock().unwrap();
-    let outlen = ::std::cmp::min(outbuffer.len() / 2, inbuffer.len());
+    let outlen = std::cmp::min(outbuffer.len() / 2, inbuffer.len());
     for (i, (in_l, in_r)) in inbuffer.drain(..outlen).enumerate() {
         outbuffer[i * 2] = T::from_sample(in_l);
         outbuffer[i * 2 + 1] = T::from_sample(in_r);
     }
 }
 
+#[cfg(feature = "audio")]
 impl rboy::AudioPlayer for CpalPlayer {
     fn play(&mut self, buf_left: &[f32], buf_right: &[f32]) {
         debug_assert!(buf_left.len() == buf_right.len());
