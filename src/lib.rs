@@ -3,8 +3,8 @@
 
 pub use crate::gpu::{SCREEN_H, SCREEN_W};
 pub use crate::keypad::KeypadKey;
-pub use crate::sound::AudioPlayer;
 pub use crate::serial::SerialCallback;
+pub use crate::sound::AudioPlayer;
 
 pub mod device;
 

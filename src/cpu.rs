@@ -2533,19 +2533,19 @@ impl CPU {
         let n = self.fetchbyte() as i8;
         self.reg.pc = ((self.reg.pc as u32 as i32) + (n as i32)) as u16;
     }
-    
+
     pub fn read_byte(&mut self, address: u16) -> u8 {
         self.mmu.rb(address)
     }
-    pub fn write_byte(&mut self, address: u16, byte:u8) {
-        self.mmu.wb(address,byte)
+    pub fn write_byte(&mut self, address: u16, byte: u8) {
+        self.mmu.wb(address, byte)
     }
-    
+
     pub fn read_wide(&mut self, address: u16) -> u16 {
         self.mmu.rw(address)
     }
-    pub fn write_wide(&mut self, address: u16, wide:u16) {
-        self.mmu.ww(address,wide)
+    pub fn write_wide(&mut self, address: u16, wide: u16) {
+        self.mmu.ww(address, wide)
     }
 }
 
