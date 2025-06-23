@@ -169,11 +169,11 @@ mod test {
         reg.setf(0x00);
         for i in 0..4 {
             let mask = flags[i];
-            assert_eq!(reg.getflag(mask), false);
+            assert!(!reg.getflag(mask));
             reg.flag(mask, true);
-            assert_eq!(reg.getflag(mask), true);
+            assert!(reg.getflag(mask));
             reg.flag(mask, false);
-            assert_eq!(reg.getflag(mask), false);
+            assert!(!reg.getflag(mask));
         }
     }
 

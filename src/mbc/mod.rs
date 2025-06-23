@@ -11,6 +11,7 @@ mod mbc2;
 mod mbc3;
 mod mbc5;
 
+#[expect(clippy::upper_case_acronyms)]
 #[typetag::serde(tag = "type")]
 pub trait MBC: Send {
     fn readrom(&self, a: u16) -> u8;
@@ -174,8 +175,8 @@ fn rom_banks(v: u8) -> usize {
 
 fn check_checksum(data: &[u8]) -> StrResult<()> {
     let mut value: u8 = 0;
-    for i in 0x134..0x14D {
-        value = value.wrapping_sub(data[i]).wrapping_sub(1);
+    for d in data.iter().take(0x14D).skip(0x134) {
+        value = value.wrapping_sub(*d).wrapping_sub(1);
     }
     match data[0x14D] == value {
         true => Ok(()),

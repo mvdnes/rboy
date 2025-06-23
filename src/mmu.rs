@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 const WRAM_SIZE: usize = 0x8000;
 const ZRAM_SIZE: usize = 0x7F;
 
+#[expect(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Serialize, Deserialize)]
 enum DMAType {
     NoDMA,
@@ -18,6 +19,7 @@ enum DMAType {
     HDMA,
 }
 
+#[expect(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize)]
 pub struct MMU {
     #[serde(with = "serde_arrays")]
@@ -74,7 +76,7 @@ impl MMU {
             wrambank: 1,
             inte: 0,
             intf: 0,
-            serial: serial,
+            serial,
             timer: Timer::new(),
             keypad: Keypad::new(),
             gpu: GPU::new(),
@@ -112,7 +114,7 @@ impl MMU {
             hdma: [0; 4],
             inte: 0,
             intf: 0,
-            serial: serial,
+            serial,
             timer: Timer::new(),
             keypad: Keypad::new(),
             gpu: GPU::new_cgb(),
@@ -193,12 +195,14 @@ impl MMU {
         self.intf |= self.gpu.interrupt;
         self.gpu.interrupt = 0;
 
-        let _ = self.sound.as_mut().map_or((), |s| s.do_cycle(gputicks));
+        if let Some(s) = self.sound.as_mut() {
+            s.do_cycle(gputicks);
+        }
 
         self.intf |= self.serial.interrupt;
         self.serial.interrupt = 0;
 
-        return gputicks;
+        gputicks
     }
 
     pub fn rb(&mut self, address: u16) -> u8 {
@@ -341,7 +345,7 @@ impl MMU {
                 }
                 let src = ((self.hdma[0] as u16) << 8) | (self.hdma[1] as u16);
                 let dst = ((self.hdma[2] as u16) << 8) | (self.hdma[3] as u16) | 0x8000;
-                if !(src <= 0x7FF0 || (src >= 0xA000 && src <= 0xDFF0)) {
+                if !(src <= 0x7FF0 || (0xA000..=0xDFF0).contains(&src)) {
                     panic!("HDMA transfer with illegal start address {:04X}", src);
                 }
 
@@ -368,7 +372,7 @@ impl MMU {
     }
 
     fn perform_hdma(&mut self) -> u32 {
-        if self.gpu.may_hdma() == false {
+        if !self.gpu.may_hdma() {
             return 0;
         }
 
@@ -377,7 +381,7 @@ impl MMU {
             self.hdma_status = DMAType::NoDMA;
         }
 
-        return 8;
+        8
     }
 
     fn perform_gdma(&mut self) -> u32 {
@@ -387,7 +391,7 @@ impl MMU {
         }
 
         self.hdma_status = DMAType::NoDMA;
-        return len * 8;
+        len * 8
     }
 
     fn perform_vramdma_row(&mut self) {

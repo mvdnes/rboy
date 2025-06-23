@@ -54,7 +54,7 @@ impl Device {
     ) -> StrResult<Device> {
         let cart = mbc::FileBackedMBC::new(romname.into(), skip_checksum)?;
         CPU::new(Box::new(cart), None).map(|cpu| Device {
-            cpu: cpu,
+            cpu,
             save_state,
         })
     }
@@ -66,7 +66,7 @@ impl Device {
     ) -> StrResult<Device> {
         let cart = mbc::FileBackedMBC::new(romname.into(), skip_checksum)?;
         CPU::new_cgb(Box::new(cart), None).map(|cpu| Device {
-            cpu: cpu,
+            cpu,
             save_state,
         })
     }
@@ -78,7 +78,7 @@ impl Device {
     ) -> StrResult<Device> {
         let cart = mbc::get_mbc(romdata, skip_checksum)?;
         CPU::new(cart, None).map(|cpu| Device {
-            cpu: cpu,
+            cpu,
             save_state,
         })
     }
@@ -90,7 +90,7 @@ impl Device {
     ) -> StrResult<Device> {
         let cart = mbc::get_mbc(romdata, skip_checksum)?;
         CPU::new_cgb(cart, None).map(|cpu| Device {
-            cpu: cpu,
+            cpu,
             save_state,
         })
     }

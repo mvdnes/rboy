@@ -22,10 +22,10 @@ impl MBC for MBC0 {
         0
     }
     fn writerom(&mut self, _a: u16, _v: u8) {
-        ()
+        
     }
     fn writeram(&mut self, _a: u16, _v: u8) {
-        ()
+        
     }
 
     fn is_battery_backed(&self) -> bool {

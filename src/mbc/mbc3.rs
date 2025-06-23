@@ -25,10 +25,7 @@ pub struct MBC3 {
 impl MBC3 {
     pub fn new(data: Vec<u8>) -> StrResult<MBC3> {
         let subtype = data[0x147];
-        let has_battery = match subtype {
-            0x0F | 0x10 | 0x13 => true,
-            _ => false,
-        };
+        let has_battery = matches!(subtype, 0x0F | 0x10 | 0x13);
         let rambanks = match subtype {
             0x10 | 0x12 | 0x13 => ram_banks(data[0x149]),
             _ => 0,
@@ -44,11 +41,11 @@ impl MBC3 {
             ram: ::std::iter::repeat(0u8).take(ramsize).collect(),
             rombank: 1,
             rambank: 0,
-            rambanks: rambanks,
+            rambanks,
             selectrtc: false,
             ram_on: false,
             ram_updated: false,
-            has_battery: has_battery,
+            has_battery,
             rtc_ram: [0u8; 5],
             rtc_ram_latch: [0u8; 5],
             rtc_zero: rtc,
@@ -95,9 +92,7 @@ impl MBC3 {
     }
 
     fn compute_difftime(&self) -> Option<u64> {
-        if self.rtc_zero.is_none() {
-            return None;
-        }
+        self.rtc_zero?;
         let mut difftime = match time::SystemTime::now().duration_since(time::UNIX_EPOCH) {
             Ok(t) => t.as_secs(),
             Err(_) => panic!("System clock is set to a time before the unix epoch (1970-01-01)"),
@@ -121,7 +116,7 @@ impl MBC for MBC3 {
         let idx = if a < 0x4000 {
             a as usize
         } else {
-            self.rombank * 0x4000 | ((a as usize) & 0x3FFF)
+            (self.rombank * 0x4000) | ((a as usize) & 0x3FFF)
         };
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
@@ -130,7 +125,7 @@ impl MBC for MBC3 {
             return 0xFF;
         }
         if !self.selectrtc && self.rambank < self.rambanks {
-            self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)]
+            self.ram[(self.rambank * 0x2000) | ((a as usize) & 0x1FFF)]
         } else if self.selectrtc && self.rambank < 5 {
             self.rtc_ram_latch[self.rambank]
         } else {
@@ -159,7 +154,7 @@ impl MBC for MBC3 {
             return;
         }
         if !self.selectrtc && self.rambank < self.rambanks {
-            self.ram[self.rambank * 0x2000 | ((a as usize) & 0x1FFF)] = v;
+            self.ram[(self.rambank * 0x2000) | ((a as usize) & 0x1FFF)] = v;
             self.ram_updated = true;
         } else if self.selectrtc && self.rambank < 5 {
             self.calc_rtc_reg();
@@ -194,10 +189,7 @@ impl MBC for MBC3 {
     }
 
     fn dumpram(&self) -> Vec<u8> {
-        let rtc = match self.rtc_zero {
-            Some(t) => t,
-            None => 0,
-        };
+        let rtc = self.rtc_zero.unwrap_or_default();
 
         let mut file = vec![];
 
@@ -207,7 +199,7 @@ impl MBC for MBC3 {
             ok = file.write_all(&rtc_bytes).is_ok();
         };
         if ok {
-            let _ = file.write_all(&*self.ram);
+            let _ = file.write_all(&self.ram);
         };
 
         file

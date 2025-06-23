@@ -6,6 +6,7 @@ use crate::serial::SerialCallback;
 use crate::StrResult;
 use serde::{Deserialize, Serialize};
 
+#[expect(clippy::upper_case_acronyms)]
 #[derive(Serialize, Deserialize)]
 pub struct CPU {
     reg: Registers,
@@ -57,7 +58,7 @@ impl CPU {
 
     pub fn do_cycle(&mut self) -> u32 {
         let ticks = self.docycle() * 4;
-        return self.mmu.do_cycle(ticks);
+        self.mmu.do_cycle(ticks)
     }
 
     fn docycle(&mut self) -> u32 {
@@ -111,7 +112,7 @@ impl CPU {
     }
 
     fn handleinterrupt(&mut self) -> u32 {
-        if self.ime == false && self.halted == false {
+        if !self.ime && !self.halted {
             return 0;
         }
 
@@ -121,7 +122,7 @@ impl CPU {
         }
 
         self.halted = false;
-        if self.ime == false {
+        if !self.ime {
             return 0;
         }
         self.ime = false;
@@ -1798,27 +1799,27 @@ impl CPU {
                 2
             }
             0x80 => {
-                self.reg.b = self.reg.b & !(1 << 0);
+                self.reg.b &= !(1 << 0);
                 2
             }
             0x81 => {
-                self.reg.c = self.reg.c & !(1 << 0);
+                self.reg.c &= !(1 << 0);
                 2
             }
             0x82 => {
-                self.reg.d = self.reg.d & !(1 << 0);
+                self.reg.d &= !(1 << 0);
                 2
             }
             0x83 => {
-                self.reg.e = self.reg.e & !(1 << 0);
+                self.reg.e &= !(1 << 0);
                 2
             }
             0x84 => {
-                self.reg.h = self.reg.h & !(1 << 0);
+                self.reg.h &= !(1 << 0);
                 2
             }
             0x85 => {
-                self.reg.l = self.reg.l & !(1 << 0);
+                self.reg.l &= !(1 << 0);
                 2
             }
             0x86 => {
@@ -1828,31 +1829,31 @@ impl CPU {
                 4
             }
             0x87 => {
-                self.reg.a = self.reg.a & !(1 << 0);
+                self.reg.a &= !(1 << 0);
                 2
             }
             0x88 => {
-                self.reg.b = self.reg.b & !(1 << 1);
+                self.reg.b &= !(1 << 1);
                 2
             }
             0x89 => {
-                self.reg.c = self.reg.c & !(1 << 1);
+                self.reg.c &= !(1 << 1);
                 2
             }
             0x8A => {
-                self.reg.d = self.reg.d & !(1 << 1);
+                self.reg.d &= !(1 << 1);
                 2
             }
             0x8B => {
-                self.reg.e = self.reg.e & !(1 << 1);
+                self.reg.e &= !(1 << 1);
                 2
             }
             0x8C => {
-                self.reg.h = self.reg.h & !(1 << 1);
+                self.reg.h &= !(1 << 1);
                 2
             }
             0x8D => {
-                self.reg.l = self.reg.l & !(1 << 1);
+                self.reg.l &= !(1 << 1);
                 2
             }
             0x8E => {
@@ -1862,31 +1863,31 @@ impl CPU {
                 4
             }
             0x8F => {
-                self.reg.a = self.reg.a & !(1 << 1);
+                self.reg.a &= !(1 << 1);
                 2
             }
             0x90 => {
-                self.reg.b = self.reg.b & !(1 << 2);
+                self.reg.b &= !(1 << 2);
                 2
             }
             0x91 => {
-                self.reg.c = self.reg.c & !(1 << 2);
+                self.reg.c &= !(1 << 2);
                 2
             }
             0x92 => {
-                self.reg.d = self.reg.d & !(1 << 2);
+                self.reg.d &= !(1 << 2);
                 2
             }
             0x93 => {
-                self.reg.e = self.reg.e & !(1 << 2);
+                self.reg.e &= !(1 << 2);
                 2
             }
             0x94 => {
-                self.reg.h = self.reg.h & !(1 << 2);
+                self.reg.h &= !(1 << 2);
                 2
             }
             0x95 => {
-                self.reg.l = self.reg.l & !(1 << 2);
+                self.reg.l &= !(1 << 2);
                 2
             }
             0x96 => {
@@ -1896,31 +1897,31 @@ impl CPU {
                 4
             }
             0x97 => {
-                self.reg.a = self.reg.a & !(1 << 2);
+                self.reg.a &= !(1 << 2);
                 2
             }
             0x98 => {
-                self.reg.b = self.reg.b & !(1 << 3);
+                self.reg.b &= !(1 << 3);
                 2
             }
             0x99 => {
-                self.reg.c = self.reg.c & !(1 << 3);
+                self.reg.c &= !(1 << 3);
                 2
             }
             0x9A => {
-                self.reg.d = self.reg.d & !(1 << 3);
+                self.reg.d &= !(1 << 3);
                 2
             }
             0x9B => {
-                self.reg.e = self.reg.e & !(1 << 3);
+                self.reg.e &= !(1 << 3);
                 2
             }
             0x9C => {
-                self.reg.h = self.reg.h & !(1 << 3);
+                self.reg.h &= !(1 << 3);
                 2
             }
             0x9D => {
-                self.reg.l = self.reg.l & !(1 << 3);
+                self.reg.l &= !(1 << 3);
                 2
             }
             0x9E => {
@@ -1930,31 +1931,31 @@ impl CPU {
                 4
             }
             0x9F => {
-                self.reg.a = self.reg.a & !(1 << 3);
+                self.reg.a &= !(1 << 3);
                 2
             }
             0xA0 => {
-                self.reg.b = self.reg.b & !(1 << 4);
+                self.reg.b &= !(1 << 4);
                 2
             }
             0xA1 => {
-                self.reg.c = self.reg.c & !(1 << 4);
+                self.reg.c &= !(1 << 4);
                 2
             }
             0xA2 => {
-                self.reg.d = self.reg.d & !(1 << 4);
+                self.reg.d &= !(1 << 4);
                 2
             }
             0xA3 => {
-                self.reg.e = self.reg.e & !(1 << 4);
+                self.reg.e &= !(1 << 4);
                 2
             }
             0xA4 => {
-                self.reg.h = self.reg.h & !(1 << 4);
+                self.reg.h &= !(1 << 4);
                 2
             }
             0xA5 => {
-                self.reg.l = self.reg.l & !(1 << 4);
+                self.reg.l &= !(1 << 4);
                 2
             }
             0xA6 => {
@@ -1964,31 +1965,31 @@ impl CPU {
                 4
             }
             0xA7 => {
-                self.reg.a = self.reg.a & !(1 << 4);
+                self.reg.a &= !(1 << 4);
                 2
             }
             0xA8 => {
-                self.reg.b = self.reg.b & !(1 << 5);
+                self.reg.b &= !(1 << 5);
                 2
             }
             0xA9 => {
-                self.reg.c = self.reg.c & !(1 << 5);
+                self.reg.c &= !(1 << 5);
                 2
             }
             0xAA => {
-                self.reg.d = self.reg.d & !(1 << 5);
+                self.reg.d &= !(1 << 5);
                 2
             }
             0xAB => {
-                self.reg.e = self.reg.e & !(1 << 5);
+                self.reg.e &= !(1 << 5);
                 2
             }
             0xAC => {
-                self.reg.h = self.reg.h & !(1 << 5);
+                self.reg.h &= !(1 << 5);
                 2
             }
             0xAD => {
-                self.reg.l = self.reg.l & !(1 << 5);
+                self.reg.l &= !(1 << 5);
                 2
             }
             0xAE => {
@@ -1998,31 +1999,31 @@ impl CPU {
                 4
             }
             0xAF => {
-                self.reg.a = self.reg.a & !(1 << 5);
+                self.reg.a &= !(1 << 5);
                 2
             }
             0xB0 => {
-                self.reg.b = self.reg.b & !(1 << 6);
+                self.reg.b &= !(1 << 6);
                 2
             }
             0xB1 => {
-                self.reg.c = self.reg.c & !(1 << 6);
+                self.reg.c &= !(1 << 6);
                 2
             }
             0xB2 => {
-                self.reg.d = self.reg.d & !(1 << 6);
+                self.reg.d &= !(1 << 6);
                 2
             }
             0xB3 => {
-                self.reg.e = self.reg.e & !(1 << 6);
+                self.reg.e &= !(1 << 6);
                 2
             }
             0xB4 => {
-                self.reg.h = self.reg.h & !(1 << 6);
+                self.reg.h &= !(1 << 6);
                 2
             }
             0xB5 => {
-                self.reg.l = self.reg.l & !(1 << 6);
+                self.reg.l &= !(1 << 6);
                 2
             }
             0xB6 => {
@@ -2032,31 +2033,31 @@ impl CPU {
                 4
             }
             0xB7 => {
-                self.reg.a = self.reg.a & !(1 << 6);
+                self.reg.a &= !(1 << 6);
                 2
             }
             0xB8 => {
-                self.reg.b = self.reg.b & !(1 << 7);
+                self.reg.b &= !(1 << 7);
                 2
             }
             0xB9 => {
-                self.reg.c = self.reg.c & !(1 << 7);
+                self.reg.c &= !(1 << 7);
                 2
             }
             0xBA => {
-                self.reg.d = self.reg.d & !(1 << 7);
+                self.reg.d &= !(1 << 7);
                 2
             }
             0xBB => {
-                self.reg.e = self.reg.e & !(1 << 7);
+                self.reg.e &= !(1 << 7);
                 2
             }
             0xBC => {
-                self.reg.h = self.reg.h & !(1 << 7);
+                self.reg.h &= !(1 << 7);
                 2
             }
             0xBD => {
-                self.reg.l = self.reg.l & !(1 << 7);
+                self.reg.l &= !(1 << 7);
                 2
             }
             0xBE => {
@@ -2066,31 +2067,31 @@ impl CPU {
                 4
             }
             0xBF => {
-                self.reg.a = self.reg.a & !(1 << 7);
+                self.reg.a &= !(1 << 7);
                 2
             }
             0xC0 => {
-                self.reg.b = self.reg.b | (1 << 0);
+                self.reg.b |= 1 << 0;
                 2
             }
             0xC1 => {
-                self.reg.c = self.reg.c | (1 << 0);
+                self.reg.c |= 1 << 0;
                 2
             }
             0xC2 => {
-                self.reg.d = self.reg.d | (1 << 0);
+                self.reg.d |= 1 << 0;
                 2
             }
             0xC3 => {
-                self.reg.e = self.reg.e | (1 << 0);
+                self.reg.e |= 1 << 0;
                 2
             }
             0xC4 => {
-                self.reg.h = self.reg.h | (1 << 0);
+                self.reg.h |= 1 << 0;
                 2
             }
             0xC5 => {
-                self.reg.l = self.reg.l | (1 << 0);
+                self.reg.l |= 1 << 0;
                 2
             }
             0xC6 => {
@@ -2100,31 +2101,31 @@ impl CPU {
                 4
             }
             0xC7 => {
-                self.reg.a = self.reg.a | (1 << 0);
+                self.reg.a |= 1 << 0;
                 2
             }
             0xC8 => {
-                self.reg.b = self.reg.b | (1 << 1);
+                self.reg.b |= 1 << 1;
                 2
             }
             0xC9 => {
-                self.reg.c = self.reg.c | (1 << 1);
+                self.reg.c |= 1 << 1;
                 2
             }
             0xCA => {
-                self.reg.d = self.reg.d | (1 << 1);
+                self.reg.d |= 1 << 1;
                 2
             }
             0xCB => {
-                self.reg.e = self.reg.e | (1 << 1);
+                self.reg.e |= 1 << 1;
                 2
             }
             0xCC => {
-                self.reg.h = self.reg.h | (1 << 1);
+                self.reg.h |= 1 << 1;
                 2
             }
             0xCD => {
-                self.reg.l = self.reg.l | (1 << 1);
+                self.reg.l |= 1 << 1;
                 2
             }
             0xCE => {
@@ -2134,31 +2135,31 @@ impl CPU {
                 4
             }
             0xCF => {
-                self.reg.a = self.reg.a | (1 << 1);
+                self.reg.a |= 1 << 1;
                 2
             }
             0xD0 => {
-                self.reg.b = self.reg.b | (1 << 2);
+                self.reg.b |= 1 << 2;
                 2
             }
             0xD1 => {
-                self.reg.c = self.reg.c | (1 << 2);
+                self.reg.c |= 1 << 2;
                 2
             }
             0xD2 => {
-                self.reg.d = self.reg.d | (1 << 2);
+                self.reg.d |= 1 << 2;
                 2
             }
             0xD3 => {
-                self.reg.e = self.reg.e | (1 << 2);
+                self.reg.e |= 1 << 2;
                 2
             }
             0xD4 => {
-                self.reg.h = self.reg.h | (1 << 2);
+                self.reg.h |= 1 << 2;
                 2
             }
             0xD5 => {
-                self.reg.l = self.reg.l | (1 << 2);
+                self.reg.l |= 1 << 2;
                 2
             }
             0xD6 => {
@@ -2168,31 +2169,31 @@ impl CPU {
                 4
             }
             0xD7 => {
-                self.reg.a = self.reg.a | (1 << 2);
+                self.reg.a |= 1 << 2;
                 2
             }
             0xD8 => {
-                self.reg.b = self.reg.b | (1 << 3);
+                self.reg.b |= 1 << 3;
                 2
             }
             0xD9 => {
-                self.reg.c = self.reg.c | (1 << 3);
+                self.reg.c |= 1 << 3;
                 2
             }
             0xDA => {
-                self.reg.d = self.reg.d | (1 << 3);
+                self.reg.d |= 1 << 3;
                 2
             }
             0xDB => {
-                self.reg.e = self.reg.e | (1 << 3);
+                self.reg.e |= 1 << 3;
                 2
             }
             0xDC => {
-                self.reg.h = self.reg.h | (1 << 3);
+                self.reg.h |= 1 << 3;
                 2
             }
             0xDD => {
-                self.reg.l = self.reg.l | (1 << 3);
+                self.reg.l |= 1 << 3;
                 2
             }
             0xDE => {
@@ -2202,31 +2203,31 @@ impl CPU {
                 4
             }
             0xDF => {
-                self.reg.a = self.reg.a | (1 << 3);
+                self.reg.a |= 1 << 3;
                 2
             }
             0xE0 => {
-                self.reg.b = self.reg.b | (1 << 4);
+                self.reg.b |= 1 << 4;
                 2
             }
             0xE1 => {
-                self.reg.c = self.reg.c | (1 << 4);
+                self.reg.c |= 1 << 4;
                 2
             }
             0xE2 => {
-                self.reg.d = self.reg.d | (1 << 4);
+                self.reg.d |= 1 << 4;
                 2
             }
             0xE3 => {
-                self.reg.e = self.reg.e | (1 << 4);
+                self.reg.e |= 1 << 4;
                 2
             }
             0xE4 => {
-                self.reg.h = self.reg.h | (1 << 4);
+                self.reg.h |= 1 << 4;
                 2
             }
             0xE5 => {
-                self.reg.l = self.reg.l | (1 << 4);
+                self.reg.l |= 1 << 4;
                 2
             }
             0xE6 => {
@@ -2236,31 +2237,31 @@ impl CPU {
                 4
             }
             0xE7 => {
-                self.reg.a = self.reg.a | (1 << 4);
+                self.reg.a |= 1 << 4;
                 2
             }
             0xE8 => {
-                self.reg.b = self.reg.b | (1 << 5);
+                self.reg.b |= 1 << 5;
                 2
             }
             0xE9 => {
-                self.reg.c = self.reg.c | (1 << 5);
+                self.reg.c |= 1 << 5;
                 2
             }
             0xEA => {
-                self.reg.d = self.reg.d | (1 << 5);
+                self.reg.d |= 1 << 5;
                 2
             }
             0xEB => {
-                self.reg.e = self.reg.e | (1 << 5);
+                self.reg.e |= 1 << 5;
                 2
             }
             0xEC => {
-                self.reg.h = self.reg.h | (1 << 5);
+                self.reg.h |= 1 << 5;
                 2
             }
             0xED => {
-                self.reg.l = self.reg.l | (1 << 5);
+                self.reg.l |= 1 << 5;
                 2
             }
             0xEE => {
@@ -2270,31 +2271,31 @@ impl CPU {
                 4
             }
             0xEF => {
-                self.reg.a = self.reg.a | (1 << 5);
+                self.reg.a |= 1 << 5;
                 2
             }
             0xF0 => {
-                self.reg.b = self.reg.b | (1 << 6);
+                self.reg.b |= 1 << 6;
                 2
             }
             0xF1 => {
-                self.reg.c = self.reg.c | (1 << 6);
+                self.reg.c |= 1 << 6;
                 2
             }
             0xF2 => {
-                self.reg.d = self.reg.d | (1 << 6);
+                self.reg.d |= 1 << 6;
                 2
             }
             0xF3 => {
-                self.reg.e = self.reg.e | (1 << 6);
+                self.reg.e |= 1 << 6;
                 2
             }
             0xF4 => {
-                self.reg.h = self.reg.h | (1 << 6);
+                self.reg.h |= 1 << 6;
                 2
             }
             0xF5 => {
-                self.reg.l = self.reg.l | (1 << 6);
+                self.reg.l |= 1 << 6;
                 2
             }
             0xF6 => {
@@ -2304,31 +2305,31 @@ impl CPU {
                 4
             }
             0xF7 => {
-                self.reg.a = self.reg.a | (1 << 6);
+                self.reg.a |= 1 << 6;
                 2
             }
             0xF8 => {
-                self.reg.b = self.reg.b | (1 << 7);
+                self.reg.b |= 1 << 7;
                 2
             }
             0xF9 => {
-                self.reg.c = self.reg.c | (1 << 7);
+                self.reg.c |= 1 << 7;
                 2
             }
             0xFA => {
-                self.reg.d = self.reg.d | (1 << 7);
+                self.reg.d |= 1 << 7;
                 2
             }
             0xFB => {
-                self.reg.e = self.reg.e | (1 << 7);
+                self.reg.e |= 1 << 7;
                 2
             }
             0xFC => {
-                self.reg.h = self.reg.h | (1 << 7);
+                self.reg.h |= 1 << 7;
                 2
             }
             0xFD => {
-                self.reg.l = self.reg.l | (1 << 7);
+                self.reg.l |= 1 << 7;
                 2
             }
             0xFE => {
@@ -2338,7 +2339,7 @@ impl CPU {
                 4
             }
             0xFF => {
-                self.reg.a = self.reg.a | (1 << 7);
+                self.reg.a |= 1 << 7;
                 2
             }
         }
@@ -2405,7 +2406,7 @@ impl CPU {
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0x0F) + 1 > 0x0F);
         self.reg.flag(N, false);
-        return r;
+        r
     }
 
     fn alu_dec(&mut self, a: u8) -> u8 {
@@ -2413,7 +2414,7 @@ impl CPU {
         self.reg.flag(Z, r == 0);
         self.reg.flag(H, (a & 0x0F) == 0);
         self.reg.flag(N, true);
-        return r;
+        r
     }
 
     fn alu_add16(&mut self, b: u16) {
@@ -2431,7 +2432,7 @@ impl CPU {
         self.reg.flag(Z, false);
         self.reg.flag(H, (a & 0x000F) + (b & 0x000F) > 0x000F);
         self.reg.flag(C, (a & 0x00FF) + (b & 0x00FF) > 0x00FF);
-        return a.wrapping_add(b);
+        a.wrapping_add(b)
     }
 
     fn alu_swap(&mut self, a: u8) -> u8 {
@@ -2439,7 +2440,7 @@ impl CPU {
         self.reg.flag(C, false);
         self.reg.flag(H, false);
         self.reg.flag(N, false);
-        (a >> 4) | (a << 4)
+        a.rotate_left(4)
     }
 
     fn alu_srflagupdate(&mut self, r: u8, c: bool) {
@@ -2453,49 +2454,49 @@ impl CPU {
         let c = a & 0x80 == 0x80;
         let r = (a << 1) | (if c { 1 } else { 0 });
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_rl(&mut self, a: u8) -> u8 {
         let c = a & 0x80 == 0x80;
         let r = (a << 1) | (if self.reg.getflag(C) { 1 } else { 0 });
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_rrc(&mut self, a: u8) -> u8 {
         let c = a & 0x01 == 0x01;
         let r = (a >> 1) | (if c { 0x80 } else { 0 });
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_rr(&mut self, a: u8) -> u8 {
         let c = a & 0x01 == 0x01;
         let r = (a >> 1) | (if self.reg.getflag(C) { 0x80 } else { 0 });
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_sla(&mut self, a: u8) -> u8 {
         let c = a & 0x80 == 0x80;
         let r = a << 1;
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_sra(&mut self, a: u8) -> u8 {
         let c = a & 0x01 == 0x01;
         let r = (a >> 1) | (a & 0x80);
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_srl(&mut self, a: u8) -> u8 {
         let c = a & 0x01 == 0x01;
         let r = a >> 1;
         self.alu_srflagupdate(r, c);
-        return r;
+        r
     }
 
     fn alu_bit(&mut self, a: u8, b: u8) {
@@ -2556,8 +2557,8 @@ mod test {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::sync::{Arc, Mutex};
 
-    const CPUINSTRS: &'static str = "roms/cpu_instrs.gb";
-    const CPU_SERIAL: &'static [u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
+    const CPUINSTRS: &str = "roms/cpu_instrs.gb";
+    const CPU_SERIAL: &[u8] = b"cpu_instrs\n\n01:ok  02:ok  03:ok  04:ok  05:ok  06:ok  07:ok  08:ok  09:ok  10:ok  11:ok  \n\nPassed all tests\n";
     const GPU_CLASSIC_CHECKSUM: u32 = 3112234583;
     const GPU_COLOR_CHECKSUM: u32 = 938267576;
 

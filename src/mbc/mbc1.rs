@@ -34,9 +34,9 @@ impl MBC1 {
             rombank: 1,
             rambank: 0,
             ram_updated: false,
-            has_battery: has_battery,
-            rombanks: rombanks,
-            rambanks: rambanks,
+            has_battery,
+            rombanks,
+            rambanks,
         };
 
         Ok(res)
@@ -55,7 +55,7 @@ impl MBC for MBC1 {
         } else {
             self.rombank
         };
-        let idx = bank * 0x4000 | ((a as usize) & 0x3FFF);
+        let idx = (bank * 0x4000) | ((a as usize) & 0x3FFF);
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
     fn readram(&self, a: u16) -> u8 {

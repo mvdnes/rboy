@@ -15,10 +15,7 @@ pub struct MBC2 {
 
 impl MBC2 {
     pub fn new(data: Vec<u8>) -> StrResult<MBC2> {
-        let has_battery = match data[0x147] {
-            0x06 => true,
-            _ => false,
-        };
+        let has_battery = matches!(data[0x147], 0x06);
         let rombanks = rom_banks(data[0x148]);
 
         let res = MBC2 {
@@ -27,8 +24,8 @@ impl MBC2 {
             ram_on: false,
             ram_updated: false,
             rombank: 1,
-            has_battery: has_battery,
-            rombanks: rombanks,
+            has_battery,
+            rombanks,
         };
 
         Ok(res)
@@ -39,7 +36,7 @@ impl MBC2 {
 impl MBC for MBC2 {
     fn readrom(&self, a: u16) -> u8 {
         let bank = if a < 0x4000 { 0 } else { self.rombank };
-        let idx = bank * 0x4000 | ((a as usize) & 0x3FFF);
+        let idx = (bank * 0x4000) | ((a as usize) & 0x3FFF);
         *self.rom.get(idx).unwrap_or(&0xFF)
     }
     fn readram(&self, a: u16) -> u8 {
@@ -50,18 +47,15 @@ impl MBC for MBC2 {
     }
 
     fn writerom(&mut self, a: u16, v: u8) {
-        match a {
-            0x0000..=0x3FFF => {
-                if a & 0x100 == 0 {
-                    self.ram_on = v & 0xF == 0xA;
-                } else {
-                    self.rombank = match (v as usize) & 0x0F {
-                        0 => 1,
-                        n => n,
-                    } % self.rombanks;
-                }
+        if let 0x0000..=0x3FFF = a {
+            if a & 0x100 == 0 {
+                self.ram_on = v & 0xF == 0xA;
+            } else {
+                self.rombank = match (v as usize) & 0x0F {
+                    0 => 1,
+                    n => n,
+                } % self.rombanks;
             }
-            _ => {}
         }
     }
 

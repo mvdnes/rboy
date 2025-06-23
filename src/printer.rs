@@ -83,11 +83,11 @@ impl GbPrinter {
             .truncate(true)
             .open(&filename)?;
 
-        write!(f, "P5 160 {} 3\n", image_height)?;
+        writeln!(f, "P5 160 {} 3", image_height)?;
 
         let palbyte = self.packet[8];
         let palette = [
-            3 - ((palbyte >> 0) & 3),
+            3 - (palbyte & 3),
             3 - ((palbyte >> 2) & 3),
             3 - ((palbyte >> 4) & 3),
             3 - ((palbyte >> 6) & 3),
