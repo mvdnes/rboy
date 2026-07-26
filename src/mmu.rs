@@ -235,7 +235,7 @@ impl MMU {
             0xFF70 => self.wrambank as u8,
             0xFF72..=0xFF73 => self.undocumented_cgb_regs[address as usize - 0xFF72],
             0xFF75 => self.undocumented_cgb_regs[2] | 0b10001111,
-            0xFF76..=0xFF77 => 0x00, // CGB PCM registers. Not yet implemented.
+            0xFF76..=0xFF77 => self.sound.as_mut().unwrap().rb(address),
             0xFF80..=0xFFFE => self.zram[address as usize & 0x007F],
             0xFFFF => self.inte,
             _ => 0xFF,
