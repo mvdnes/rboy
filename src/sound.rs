@@ -271,7 +271,7 @@ impl SquareChannel {
     fn run(&mut self, start_time: u32, end_time: u32) {
         if !self.active || self.period == 0 {
             if self.last_amp != 0 {
-                self.blip.add_delta(start_time, -self.last_amp);
+                self.blip.add_delta(start_time, -self.last_amp).unwrap();
                 self.last_amp = 0;
                 self.delay = 0;
             }
@@ -283,7 +283,7 @@ impl SquareChannel {
             while time < end_time {
                 let amp = vol * pattern[self.phase as usize];
                 if amp != self.last_amp {
-                    self.blip.add_delta(time, amp - self.last_amp);
+                    self.blip.add_delta(time, amp - self.last_amp).unwrap();
                     self.last_amp = amp;
                 }
                 time += self.period;
@@ -460,7 +460,7 @@ impl WaveChannel {
         self.sample_recently_accessed = false;
         if !self.active || self.period == 0 {
             if self.last_amp != 0 {
-                self.blip.add_delta(start_time, -self.last_amp);
+                self.blip.add_delta(start_time, -self.last_amp).unwrap();
                 self.last_amp = 0;
                 self.delay = 0;
             }
@@ -491,7 +491,7 @@ impl WaveChannel {
                 let amp = ((sample << 2) >> volshift) as i32;
 
                 if amp != self.last_amp {
-                    self.blip.add_delta(time, amp - self.last_amp);
+                    self.blip.add_delta(time, amp - self.last_amp).unwrap();
                     self.last_amp = amp;
                 }
 
@@ -622,7 +622,7 @@ impl NoiseChannel {
     fn run(&mut self, start_time: u32, end_time: u32) {
         if !self.active {
             if self.last_amp != 0 {
-                self.blip.add_delta(start_time, -self.last_amp);
+                self.blip.add_delta(start_time, -self.last_amp).unwrap();
                 self.last_amp = 0;
                 self.delay = 0;
             }
@@ -640,7 +640,7 @@ impl NoiseChannel {
                 };
 
                 if self.last_amp != amp {
-                    self.blip.add_delta(time, amp - self.last_amp);
+                    self.blip.add_delta(time, amp - self.last_amp).unwrap();
                     self.last_amp = amp;
                 }
 
@@ -809,10 +809,10 @@ impl Sound {
     fn do_output(&mut self) {
         self.run();
         debug_assert!(self.time == self.prev_time);
-        self.channel1.blip.end_frame(self.time);
-        self.channel2.blip.end_frame(self.time);
-        self.channel3.blip.end_frame(self.time);
-        self.channel4.blip.end_frame(self.time);
+        self.channel1.blip.end_frame(self.time).unwrap();
+        self.channel2.blip.end_frame(self.time).unwrap();
+        self.channel3.blip.end_frame(self.time).unwrap();
+        self.channel4.blip.end_frame(self.time).unwrap();
         self.next_time -= self.time;
         self.time = 0;
         self.prev_time = 0;
@@ -944,6 +944,6 @@ fn create_blipbuf(samples_rate: u32) -> BlipBuf {
     // Create a BlipBuf which can hold OUTPUT_SAMPLE_COUNT + 1 samples.
     // Not sure why the +1 is needed. May need to correct the constant instead.
     let mut blipbuf = BlipBuf::new((OUTPUT_SAMPLE_COUNT + 1) as u32);
-    blipbuf.set_rates(CLOCKS_PER_SECOND as f64, samples_rate as f64);
+    blipbuf.set_rates(CLOCKS_PER_SECOND as f64, samples_rate as f64).unwrap();
     blipbuf
 }

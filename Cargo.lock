@@ -204,9 +204,9 @@ checksum = "2261d10cca569e4643e526d8dc2e62e433cc8aba21ab764233731f8d369bf394"
 
 [[package]]
 name = "blip_buf"
-version = "0.1.6"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d01761ce5061c5345c211c47958ee76989241021a9e3c16d3c0a35a309462fb5"
+checksum = "367cc5a0356eb903894e2475b544ee82fe7618c7426f05ce572eca4a6283a54c"
 
 [[package]]
 name = "block-sys"
